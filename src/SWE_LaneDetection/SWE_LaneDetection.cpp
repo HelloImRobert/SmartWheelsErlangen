@@ -364,7 +364,8 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     Mat greyScaleImage;
     cvtColor(image, greyScaleImage, CV_RGB2GRAY, 1);
 
-    //imwrite("/home/odroid/Desktop/kreuzung.jpg" , image );
+    double useless;
+    imwrite("/home/odroid/Desktop/kreuzung.jpg" , image );
 
     // apply the filter for Detection of Lane Markers
     Mat blurredImage;
@@ -430,60 +431,58 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         lanes.push_back(cv::Vec2f(rho, theta));
     }
 
-    for (size_t i = 0; i < lanes.size(); i++)
-    {
-        float rho = lanes[i][0], theta = lanes[i][1];
+//    for (size_t i = 0; i < lanes.size(); i++)
+//    {
+//        float rho = lanes[i][0], theta = lanes[i][1];
 
-        cv::Point start;
-        cv::Point pFirst;
-        cv::Point pSecond;
+//        cv::Point start;
+//        cv::Point pFirst;
+//        cv::Point pSecond;
 
-        if ((theta < CV_PI / 4. || theta > 3. * CV_PI / 4.))
-        {
-            pFirst = cv::Point(rho / std::cos(theta), 0);
-            pSecond = cv::Point((rho - image.rows * std::sin(theta)) / std::cos(theta), image.rows);
-        }
-        else
-        {
-            pFirst = cv::Point(0, rho / std::sin(theta));
-            pSecond = cv::Point(image.cols, (rho - image.cols * std::cos(theta)) / std::sin(theta));
-        }
+//        if ((theta < CV_PI / 4. || theta > 3. * CV_PI / 4.))
+//        {
+//            pFirst = cv::Point(rho / std::cos(theta), 0);
+//            pSecond = cv::Point((rho - image.rows * std::sin(theta)) / std::cos(theta), image.rows);
+//        }
+//        else
+//        {
+//            pFirst = cv::Point(0, rho / std::sin(theta));
+//            pSecond = cv::Point(image.cols, (rho - image.cols * std::cos(theta)) / std::sin(theta));
+//        }
 
-        if (pFirst.y > pSecond.y)
-        {
-            start = pFirst;
-        }
-        else
-        {
-            start = pSecond;
-        }
+//        if (pFirst.y > pSecond.y)
+//        {
+//            start = pFirst;
+//        }
+//        else
+//        {
+//            start = pSecond;
+//        }
 
-        int stepSize = 60;
-        size_t maxSteps = 18;
+//        int stepSize = 60;
+//        size_t maxSteps = 18;
 
-        circle(image, start, 20, Scalar(255, 0, 0), 2, 8);
+//        circle(image, start, 20, Scalar(255, 0, 0), 2, 8);
 
-        std::pair< cv::Point , double > result = computeEnergy(blurredImage, start, pFirst, pSecond, stepSize);
+//        std::pair< cv::Point , double > result = computeEnergy(blurredImage, start, pFirst, pSecond, stepSize);
 
-        circle(image, result.first, 20, Scalar(255, 0, 0), 2, 8);
+//        circle(image, result.first, 20, Scalar(255, 0, 0), 2, 8);
 
-        cv::Point next = result.first;
-        cv::Point next2;
-        cv::Point current = start;
-        for (size_t j = 0; j < maxSteps; j++)
-        {
-            next2 = findNextPoint(blurredImage, current, next, stepSize);
-            if( next2.x < 0 || next2.y < 0 || next2.x >= blurredImage.cols || next2.y >= blurredImage.rows )
-            {
-                break;
-            }
-            current = next;
-            next = next2;
-           circle(image, next, 20, Scalar(255, 0, 0), 2, 8);
-        }
-    }
-
-    double useless = -1;
+//        cv::Point next = result.first;
+//        cv::Point next2;
+//        cv::Point current = start;
+//        for (size_t j = 0; j < maxSteps; j++)
+//        {
+//            next2 = findNextPoint(blurredImage, current, next, stepSize);
+//            if( next2.x < 0 || next2.y < 0 || next2.x >= blurredImage.cols || next2.y >= blurredImage.rows )
+//            {
+//                break;
+//            }
+//            current = next;
+//            next = next2;
+//           circle(image, next, 20, Scalar(255, 0, 0), 2, 8);
+//        }
+//    }
 
     double leftFrontX = -1;
     double leftFrontY = -1;
