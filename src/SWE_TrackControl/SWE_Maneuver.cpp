@@ -25,14 +25,14 @@
 #define GS_DIST1 900
 
 //turn left
-#define TL_HEAD1 (tFloat32)((  -10.0  / 180 ) * 3.141592) //degree to rad
-#define TL_HEAD2 (tFloat32)((  10.0  / 180 ) * 3.141592)
-#define TL_DIST1 650
-#define TL_HEAD3 (tFloat32)((  80.0   / 180 ) * 3.141592)
+#define TL_HEAD1 (tFloat32)((  -2.0  / 180 ) * 3.141592) //degree to rad
+#define TL_HEAD2 (tFloat32)((  8.0  / 180 ) * 3.141592)
+#define TL_DIST1 520
+#define TL_HEAD3 (tFloat32)((  85.0   / 180 ) * 3.141592)
 
 //turn right
 #define TR_DIST1 50
-#define TR_HEAD1 (tFloat32)((  -80.0   / 180 ) * 3.141592)
+#define TR_HEAD1 (tFloat32)((  -85.0   / 180 ) * 3.141592)
 
 
 /*
@@ -307,7 +307,7 @@ tInt32 SWE_Maneuver::StateMachine_TL(tFloat32 heading, tInt32 distanceSum, tInt3
     case 5:
         if ( (heading - startHeading) >= TL_HEAD3)
         {
-            m_steeringAngleOut = STEER_LEFT; // finished
+            m_steeringAngleOut = STEER_NEUTRAL; // finished
             m_gearOut = 2;
             state = 0;
             m_currentManeuver = NO_MANEUVER;
@@ -326,24 +326,31 @@ tInt32 SWE_Maneuver::StateMachine_TL(tFloat32 heading, tInt32 distanceSum, tInt3
 
 tInt32 SWE_Maneuver::StateMachine_TR(tFloat32 heading, tInt32 distanceSum, tInt32 state)
 {
-    //static tInt32 startDistance = 0;
+    static tInt32 startDistance = 0;
     static tFloat32 startHeading = 0;
 
 
-    switch(state)
+    switch(state)//Doom
     {
     case 1:
-        //startDistance = distanceSum;
+        startDistance = distanceSum;
         startHeading = heading;
-        m_steeringAngleOut = STEER_RIGHT;
+        m_steeringAngleOut = STEER_NEUTRAL;
         m_gearOut = 1;
 
         state++;
     case 2:
+        if ((distanceSum - startDistance) >= TR_DIST1)
+        {
+            m_gearOut = 1;
+            m_steeringAngleOut = STEER_RIGHT; // final turn...
+            state++;
+        }
+    case 3:
         if ((heading - startHeading) <= TR_HEAD1)
         {
             m_gearOut = 2;
-            m_steeringAngleOut = STEER_RIGHT;
+            m_steeringAngleOut = STEER_NEUTRAL;
             state = 0;
             m_currentManeuver = NO_MANEUVER;
         }

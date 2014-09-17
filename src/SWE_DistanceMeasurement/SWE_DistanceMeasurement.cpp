@@ -206,6 +206,8 @@ tResult SWE_DistanceMeasurement::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
             else if (pSource == &m_pin_input_ir_front_center_long)
             {
                 _mean.ir_front_center_long = weightedMean(signalValue,_mean.ir_front_center_long);
+
+                sendData();
             }
             else if (pSource == &m_pin_input_ir_front_center_short)
             {
@@ -231,7 +233,6 @@ tResult SWE_DistanceMeasurement::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
             {
                 _mean.ir_rear_right_short = weightedMean(signalValue,_mean.ir_rear_right_short);
 
-                    sendData();
             }
 
             // Transform and fusion Sensor Data into Vehicle COS and send Data

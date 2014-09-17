@@ -1128,7 +1128,7 @@ bool cSWE_LaneDetection::calculateDirectionHistogram(BlobDescriptor& blob)
         }
     }
 
-    if (ninetyDegree > 0 && _draw)
+    if (ninetyDegree > 0)
     {
         blob.directionVectors = directionVectors;
         blob.angles = angles;
@@ -1211,7 +1211,7 @@ tResult cSWE_LaneDetection::transmitCrossingIndicator( const tBool isRealStopLin
 
     current_time = (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
 
-    if(_hassent || (( current_time - _timerStart) >= 10000000 )) //(Robert)
+    if(_hassent || (( current_time - _timerStart) >= 3000000 )) //(Robert) doom
     {
         cObjectPtr<IMediaCoder> pCoder;
 

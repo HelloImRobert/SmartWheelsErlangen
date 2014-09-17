@@ -76,9 +76,7 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         m_parkState = 0;
         m_parkTrigger = 10;  // always initialise with 10 !
 
-        m_gotControl = true;
-        m_outOfLot = false;
-
+        m_gotControl = false;
         m_firstIR = false;
 
         m_IRFrontRightCur = INVALID_HIGH;
@@ -129,8 +127,6 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         SetPropertyFloat("C_PerpendicularBackward(mm)", 250.0);
 
         SetPropertyFloat("CP_PullLeftStraight(mm)", 300.0);
-        SetPropertyFloat("CP_PullLeftStraightBlind(mm)", 300.0);
-        SetPropertyFloat("CP_PullRightStraightBlind(mm)", 250.0);
         SetPropertyFloat("CP_PullRightStraight(mm)", 230.0);
         SetPropertyFloat("CP_PullLeftAngle(DEG)", 75.0);
         SetPropertyFloat("CP_PullRightAngle(DEG)", 90.0);
@@ -291,8 +287,6 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
         m_straightForward = GetPropertyFloat("C_StraightForward(mm)", 60.0);
         m_headingAngleForward = DEG_TO_RAD * (tFloat32)GetPropertyFloat("C_HeadingAngleLeftForward(DEG)");
         m_perpendicularBackward = GetPropertyFloat("C_PerpendicularBackward(mm)");
-        m_pullLeftStraightBlind = (tFloat32)GetPropertyFloat("CP_PullLeftStraightBlind(mm)", 300.0);
-        m_pullRightStraightBlind = (tFloat32)GetPropertyFloat("CP_PullRightStraightBlind(mm)", 250.0);
         m_pullLeftStraight = GetPropertyFloat("CP_PullLeftStraight(mm)", 300.0);
         m_pullRightStraight = GetPropertyFloat("CP_PullRightStraight(mm)", 230.0);
         m_pullLeftAngle = DEG_TO_RAD * (tFloat32)GetPropertyFloat("CP_PullLeftAngle(DEG)", 75.0);
@@ -321,8 +315,7 @@ tResult cSWE_ParkPilot::Start(__exception)
     m_parkState = 0;
     m_parkTrigger = 10;  //always initialise with 10
 
-    m_gotControl = true;
-    m_outOfLot = false;
+    m_gotControl = false;
     m_firstIR = false;
 
     m_IRFrontRightCur = INVALID_HIGH;
@@ -388,10 +381,24 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         if(pSource == &m_inputParkTrigger)
         {
            // save the park trigger: alongside or cross
+           tInt8 trigger;
            cObjectPtr<IMediaCoder> pCoder;
            RETURN_IF_FAILED(m_pCoderParkTrigger->Lock(pMediaSample, &pCoder));
-           pCoder->Get("int8Value", (tVoid*)&m_parkTrigger);
+           pCoder->Get("int8Value", (tVoid*)&trigger);
            m_pCoderParkTrigger->Unlock(pCoder);
+
+           if( m_parkTrigger == 3 && trigger == 5 )
+           {
+               m_parkTrigger = 3;
+           }
+           else if( m_parkTrigger == 5 && trigger == 3 )
+           {
+               m_parkTrigger = 5;
+           }
+           else
+           {
+               m_parkTrigger = trigger;
+           }
 
            LOG_ERROR(cString("PP: Recieved Trigger " + cString::FromInt(m_parkTrigger) ));
            if( m_parkTrigger == GOT_CONTROL )
@@ -611,6 +618,7 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
                 m_parkState = 201;
                 m_distExit = m_odometryData.distance_sum;
                 m_angleAbs = 0.0;
+                m_parkTrigger = 10;
                 LOG_ERROR(cString("PP: LOT DETECTED with size: " + cString::FromFloat64(distTravelled) ));
                 sendParkState( LOT_FOUND );
                 sendBlink( BLINK_RIGHT );
@@ -724,6 +732,7 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                     sendParkState ( PARKING_FINISHED );
                     sendBlink( BLINK_STOP );
                     sendWarn(true);
+                    m_parkTrigger = 10;
                 }
             }
             if(m_logging == true)
@@ -739,6 +748,7 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                 sendParkState ( PARKING_FINISHED );
                 sendBlink( BLINK_STOP );
                 sendWarn(true);
+                m_parkTrigger = 10;
             }
             LOG_ERROR(cString("PP: 206 Next State" + cString::FromInt(m_parkState) ));
             break;
@@ -824,6 +834,7 @@ tResult cSWE_ParkPilot::pullOutAlongsideRight()
                 m_parkTrigger = 99;   // fuer testcase sonst wieder 0 setzten
                 sendParkState( PULLOUT_FINISHED );
                 sendBlink( BLINK_STOP );
+                m_parkTrigger = 10;
                 //reset all the bullshit
             }
             if(m_logging == true)
@@ -899,6 +910,7 @@ tResult cSWE_ParkPilot::pullOutAlongsideLeft()
                 m_parkTrigger = 99;   // fuer testcase sonst wieder 0 setzten
                 sendParkState( PULLOUT_FINISHED );
                 sendBlink( BLINK_STOP );
+                m_parkTrigger = 10;
             }
             if(m_logging == true)
                 LOG_ERROR(cString("PP: 305: Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
@@ -953,6 +965,7 @@ tResult cSWE_ParkPilot::searchRoutineCross()
                 m_parkState = 601;
                 sendParkState( LOT_FOUND );
                 sendBlink( BLINK_RIGHT );
+                m_parkTrigger = 10;
 
             }
             if(m_logging == true)
@@ -1017,6 +1030,7 @@ tResult cSWE_ParkPilot::parkRoutineCross()
                 sendParkState ( PARKING_FINISHED );
                 sendBlink( BLINK_STOP );
                 sendWarn(true);
+                m_parkTrigger = 10;
                 m_parkState = 605;
             }
             if(m_logging == true)
@@ -1037,24 +1051,17 @@ tResult cSWE_ParkPilot::pullOutCrossLeft()
     switch( m_pulloutState )
     {
         case 801:
+            m_rememberDist = m_odometryData.distance_sum;
             sendWarn(false);
             sendBlink( BLINK_LEFT );
-            m_rememberDistTwo = m_odometryData.distance_sum;
             sendSpeed( 1 );
             m_headingAtStart = m_angleAbs;
-            m_outOfLot = false;
             m_pulloutState = 802;
             break;
 
 
         case 802:
-            if( m_IRFrontRightCur > TH_SHORT && m_IRFrontLeftCur > TH_SHORT && m_outOfLot == false)
-            {
-                m_rememberDist = m_odometryData.distance_sum;
-                m_outOfLot = true;
-            }
-
-            if( (m_odometryData.distance_sum >= m_rememberDistTwo + m_pullLeftStraightBlind) || (m_odometryData.distance_sum > m_rememberDist + m_pullLeftStraight) )
+            if( m_odometryData.distance_sum > m_rememberDist + m_pullLeftStraight )
             {
                 sendSteeringAngle( STEER_LEFT_MAX );
                 m_pulloutState = 803;
@@ -1081,6 +1088,7 @@ tResult cSWE_ParkPilot::pullOutCrossLeft()
                 m_rememberDist = 0.0;
                 m_gotControl = false;
 
+
                 if(m_logging == true)
                     LOG_ERROR(cString("PP:RELEASE CONTROLL" ));
 
@@ -1104,24 +1112,17 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
     switch( m_pulloutState )
     {
     case 701:
+        m_rememberDist = m_odometryData.distance_sum;
         sendWarn(false);
         sendBlink( BLINK_RIGHT );
-        m_rememberDistTwo = m_odometryData.distance_sum;
         sendSpeed( 1 );
         m_headingAtStart = m_angleAbs;
-        m_outOfLot = false;
         m_pulloutState = 702;
         break;
 
 
     case 702:
-        if( m_IRFrontRightCur > TH_SHORT && m_IRFrontLeftCur > TH_SHORT && m_outOfLot == false)
-        {
-            m_rememberDist = m_odometryData.distance_sum;
-            m_outOfLot = true;
-        }
-
-        if( (m_odometryData.distance_sum >= m_rememberDistTwo + m_pullRightStraightBlind) || (m_odometryData.distance_sum > m_rememberDist + m_pullRightStraight) )
+        if(m_odometryData.distance_sum > m_rememberDist + m_pullRightStraight )
         {
             sendSteeringAngle( STEER_RIGHT_MAX );
             m_pulloutState = 703;
@@ -1132,7 +1133,7 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
 
 
     case 703:
-        if( m_angleAbs >= (m_headingAtStart - m_pullRightAngle) )
+        if( m_angleAbs <= (m_headingAtStart - m_pullRightAngle) )
         {
             sendParkState( PULLOUT_FINISHED );
             sendBlink( BLINK_STOP );
@@ -1146,7 +1147,6 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
                 m_headingAtStart = 0;
                 m_rememberDist = 0.0;
                 m_gotControl = false;
-                m_outOfLot = false;
 
         }
         break;

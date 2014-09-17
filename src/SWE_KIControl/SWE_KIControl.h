@@ -146,7 +146,7 @@ private:
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescPointLeft;
 
-
+   cObjectPtr<IMediaTypeDescription> m_pCoderDescJuryStruct;
     cObjectPtr<IMediaTypeDescription> m_pCoderDesctclane;
 
     /*! this is the filename of the maneuver list*/
