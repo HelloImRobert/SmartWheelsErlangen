@@ -144,6 +144,7 @@ class SWE_Odometry : public adtf::cFilter
     tFloat32 m_heading_input_last;
     tFloat32 m_heading_now;             //current reported heading (by sensor)
     tFloat32 m_pitch_now;               //current pitch angle
+    tFloat32 m_pitch_input_last;
     tFloat32 m_accelerometerValue_now; //current accelerometer reading in mm/s²
     tFloat32 m_accelerometerValue_old;
 

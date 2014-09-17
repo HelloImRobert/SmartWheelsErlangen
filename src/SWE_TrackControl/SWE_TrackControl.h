@@ -11,12 +11,12 @@
 /*!
 * track controller SmartWheels Erlangen, Robert de Temple. Questions? Just ask ! robert punkt detemple kringel gmail punkt com
 * This Module realizes the calculation of steering angles for road following, emergency stops, the approach of stoplines and crossroads maneuvers like left and right turns
-*
+* !!! Attention !!! This module uses a coordinate system with the FRONT axis as zero for various, mostly historic, reasons. Positive X is to the front, positive Y to the left, angles are counted clockwise from the x axis.
 
     TC talkback to AI/KI:
-    0 = everything normal
-    1 = finished turning maneuver (this includes going straight over crossroads)
-    2 = stopped at stopline
+    0 = normal operation            (default - nothing to report)
+    1 = finished turning maneuver   (this includes going straight over crossroads)
+    2 = just stopped at stopline    (if the stopline was virtual the car might still be moving)
 
 
     commands from AI/KI
@@ -47,7 +47,7 @@ class cSWE_TrackControl : public adtf::cFilter
 
     cOutputPin m_oSteeringAngle;
     cOutputPin m_oMiddlePoint;
-    cOutputPin m_oGear;
+    cOutputPin m_outputSpeed;
     cOutputPin m_oStatus;
 
 public:
@@ -116,9 +116,11 @@ private:
 
     tBool m_property_useNewCalc;
     tBool m_property_stopAtVirtualSL;
+    tBool m_property_InvSteering;
 
     tInt8 m_input_maxGear;
     tInt32 m_input_Command;
+    tInt32 m_property_StoplineWheelDist;
 
     tInt8 m_input_intersectionIndicator;
 
@@ -132,6 +134,7 @@ private:
     cv::Point2d m_input_trackingPoint;
 
     tFloat32 m_outputSteeringAngle;
+    tFloat32 m_property_SteeringDeadAngle;
     tInt8 m_outputGear;
     tInt8 m_outputStatus;
 
@@ -180,7 +183,7 @@ private:
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSteeringAngle;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescMiddlePoint;
-    cObjectPtr<IMediaTypeDescription> m_pCoderDescGear;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescSpeedOut;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescStatus;
 
 };

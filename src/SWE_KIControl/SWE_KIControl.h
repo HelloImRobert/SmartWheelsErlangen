@@ -73,6 +73,9 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
     cv::Point2d objecte[10];
      cv::Point2d points[10];
 
+
+
+     int parkbefehl;
     int CommandCounter;
      int CommandCountermax;
     int Signtype;

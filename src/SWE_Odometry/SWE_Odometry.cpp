@@ -66,11 +66,11 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
 
     m_heading_sumsum = 0;
 
-    SetPropertyFloat("Velocity Filter Strength 0-1",0.3);                                   //filter strength for the velocity smoothing filter
-    SetPropertyFloat("Accelerometer Velocity weighting 0-1",0.95);
+    SetPropertyFloat("Velocity Filter Strength 0-1",0.2);                                   //filter strength for the velocity smoothing filter
+    SetPropertyFloat("Accelerometer Velocity weighting 0-1",0.90);
     SetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",200.0);
     SetPropertyFloat("Wheel circumfence in mm",327);
-    SetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",5);
+    SetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",10);
     SetPropertyFloat("Accelerometer value offset in mm/s2",0.0);
     SetPropertyFloat("Gravity for pitch compensation in mm/s2",9900.0);                     //strength of pitch compensation
     SetPropertyBool("Use high-res distance measurement (based on velocity)", true);
@@ -78,8 +78,8 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     SetPropertyBool("Show compensated accelerometer value", false);                         //show the value of the accelerometer after pitch compensation for adjustment of the offset
     SetPropertyBool("SetDirection to 1", false);
     SetPropertyFloat("Accelerometer Scaling", 1.0);
-    SetPropertyFloat("Pulses per wheel revolution", 8.6);                                   //it should be 8.0 but you have to compensate a little for all those errors
-    SetPropertyFloat("HighresDistanceDriftCompensation", 0.01);
+    SetPropertyFloat("Pulses per wheel revolution", 9.2);                                   //it should be 8.0 but you have to compensate a little for all those errors
+    SetPropertyFloat("HighresDistanceDriftCompensation", 0.05);
     SetPropertyBool("Use Heuristic pulse filter", true);                                    //Filter pulses that might be errornous
 }
 
@@ -126,6 +126,7 @@ tResult SWE_Odometry::Start(__exception)
 
     m_accelerometerValue_now = 0;
     m_accelerometerValue_old = 0;
+    m_pitch_input_last = 0;
 
 }
 
@@ -222,9 +223,9 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 
         // ------------------ further init ---------------------
 
-        m_filterStrength = (tFloat32)GetPropertyFloat("Velocity Filter Strength 0-1", 0.3);
+        m_filterStrength = (tFloat32)GetPropertyFloat("Velocity Filter Strength 0-1", 0.2);
         m_wheelCircumfence = (tFloat32)GetPropertyFloat("Wheel circumfence in mm",327);
-        m_velocityResolution = (tFloat32)GetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",5);
+        m_velocityResolution = (tFloat32)GetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",10);
         m_acceleromter_weight = (tFloat32)GetPropertyFloat("Accelerometer Velocity weighting 0-1",0.9);
         m_accelerometer_compensation = (tFloat32)GetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",200.0);
         m_useHighresDist = (tBool)GetPropertyBool("Use high-res distance measurement (based on velocity)", true);
@@ -234,8 +235,8 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
         m_pitchCompensation = (tFloat32)GetPropertyFloat("Gravity for pitch compensation in mm/s2",9900.0);
         m_setdirectionone = (tBool)GetPropertyBool("SetDirection to 1", false);
         m_accelScaling = (tFloat32)GetPropertyFloat("Accelerometer Scaling", 1.0);
-        m_tickPerTurn = (tFloat32)GetPropertyFloat("Pulses per wheel revolution", 8.6);
-        m_distanceDriftCompensation = (tFloat32)GetPropertyFloat("HighresDistanceDriftCompensation", 0.01);
+        m_tickPerTurn = (tFloat32)GetPropertyFloat("Pulses per wheel revolution", 9.2);
+        m_distanceDriftCompensation = (tFloat32)GetPropertyFloat("HighresDistanceDriftCompensation", 0.05);
         m_property_useHeuristicFilter = (tBool)GetPropertyBool("Use Heuristic pulse filter", true);
 
         if(m_setdirectionone)
@@ -455,15 +456,32 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
         {
 
             tTimeStamp timeStamp;
+            tFloat32 buffer;
 
             // read-out the incoming Media Sample
             cObjectPtr<IMediaCoder> pCoderInput;
             RETURN_IF_FAILED(m_pCoderDescSignal_yaw->Lock(pMediaSample, &pCoderInput));
 
             //get values from media sample
-            pCoderInput->Get("f32Value", (tVoid*)&m_pitch_now);
+            pCoderInput->Get("f32Value", (tVoid*)&buffer);
             pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal_yaw->Unlock(pCoderInput);
+
+
+
+            //filter errors.....
+            if(fabs(buffer - m_pitch_input_last) > 0.1) //~ 5 degrees
+            {
+                //ignore
+            }
+            else
+            {
+                //smooth
+                m_pitch_now = (buffer * 0.4) + (m_pitch_now * 0.6);
+            }
+
+            m_pitch_input_last = buffer;
+
         }
         else if (pSource == &m_oInputAccel)
         {
@@ -486,13 +504,25 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             m_accelerometerTimestamp_last = m_accelerometerTimestamp_now;
             m_accelerometerTimestamp_now = timeStamp;
 
-            //DEBUG
-            //LOG_ERROR(cString("OD:raw accelerometer value: " + cString::FromFloat64((tFloat64)buffer) + cString(" mm/s2")));
 
             m_accelerometerValue_old = m_accelerometerValue_now;
             m_accelerometerValue_now = CompensatePitchInfluence(buffer * ACCELEROMETER_INPUT_SCALING);
 
+
+            // filter spikes as those might be errors.....
+            //filter spiking errors.....
+            if(fabs(m_accelerometerValue_now - m_accelerometerValue_old) > 2000)
+            {
+                //ignore
+                m_accelerometerValue_now = m_accelerometerValue_old;
+            }
+            else
+            {
+                //OK
+            }
+
             CalcCombinedVelocity();
+
 
             //calc odometry step
             CalcOdometryStep(current_time,  m_lastPinEvent);

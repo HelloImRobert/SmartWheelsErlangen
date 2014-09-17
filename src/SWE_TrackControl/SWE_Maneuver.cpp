@@ -1,11 +1,13 @@
 
 #include "SWE_Maneuver.h"
 
-#define STEER_NEUTRAL 0
-#define STEER_LEFT 100
-#define STEER_RIGHT -100
+#define DEBUG_OUTPUT true //DEBUG
 
-#define CAR_LENGTH 480
+#define STEER_NEUTRAL 0
+#define STEER_LEFT 30
+#define STEER_RIGHT -30
+
+#define CAR_LENGTH 0
 #define MAX_STOPLINE_JUMP 700
 
 // maneuver elements
@@ -22,10 +24,10 @@
 #define GS_DIST1 900
 
 //turn left
-#define TL_HEAD1 (tFloat32)((  -10.0  / 180 ) * 3.141592) //degree to rad
+#define TL_HEAD1 (tFloat32)((  -15.0  / 180 ) * 3.141592) //degree to rad
 #define TL_HEAD2 (tFloat32)((  10.0  / 180 ) * 3.141592)
-#define TL_DIST1 450
-#define TL_HEAD3 (tFloat32)((  75.0   / 180 ) * 3.141592)
+#define TL_DIST1 500
+#define TL_HEAD3 (tFloat32)((  80.0   / 180 ) * 3.141592)
 
 //turn right
 #define TR_HEAD1 (tFloat32)((  -80.0   / 180 ) * 3.141592)
@@ -48,14 +50,14 @@
 */
 
 
-SWE_Maneuver::SWE_Maneuver(ucom::cObjectPtr<IReferenceClock> &clock): m_state(0), m_currentManeuver(NO_MANEUVER), m_steeringAngleOut(STEER_NEUTRAL), m_gearOut(0), _clock(clock), m_stoplineType(false), m_startStopLineDistance(0), m_startDistance(0)
+SWE_Maneuver::SWE_Maneuver(ucom::cObjectPtr<IReferenceClock> &clock): m_state(0), m_currentManeuver(NO_MANEUVER), m_steeringAngleOut(STEER_NEUTRAL), m_gearOut(0), _clock(clock), m_stoplineType(false), m_startStopLineDistance(0), m_startDistance(0), m_stoplineDistanceEst(100000)
 {
 }
 
 SWE_Maneuver::~SWE_Maneuver(){}
 
 
-tResult SWE_Maneuver::Start(maneuvers maneuver, tFloat32 headingSum, tInt32 distanceSum, tFloat32 stopLineXLeft, tFloat32 stopLineXRight, tBool isRealStopline) //TODO stoplinecheck
+tResult SWE_Maneuver::Start(maneuvers maneuver, tFloat32 headingSum, tInt32 distanceSum, tFloat32 stopLineXLeft, tFloat32 stopLineXRight, tBool isRealStopline)
 {
     tInt32 returnvalue = 0;
     tInt32 returnvalue2 = 0;
@@ -71,7 +73,7 @@ tResult SWE_Maneuver::Start(maneuvers maneuver, tFloat32 headingSum, tInt32 dist
         if(TestStoplineDistance(stopLineDistance, distanceSum)) //OK?
         {
             if(m_stoplineType == false) //only overwrite if the stopline has been declared as virtual until now
-                    m_stoplineType = isRealStopline;
+                m_stoplineType = isRealStopline;
 
             m_state = 1; //accept and start with new values
             returnvalue = 0;
@@ -174,11 +176,14 @@ tInt32 SWE_Maneuver::StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFl
         m_startStopLineDistance = stopLineDistance;
         state++;
     case 2:
-        if((m_startStopLineDistance - (distanceSum - m_startDistance)) <= STOPLINE_DISTANCE_SLOW) //slow down if distances reached
+
+        m_stoplineDistanceEst = (m_startStopLineDistance - (distanceSum - m_startDistance));
+
+        if(m_stoplineDistanceEst <= STOPLINE_DISTANCE_SLOW) //slow down if distances reached
         {
-            if((m_startStopLineDistance - (distanceSum - m_startDistance)) <= STOPLINE_DISTANCE_CRAWL)
+            if(m_stoplineDistanceEst <= STOPLINE_DISTANCE_CRAWL)
             {
-                if((m_startStopLineDistance - (distanceSum - m_startDistance)) <= STOPLINE_DISTANCE_STOP)
+                if(m_stoplineDistanceEst <= STOPLINE_DISTANCE_STOP)
                 {
                     m_gearOut = 0;
                     startTime = (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime(); // in microseconds
@@ -197,16 +202,17 @@ tInt32 SWE_Maneuver::StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFl
         {
             state = 0;
             m_currentManeuver = NO_MANEUVER;
+            m_stoplineDistanceEst = 100000;
         }
         break;
     default:
         state = 0;
         m_currentManeuver = NO_MANEUVER;
+        m_stoplineDistanceEst = 100000;
     }
 
     return state;
 }
-
 
 tInt32 SWE_Maneuver::StateMachine_GS(tInt32 distanceSum, tInt32 state) //go straight
 {
@@ -243,6 +249,12 @@ tInt32 SWE_Maneuver::StateMachine_TL(tFloat32 heading, tInt32 distanceSum, tInt3
 {
     static tInt32 startDistance = 0;
     static tFloat32 startHeading = 0;
+
+    if (DEBUG_OUTPUT)
+        LOG_ERROR(cString("TC Man: in TL state:" + cString::FromInt32(state)));
+
+    if (DEBUG_OUTPUT)
+        LOG_ERROR(cString("TC Man: in TL state:" + cString::FromInt32(state)));
 
 
     switch(state)
@@ -390,4 +402,12 @@ tBool SWE_Maneuver::TestStoplineDistance(tFloat32 newDistance, tFloat32 distance
     else
         return false;
 
+}
+
+tFloat32 SWE_Maneuver::GetStoplineDistance()
+{
+    if(m_currentManeuver == TC_STOP_AT_STOPLINE)
+        return m_stoplineDistanceEst;
+    else
+        return 100000; //to prenvent stupid errors
 }

@@ -1095,7 +1095,7 @@ void cSWE_KIControl::DriverCalc()
 
                 //immer bisschen warten am besten aber nur 1 mal
                 tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                while((cSystem::GetTime()-m_currTimeStamp)<5);
+                while((cSystem::GetTime()-m_currTimeStamp)<5); //(Robert)
 
                 //Hier muss Kreuzungstyp feststehen
                 if(SecondSigntype!=3 && kreuzungstyp!=2 )//alle typen bei dennen ein links abbiegen moeglich ist.
@@ -1338,17 +1338,21 @@ void cSWE_KIControl::DriverCalc()
         //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das groesste schild ist das erkannt wird
         if(Parksteuerung==3)
         {
-            Parkroutine(5);
+            Parkroutine(7);
             sendTC(SpeedControl,6);
         }
         else
         {
             if(SecondSigntype==4)
             {
-                Parkroutine(1);
+                      Parkroutine(1);
+                         parkbefehl=1;
             }
             if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
             {
+                if(SpeedControl!=0)
+                sendTC(1,1);
+                else
                 sendTC(SpeedControl,1);
 
                 ControlLight(1);
@@ -1436,17 +1440,21 @@ void cSWE_KIControl::DriverCalc()
         //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das groesste schild ist das erkannt wird
         if(Parksteuerung==3)
         {
-            Parkroutine(5);
+            Parkroutine(7);
             sendTC(SpeedControl,6);
         }
         else
         {
             if(SecondSigntype==4)
             {
-                Parkroutine(1);
+                Parkroutine(2);
+                parkbefehl=2;
             }
             if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
             {
+                if(SpeedControl!=0)
+                sendTC(1,1);
+                else
                 sendTC(SpeedControl,1);
 
                 ControlLight(1);
@@ -1529,13 +1537,19 @@ void cSWE_KIControl::DriverCalc()
     case 6:
 
         SecondSigntype=0;
-        Parkroutine(3);
+        if(parkbefehl==1)
+             Parkroutine(3);
+        else
+            Parkroutine(4);
         break;
         //ausparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 7:
 
         SecondSigntype=0;
-        Parkroutine(4);
+           if(parkbefehl==1)
+                  Parkroutine(5);
+           else
+                    Parkroutine(6);
         break;
 
     }

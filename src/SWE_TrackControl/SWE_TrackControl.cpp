@@ -10,6 +10,8 @@
 #define STATUS_NORMAL 0  //= normal status
 #define STATUS_ENDOFTURN 1  //= ended turn maneuver
 #define STATUS_ATSTOPLINE 2 //= stopped at stopline
+#define DEBUG_OUTPUT false //DEBUG
+#define CLOSE_STOPLINE 350 //when approaching stopline this close, don't use camera steering anymore
 
 
 
@@ -20,13 +22,16 @@ cSWE_TrackControl::cSWE_TrackControl(const tChar* __info) : cFilter(__info), m_P
     m_old_steeringAngle = 0.0;
     m_property_useNewCalc = false;
 
-    SetPropertyFloat("Wheelbase", 360);
+    SetPropertyFloat("Wheelbase in mm", 359);
     SetPropertyBool("Use new angle calculation", true);
     SetPropertyBool("Stop at virtual stoplines", true); //DEBUG
+    SetPropertyBool("InvertSteering", true); //Invert all steering angles? Normal is positive left. This somehow differs between our cars.... don't ask...
 
     SetPropertyBool("Use Testmode", false);
     SetPropertyInt("Testmode start command", 1);
     SetPropertyInt("Testmode start speed", 2);
+    SetPropertyInt("Stopdist Stopline to Wheel in mm", 120); //how many mm to stop in fron of the stopline (with the front wheels)
+    SetPropertyFloat("Steering Dead angle in degree", 3);
 
 }
 
@@ -75,20 +80,21 @@ tResult cSWE_TrackControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(RegisterPin(&m_oMiddlePoint));
 
     // Struct for Gear Output to Speed Control
-    tChar const * strDescGear = pDescManager->GetMediaDescription("tGear");
-    RETURN_IF_POINTER_NULL(strDescGear);
-    cObjectPtr<IMediaType> pTypeGear = new cMediaType(0, 0, 0, "tGear", strDescGear,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
-    RETURN_IF_FAILED(pTypeGear->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescGear));
+    // SPEED OUTPUT
+    tChar const * strDescSpeed = pDescManager->GetMediaDescription("tSignalValue");
+    RETURN_IF_POINTER_NULL(strDescSpeed);
+    cObjectPtr<IMediaType> pTypeSpeed = new cMediaType(0, 0, 0, "tSignalValue", strDescSpeed,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeSpeed->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSpeedOut));
 
-    RETURN_IF_FAILED(m_oGear.Create("Gear", pTypeGear, static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oGear));
+    RETURN_IF_FAILED(m_outputSpeed.Create("Speed_Signal", pTypeSpeed, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_outputSpeed));
 
 
     // Struct for status output to AI
     tChar const * strDescStatus = pDescManager->GetMediaDescription("tInt8SignalValue");
     RETURN_IF_POINTER_NULL(strDescStatus);
     cObjectPtr<IMediaType> pTypeStatus = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescStatus,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
-    RETURN_IF_FAILED(pTypeGear->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescStatus));
+    RETURN_IF_FAILED(pTypeStatus->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescStatus));
 
     RETURN_IF_FAILED(m_oStatus.Create("TCData_to_AI", pTypeStatus, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oStatus));
@@ -110,7 +116,7 @@ tResult cSWE_TrackControl::Init(tInitStage eStage, __exception)
     {
 
         //m_referencePoint.x = GetPropertyFloat("Reference Point x-Coord");
-        m_wheelbase = GetPropertyFloat("Wheelbase");
+        m_wheelbase = GetPropertyFloat("Wheelbase in mm", 359);
 
 
     }
@@ -125,12 +131,14 @@ tResult cSWE_TrackControl::Init(tInitStage eStage, __exception)
 tResult cSWE_TrackControl::Start(__exception)
 {
 
-    m_property_useNewCalc = (tBool)SetPropertyBool("Use new angle calculation", true);
-    m_property_stopAtVirtualSL = (tBool)GetPropertyBool("Stop at virtual stoplines", true); //DEBUG
-
-    m_property_useTestMode = (tBool)GetPropertyBool("Use Testmode", false);
-    m_property_TestModeStartCommand = (tInt8)GetPropertyInt("Testmode start command", 1);
-    m_property_TestModeStartSpeed = (tInt8)GetPropertyInt("Testmode start speed", 2);
+    m_property_useNewCalc =             (tBool)SetPropertyBool("Use new angle calculation", true);
+    m_property_stopAtVirtualSL =        (tBool)GetPropertyBool("Stop at virtual stoplines", true);
+    m_property_useTestMode =            (tBool)GetPropertyBool("Use Testmode", false);
+    m_property_TestModeStartCommand =   (tInt8)GetPropertyInt("Testmode start command", 1);
+    m_property_TestModeStartSpeed =     (tInt8)GetPropertyInt("Testmode start speed", 2);
+    m_property_InvSteering =            (tBool)GetPropertyBool("InvertSteering", true);
+    m_property_StoplineWheelDist =      (tInt32)GetPropertyInt("Stopdist Stopline to Wheel in mm", 120);
+    m_property_SteeringDeadAngle =      (tFloat32)GetPropertyFloat("Steering Dead angle in degree", 3);
 
     m_input_maxGear = 0;
     m_input_Command = -1;
@@ -236,6 +244,10 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
                 m_firstRun = false;
                 m_input_Command = m_property_TestModeStartCommand;
                 m_input_maxGear = m_property_TestModeStartSpeed;
+
+                if (DEBUG_OUTPUT)
+                    LOG_ERROR(cString("TC: testmode start: " + cString::FromInt32(m_input_Command)));
+
                 ReactToInput(m_input_Command);
             }
             else
@@ -378,11 +390,11 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
     if(m_property_useNewCalc) //two alternative modes of calculation
     {
-        m_outputSteeringAngle = -180.0/CV_PI * ( CalcSteeringAngleCircle( m_input_trackingPoint, m_input_intersectionIndicator ) );
+        m_outputSteeringAngle = 180.0/CV_PI * ( CalcSteeringAngleCircle( m_input_trackingPoint, m_input_intersectionIndicator ) );
     }
     else
     {
-        m_outputSteeringAngle = -180.0/CV_PI*( CalcSteeringAngleTrajectory( m_input_trackingPoint, m_input_intersectionIndicator ) );
+        m_outputSteeringAngle = 180.0/CV_PI*( CalcSteeringAngleTrajectory( m_input_trackingPoint, m_input_intersectionIndicator ) );
     }
 
 
@@ -392,8 +404,11 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
     {
 
 
-
     case IDLE:
+
+        if (DEBUG_OUTPUT)
+            LOG_ERROR(cString("TC: in IDLE  command:" + cString::FromInt32(command)));
+
         switch(command)
         {
 
@@ -454,6 +469,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
     case NORMAL_OPERATION:
+
+        if (DEBUG_OUTPUT)
+            LOG_ERROR(cString("TC: in NORMAL_OPERATION  command:" + cString::FromInt32(command)));
+
         switch(command)
         {
 
@@ -499,6 +518,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
     case STOP_AT_STOPLINE_INPROGRESS:
+
+        if (DEBUG_OUTPUT)
+            LOG_ERROR(cString("TC: in STOP_AT_STOPLINE_INPROGRESS  command:" + cString::FromInt32(command)));
+
         switch(command)
         {
 
@@ -508,28 +531,35 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
             break;
 
+
         case 6: // go idle
 
             GotoIDLE();
 
             break;
 
+
         case 99: // new Stopline
 
             //try to update with new stopline (might be rejected)
-            m_oManeuverObject.Start(TC_STOP_AT_STOPLINE, m_angleAbs, m_odometryData.distance_sum, m_stoplineData.StopLinePoint1.x, m_stoplineData.StopLinePoint2.x, m_stoplineData.isRealStopLine);
+            m_oManeuverObject.Start(TC_STOP_AT_STOPLINE, m_angleAbs, m_odometryData.distance_sum, (m_stoplineData.StopLinePoint1.x - m_property_StoplineWheelDist), (m_stoplineData.StopLinePoint2.x - m_property_StoplineWheelDist), m_stoplineData.isRealStopLine);
 
 
             if(m_property_stopAtVirtualSL) //always stop at stopline
-                m_outputGear = m_oManeuverObject.GetGear();
+                m_outputGear = (tInt8)m_oManeuverObject.GetGear();
             else
             {
                 if(m_oManeuverObject.GetStoplineType()) //when real stopline
-                    m_outputGear = m_oManeuverObject.GetGear();//... stop there
+                    m_outputGear = (tInt8)m_oManeuverObject.GetGear();//... stop there
                 else
                     m_outputGear = 3; //when virtual go as fast as allowed
             }
-            // use normal steering angle
+
+
+            // use normal steering angle if not too close
+            if(m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE)
+                m_oManeuverObject.GetSteeringAngle();
+
 
             m_status_noGears = false;
             m_status_noSteering = false;
@@ -545,15 +575,20 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
             m_oManeuverObject.CalcStep(m_angleAbs, m_odometryData.distance_sum);
 
             if(m_property_stopAtVirtualSL) //always stop at stopline
-                m_outputGear = m_oManeuverObject.GetGear();
+                m_outputGear = (tInt8)m_oManeuverObject.GetGear();
             else
             {
                 if(m_oManeuverObject.GetStoplineType()) //when real stopline
-                    m_outputGear = m_oManeuverObject.GetGear();//... stop there
+                    m_outputGear = (tInt8)m_oManeuverObject.GetGear();//... stop there
                 else
                     m_outputGear = 3; //when virtual go as fast as allowed
             }
-            // use normal steering angle
+
+
+            // use normal steering angle if not too close
+            if(m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE)
+                m_oManeuverObject.GetSteeringAngle();
+
 
 
             // ------------- is maneuver finished? -------------
@@ -580,6 +615,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
     case GO_STRAIGHT_INPROGRESS:
+
+        if (DEBUG_OUTPUT)
+            LOG_ERROR(cString("TC: in GO_STRAIGHT_INPROGRESS  command:" + cString::FromInt32(command)));
+
         switch(command)
         {
 
@@ -602,7 +641,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
             m_oManeuverObject.CalcStep(m_angleAbs, m_odometryData.distance_sum);
 
-            m_outputGear = m_oManeuverObject.GetGear();
+            m_outputGear = (tInt8)m_oManeuverObject.GetGear();
 
             //steering angle OK?
             if( m_input_intersectionIndicator != 0 )
@@ -636,8 +675,11 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
 
-
     case TURN_INPROGRESS:
+
+        if (DEBUG_OUTPUT)
+            LOG_ERROR(cString("TC: in TURN_INPROGRESS  command:" + cString::FromInt32(command)));
+
         switch(command)
         {
 
@@ -660,7 +702,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
             m_oManeuverObject.CalcStep(m_angleAbs, m_odometryData.distance_sum);
 
-            m_outputGear = m_oManeuverObject.GetGear();
+            m_outputGear = (tInt8)m_oManeuverObject.GetGear();
             m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle();
 
 
@@ -671,6 +713,8 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
                 // return to normal operation
                 GotoNORMAL_OPERATION();
                 m_outputStatus = STATUS_ENDOFTURN;
+                m_status_noSteering = false;
+                m_status_noGears = false;
             }
             else
             {
@@ -678,6 +722,14 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
                 m_status_noSteering = false;
                 m_status_noGears = false;
             }
+
+            /*
+            if (DEBUG_OUTPUT)
+                LOG_ERROR(cString("TC: in TURN_INPROGRESS  steering:" + cString::FromFloat64(m_outputSteeringAngle)));
+
+            if (DEBUG_OUTPUT)
+                LOG_ERROR(cString("TC: in TURN_INPROGRESS  gear:" + cString::FromInt32(m_outputGear)));
+                */
 
             break;
         }
@@ -688,6 +740,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
     case NO_SPEED:
+
+        if (DEBUG_OUTPUT)
+            LOG_ERROR(cString("TC: in NO_SPEED  command:" + cString::FromInt32(command)));
+
         switch(command)
         {
 
@@ -742,6 +798,15 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
     //reset command
     m_input_Command = -1;
 
+    //compensate for dead angle in steering (under the assumption that the wheels always try to turn the least possible amount)
+    if(m_outputSteeringAngle < 0)
+        m_outputSteeringAngle -= m_property_SteeringDeadAngle;
+    else if (m_outputSteeringAngle > 0)
+        m_outputSteeringAngle += m_property_SteeringDeadAngle;
+
+    if(m_property_InvSteering)
+        m_outputSteeringAngle *= -1;
+
     //send steering angle
     if (!m_status_noSteering)
     {
@@ -754,7 +819,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
     {
         if(m_input_maxGear >= 0 )
         {
-            if (m_input_maxGear > m_outputGear)
+            if (m_input_maxGear < m_outputGear)
                 m_outputGear = m_input_maxGear;
         }
         else // this combination is invalid
@@ -767,7 +832,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
     {
         if(m_input_maxGear < 0 )
         {
-            if(m_input_maxGear < m_outputGear)
+            if(m_input_maxGear > m_outputGear)
                 m_outputGear = m_input_maxGear;
         }
         else
@@ -802,38 +867,41 @@ tResult cSWE_TrackControl::SendSteering(tFloat32 outputAngle)
 
 
     static tFloat32 lastOutput = 777;
+    static tTimeStamp lastOutputTime = 0;
 
-    // only send changes
-    if(lastOutput != outputAngle)
+    // only send changes or every 500ms
+    if((lastOutput != outputAngle) || (_clock->GetTime () - lastOutputTime  > 500000))
     {
-    // generate Coder object
-    cObjectPtr<IMediaCoder> pCoder;
+        lastOutput = outputAngle;
+        lastOutputTime = _clock->GetTime ();
+        // generate Coder object
+        cObjectPtr<IMediaCoder> pCoder;
 
-    //create new media sample
-    cObjectPtr<IMediaSample> pMediaSampleOutput;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+        //create new media sample
+        cObjectPtr<IMediaSample> pMediaSampleOutput;
+        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
 
-    //allocate memory with the size given by the descriptor
-    // ADAPT: m_pCoderDescPointLeft
-    cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderDescSteeringAngle->GetMediaSampleSerializer(&pSerializer);
-    tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSampleOutput->AllocBuffer(nSize);
+        //allocate memory with the size given by the descriptor
+        // ADAPT: m_pCoderDescPointLeft
+        cObjectPtr<IMediaSerializer> pSerializer;
+        m_pCoderDescSteeringAngle->GetMediaSampleSerializer(&pSerializer);
+        tInt nSize = pSerializer->GetDeserializedSize();
+        pMediaSampleOutput->AllocBuffer(nSize);
 
-    //write date to the media sample with the coder of the descriptor
-    // ADAPT: m_pCoderDescPointLeft
-    //cObjectPtr<IMediaCoder> pCoder;
-    RETURN_IF_FAILED(m_pCoderDescSteeringAngle->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("f32Value", (tVoid*)&(outputAngle));
-    m_pCoderDescSteeringAngle->Unlock(pCoder);
+        //write date to the media sample with the coder of the descriptor
+        // ADAPT: m_pCoderDescPointLeft
+        //cObjectPtr<IMediaCoder> pCoder;
+        RETURN_IF_FAILED(m_pCoderDescSteeringAngle->WriteLock(pMediaSampleOutput, &pCoder));
+        pCoder->Set("f32Value", (tVoid*)&(outputAngle));
+        m_pCoderDescSteeringAngle->Unlock(pCoder);
 
-    //transmit media sample over output pin
-    // ADAPT: m_oIntersectionPointLeft
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_oSteeringAngle.Transmit(pMediaSampleOutput));
+        //transmit media sample over output pin
+        // ADAPT: m_oIntersectionPointLeft
+        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oSteeringAngle.Transmit(pMediaSampleOutput));
     }
 
-    lastOutput = outputAngle;
+
 
     RETURN_NOERROR;
 }
@@ -875,34 +943,41 @@ tResult cSWE_TrackControl::SendGear( const tInt8 outputGear )
     //tUInt32 timeStamp = 0;
     tFloat32 my_outputGear;
     static tFloat32 lastOutput = 777;
+    static tTimeStamp lastOutputTime = 0;
 
     my_outputGear = (tFloat32)outputGear;
 
-    if(lastOutput != my_outputGear) // only send changes
+    // only send changes or every 500ms but never more often than every 10ms
+    if(((lastOutput != my_outputGear) || (_clock->GetTime () - lastOutputTime  > 500000)) && (_clock->GetTime () - lastOutputTime  > 10000))
     {
-    //create new media sample
-    cObjectPtr<IMediaSample> pMediaSample;
-    AllocMediaSample((tVoid**)&pMediaSample);
+        lastOutput = outputGear;
+        lastOutputTime = _clock->GetTime ();
 
-    //allocate memory with the size given by the descriptor
-    cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderDescGear->GetMediaSampleSerializer(&pSerializer);
-    tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSample->AllocBuffer(nSize);
+        tUInt32 timeStamp = 0;
 
-    //write date to the media sample with the coder of the descriptor
-    {
-        __adtf_sample_write_lock_mediadescription(m_pCoderDescGear, pMediaSample, pCoder);
+        //create new media sample
+        cObjectPtr<IMediaSample> pMediaSample;
+        AllocMediaSample((tVoid**)&pMediaSample);
 
-        pCoder->Set("tGearValue", (tVoid*)&(my_outputGear));
+        //allocate memory with the size given by the descriptor
+        cObjectPtr<IMediaSerializer> pSerializer;
+        m_pCoderDescSpeedOut->GetMediaSampleSerializer(&pSerializer);
+        tInt nSize = pSerializer->GetDeserializedSize();
+        pMediaSample->AllocBuffer(nSize);
+
+        //write date to the media sample with the coder of the descriptor
+        {
+            __adtf_sample_write_lock_mediadescription(m_pCoderDescSpeedOut, pMediaSample, pCoder);
+
+            pCoder->Set("f32Value", (tVoid*)&(my_outputGear));
+            pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+        }
+
+        //transmit media sample over output pin
+        pMediaSample->SetTime(_clock->GetStreamTime());
+        m_outputSpeed.Transmit(pMediaSample);
     }
 
-    //transmit media sample over output pin
-    pMediaSample->SetTime(_clock->GetStreamTime());
-    m_oGear.Transmit(pMediaSample);
-    }
-
-    lastOutput = outputGear;
     RETURN_NOERROR;
 }
 
