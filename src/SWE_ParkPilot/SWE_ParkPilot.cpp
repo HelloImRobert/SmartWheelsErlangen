@@ -75,14 +75,14 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
 
         //TESTING START
         m_parkState = 0;
-        m_parkTrigger = 5;  // always initialise with 10 !
+        m_parkTrigger = 10;  // always initialise with 10 !
 
         m_searchActivated = false;
         m_minDistReached = false;
         m_carStopped = false;
         m_parkAlongside = false;
         m_parkCross = false;
-        m_pullLeft = true;
+        m_pullLeft = false;
         m_pullRight = false;
         m_gotControl = false;
         //TESTING END
@@ -134,10 +134,10 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         SetPropertyFloat("C_HeadingAngleLeftForward(DEG)", 35.0);
         SetPropertyFloat("C_PerpendicularBackward(mm)", 250.0);
 
-        SetPropertyFloat("CP_PullLeftStraight(mm)", 450.0);
+        SetPropertyFloat("CP_PullLeftStraight(mm)", 350.0);
         SetPropertyFloat("CP_PullRightStraight(mm)", 230.0);
-        SetPropertyFloat("CP_PullLeftAngle(DEG)", 0.0);
-        SetPropertyFloat("CP_PullRightAngle(DEG)", 3.0);
+        SetPropertyFloat("CP_PullLeftAngle(DEG)", 50.0);
+        SetPropertyFloat("CP_PullRightAngle(DEG)", 90.0);
 
 
 
@@ -284,10 +284,10 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
         m_straightForward = GetPropertyFloat("C_StraightForward(mm)", 60.0);
         m_headingAngleForward = DEG_TO_RAD * (tFloat32)GetPropertyFloat("C_HeadingAngleLeftForward(DEG)");
         m_perpendicularBackward = GetPropertyFloat("C_PerpendicularBackward(mm)");
-        m_pullLeftStraight = GetPropertyFloat("CP_PullLeftStraight(mm)", 450.0);
+        m_pullLeftStraight = GetPropertyFloat("CP_PullLeftStraight(mm)", 350.0);
         m_pullRightStraight = GetPropertyFloat("CP_PullRightStraight(mm)", 230.0);
-        m_pullLeftAngle = DEG_TO_RAD * (tFloat32)GetPropertyFloat("CP_PullLeftAngle(DEG)", 0.0);
-        m_pullRightAngle = DEG_TO_RAD * (tFloat32)GetPropertyFloat("CP_PullRightAngle(DEG)", 3.0);
+        m_pullLeftAngle = DEG_TO_RAD * (tFloat32)GetPropertyFloat("CP_PullLeftAngle(DEG)", 50.0);
+        m_pullRightAngle = DEG_TO_RAD * (tFloat32)GetPropertyFloat("CP_PullRightAngle(DEG)", 90.0);
 
 
     }
@@ -365,10 +365,10 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 {
 
     // TIMER LOOP FOR TESTING ONLY! DEBUG
-    if((GetTime() - m_startTimer) < m_stopTime)
-    {
-        RETURN_NOERROR;
-    }
+//    if((GetTime() - m_startTimer) < m_stopTime)
+//    {
+//        RETURN_NOERROR;
+//    }
 
     m_mutex.Enter(); //serialize the whole filter for data consistency
 
@@ -414,16 +414,16 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             m_IRFrontRightCur = 10 * m_IRFrontRightCur;
 
             ///FOR TESTING
-//            if(m_testing == true && (m_parkTrigger <= 2) && (GetTime() - m_startTimer) >= m_stopTime)
+//            if(m_testing == true && m_parkTrigger <= 2 && (GetTime() - m_startTimer) >= m_stopTime)
 //            {
 //                sendSteeringAngle( STEER_NEUTRAL );
-//                sendSpeed( 1.0 );
+//                //sendSpeed( 1.0 );
 //                //sendParkState(1);
 //                //sendBlink(BLINK_LEFT);
 //                LOG_ERROR(cString("PP: Trigger set, going forward" ));
 //                m_testing = false;
 //            }
-            //FOR TESTING
+            ///FOR TESTING
 
             if( m_IRFrontRightCur <= TH_SHORT && m_firstIR == false)
             {
@@ -432,7 +432,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                 //LOG_ERROR(cString("PP: SHORT!, IRcur: " + cString::FromFloat64(m_IRFrontRightCur)  ));
             }
 
-            if( m_IRFrontRightCur > TH_LONG && m_firstIR == true && m_searchState == 0)
+            if( m_IRFrontRightCur > TH_LONG && m_firstIR == true && m_searchState == 0 && m_parkTrigger <= 2)
             {
                 if( m_odometryData.distance_sum - m_checkPointOne >= 200 )
                 {
@@ -446,7 +446,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                     m_searchState = 0;
                 }
             }
-            else if(m_firstIR == true && m_searchState == 0 && (m_odometryData.distance_sum - m_checkPointOne >= 200) )
+            else if(m_firstIR == true && m_searchState == 0 && (m_odometryData.distance_sum - m_checkPointOne >= 200) && m_parkTrigger <= 2 )
             {
                 m_searchState = 1;
                 LOG_ERROR(cString("PP: 3 Search Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
@@ -551,7 +551,15 @@ tResult cSWE_ParkPilot::jumpIntoStates()
         {
             m_pulloutState = 801;
         }
+
+        //TESTING
+//        if((GetTime() - m_startTimer) >= m_stopTime )
+//        {
+//            pullOutCrossLeft();
+//        }
+
         pullOutCrossLeft();
+
     }
     else if( m_parkTrigger == PULL_RIGHT_FROM_C )
     {
@@ -954,49 +962,49 @@ tResult cSWE_ParkPilot::pullOutCrossLeft()
     {
         case 801:
             sendBlink( BLINK_LEFT );
+            m_rememberDistTwo = m_odometryData.distance_sum;
             sendSpeed( 1 );
-            if( m_IRFrontRightCur > 300 && m_IRFrontLeftCur > 300 )
-            {
-                m_rememberDist = m_odometryData.distance_sum;
-                m_headingAtStart = m_angleAbs;
-            }
+            m_headingAtStart = m_angleAbs;
             m_pulloutState = 802;
             break;
 
+
         case 802:
-            if( m_odometryData.distance_sum >= (m_rememberDist + m_pullLeftStraight) )
+            if( m_IRFrontRightCur > TH_SHORT && m_IRFrontLeftCur > TH_SHORT )
+            {
+                m_rememberDist = m_odometryData.distance_sum;
+            }
+
+            if( (m_odometryData.distance_sum >= m_rememberDistTwo + 450) || (m_odometryData.distance_sum > m_rememberDist + m_pullLeftStraight) )
             {
                 sendSteeringAngle( STEER_LEFT_MAX );
                 m_pulloutState = 803;
             }
+            if(m_logging == true)
+                LOG_ERROR(cString("PP:802 Next " + cString::FromInt(m_pulloutState) ));
             break;
 
+
         case 803:
-            if( m_angleAbs >= (m_headingAtStart + M_PI_2 + m_pullLeftAngle) )
+            if( m_angleAbs >= (m_headingAtStart + m_pullLeftAngle) )
             {
-                sendSteeringAngle( STEER_NEUTRAL );
                 sendParkState( PULLOUT_FINISHED );
                 sendBlink( BLINK_STOP );
 
                 // set back all the stuff
-                m_parkTrigger = 0;
+                m_parkTrigger = 10;
                 m_searchState = 0;
                 m_parkState = 0;
                 m_pulloutState = 0;
                 m_distEntry = 0;
                 m_headingAtStart = 0;
                 m_rememberDist = 0.0;
-                m_searchActivated = false;
-                m_minDistReached = false;
-                m_carStopped = false;
-                m_parkAlongside = false;
-                m_parkCross = false;
-                m_pullLeft = false;
-                m_pullRight = false;
                 m_gotControl = false;
 
             }
             break;
+            if(m_logging == true)
+                LOG_ERROR(cString("PP:803 Next " + cString::FromInt(m_pulloutState) ));
 
         default:
             break;
@@ -1012,49 +1020,54 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
 {
     switch( m_pulloutState )
     {
-        case 701:
-            sendBlink( BLINK_RIGHT );
-            sendSpeed( 1 );
-            if( m_IRFrontRightCur > 300 && m_IRFrontLeftCur > 300 )
-            {
-                m_rememberDist = m_odometryData.distance_sum;
-                m_headingAtStart = m_angleAbs;
-            }
-            m_pulloutState = 702;
-            break;
+    case 701:
+        sendBlink( BLINK_RIGHT );
+        m_rememberDistTwo = m_odometryData.distance_sum;
+        sendSpeed( 1 );
+        m_headingAtStart = m_angleAbs;
+        m_pulloutState = 702;
+        break;
 
-        case 702:
-            if( m_odometryData.distance_sum >= (m_rememberDist + m_pullRightStraight) )
-            {
-                sendSteeringAngle( STEER_RIGHT_MAX );
-                m_pulloutState = 703;
-            }
-            break;
 
-        case 703:
-            if( m_angleAbs >= (m_headingAtStart - M_PI_2 - m_pullRightAngle) )
-            {
-                sendSteeringAngle( STEER_NEUTRAL );
-                sendParkState( PULLOUT_FINISHED );
-                sendBlink( BLINK_STOP );
+    case 702:
+        if( m_IRFrontRightCur > TH_SHORT && m_IRFrontLeftCur > TH_SHORT )
+        {
+            m_rememberDist = m_odometryData.distance_sum;
+        }
 
-                // set back all the stuff
-                m_parkTrigger = 0;
+        if( (m_odometryData.distance_sum >= m_rememberDistTwo + 300) || (m_odometryData.distance_sum > m_rememberDist + m_pullRightStraight) )
+        {
+            sendSteeringAngle( STEER_RIGHT_MAX );
+            m_pulloutState = 703;
+        }
+        if(m_logging == true)
+            LOG_ERROR(cString("PP:702 Next " + cString::FromInt(m_pulloutState) ));
+        break;
+
+
+    case 703:
+        if( m_angleAbs >= (m_headingAtStart - m_pullRightAngle) )
+        {
+            sendParkState( PULLOUT_FINISHED );
+            sendBlink( BLINK_STOP );
+
+             //set back all the stuff
+                m_parkTrigger = 10;
                 m_searchState = 0;
                 m_parkState = 0;
                 m_pulloutState = 0;
                 m_distEntry = 0;
                 m_headingAtStart = 0;
                 m_rememberDist = 0.0;
-                m_searchActivated = false;
-                m_minDistReached = false;
-                m_carStopped = false;
+                m_gotControl = false;
 
-            }
-            break;
+        }
+        break;
+        if(m_logging == true)
+            LOG_ERROR(cString("PP:703 Next " + cString::FromInt(m_pulloutState) ));
 
-        default:
-            break;
+    default:
+        break;
 
     }
     RETURN_NOERROR;

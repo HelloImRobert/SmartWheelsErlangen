@@ -57,6 +57,7 @@ private:
     tFloat32 	m_distExit;
     tFloat32    m_angleAbs;
     tFloat32	m_rememberDist;
+    tFloat32    m_rememberDistTwo;
 
     // Angles for maneuvering
     tFloat32	m_centralAngle;
