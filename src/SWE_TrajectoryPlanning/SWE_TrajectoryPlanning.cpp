@@ -14,8 +14,8 @@ ADTF_FILTER_PLUGIN("SWE Trajectory Planning", OID_ADTF_SWE_TRAJECTORYPLANNING, c
 cSWE_TrajectoryPlanning::cSWE_TrajectoryPlanning(const tChar* __info) : cFilter(__info)
 {
     SetPropertyFloat("maximum distance",1300.0);
-    SetPropertyFloat("maximum direction angle",40*CV_PI/180);
-    SetPropertyFloat("break Angle",60*CV_PI/180);
+    SetPropertyFloat("maximum direction angle",60*CV_PI/180);
+    SetPropertyFloat("break Angle",40*CV_PI/180);
     SetPropertyFloat("insertion distance",100.0);
     SetPropertyFloat("road width",900.0);
     SetPropertyFloat("max road width deviation",100.0);
@@ -320,6 +320,7 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
     // check if right and left boundary are not empty
     if( !hasRightBoundary && !hasLeftBoundary )
     {
+        LOG_ERROR(cString("no outer lane boundaries"));
         returnedPoint.x = 0.0;
         returnedPoint.y = 0.0;
         return 0;
@@ -343,8 +344,9 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
     // check if there is no plausible segment usable and return if this is the case
     if( plausibleRightSegment.empty() && plausibleLeftSegment.empty() )
     {
+        LOG_ERROR(cString("plausible segments empty"));
         returnedPoint.x = 0.0;
-        returnedPoint.y = 0.0;
+        returnedPoint.y = 0.0;      
         return 0;
     }
 
@@ -499,10 +501,12 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
             // return calculated tracking point
             if( !zerosTrajectory.empty() )
             {
+                LOG_ERROR(cString("zeros trajectory empty"));
                 returnedPoint = zerosTrajectory[0];
             }
             else
             {
+                LOG_ERROR(cString("no tracking point found"));
                 returnedPoint = cv::Point2d( 0, 0 );
 
                 // indicate that no tracking point was found
@@ -522,6 +526,7 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
     }
     else
     {
+        LOG_ERROR(cString("trajectory to far from vehicle"));
         // if trajectory is too far from vehicle ...
         returnedPoint = cv::Point2d( 0, 0 );
 

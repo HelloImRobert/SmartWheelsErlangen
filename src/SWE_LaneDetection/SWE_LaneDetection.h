@@ -41,6 +41,7 @@ class cSWE_LaneDetection : public adtf::cFilter
             cVideoPin       _oInternRepresentationVideoOutputPin;              /**< outputpin for the debug video */
             cVideoPin       _oColorVideoOutputPin;              /**< outputpin for the debug video */
             cInputPin       m_oIntersectionPoints;
+            cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
             cOutputPin     m_oSplinesPin;
             cOutputPin     m_CrossingIndicatorPin;
 

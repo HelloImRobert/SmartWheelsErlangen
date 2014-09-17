@@ -175,7 +175,6 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
 
         RETURN_IF_FAILED(m_oIntersectionPoints.Create("tracking_Point", new cMediaType(0, 0, 0, "tIntersectionsNew"), static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oIntersectionPoints));
-        RETURN_NOERROR;
 
         // Output Pin for Crossings
         // TO ADAPT for new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
@@ -333,79 +332,6 @@ tResult cSWE_LaneDetection::Shutdown(tInitStage eStage, __exception)
     return cFilter::Shutdown(eStage, __exception_ptr);
 }
 
-/**
- * @brief cSWE_LaneDetection::OnPinEvent The method reacting on incoming samples
- * @param pSource the Pin transmitting the input
- * @param nEventCode
- * @param nParam1
- * @param nParam2
- * @param pMediaSample the actual input
- * @return a value indicating the succes of the processing
- */
-tResult cSWE_LaneDetection::OnPinEvent(IPin* pSource,
-                                       tInt nEventCode,
-                                       tInt nParam1,
-                                       tInt nParam2,
-                                       IMediaSample* pMediaSample)
-{
-    if(nEventCode == IPinEventSink::PE_MediaSampleReceived)
-    {
-        RETURN_IF_POINTER_NULL(pMediaSample);
-        if(pSource == &_oVideoInputPin)
-        {
-            ProcessInput(pMediaSample);
-        }
-        if else(pSource == &m_oIntersectionPoints)
-        {
-            // init temporary objects
-            cv::Point2d trackingPoint;
-
-            // generate Coder object
-            cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
-
-            //get values from media sample (x and y exchanged to transform to front axis coo sys)
-            pCoder->Get("intersecPoint.xCoord", (tVoid*)&(trackingPoint.x));
-            pCoder->Get("intersecPoint.yCoord", (tVoid*)&(trackingPoint.y));
-            m_pCoderDescInputMeasured->Unlock(pCoder);
-
-            cv::circle(_result, trackingPoint , 8 , CV_RGB(255, 0, 0), 2);
-
-            // transmit a video of the current result to the video outputpin
-            if (_oInternRepresentationVideoOutputPin.IsConnected())
-            {
-                cObjectPtr<IMediaSample> pNewRGBSample;
-                if (IS_OK(AllocMediaSample(&pNewRGBSample)))
-                {
-                    tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
-                    pNewRGBSample->Update(tmStreamTime, result.data, _sInternRepresentationBitMapOutputFormat.nSize , 0);
-                    _oInternRepresentationVideoOutputPin.Transmit(pNewRGBSample);
-                }
-            }
-    }
-    RETURN_NOERROR;
-}
-
-bool sort_arcLength( const cSWE_LaneDetection::BlobDescriptor& blob1, const cSWE_LaneDetection::BlobDescriptor blob2)
-{
-    return blob1.lengthContour > blob2.lengthContour;
-}
-
-bool sort_yVal( const cv::Point& point1, const cv::Point& point2 )
-{
-    return point1.y > point2.y;
-}
-
-bool sort_yVal_double(const cv::Point2d& point1, const cv::Point2d& point2)
-{
-    return point1.y > point2.y;
-}
-
-bool sort_xVal( const cv::Point& point1, const cv::Point& point2)
-{
-    return point1.x < point2.x;
-}
-
 void cSWE_LaneDetection::transformToCarCoords( std::vector< cv::Point2d >& spline )
 {
     for( size_t i = 0; i < spline.size(); i++ )
@@ -433,6 +359,96 @@ void cSWE_LaneDetection::transformFromCarCoords( std::vector< cv::Point2d >& spl
         spline[i].x = spline[i].y;
         spline[i].y = temp;
     }
+}
+
+
+/**
+ * @brief cSWE_LaneDetection::OnPinEvent The method reacting on incoming samples
+ * @param pSource the Pin transmitting the input
+ * @param nEventCode
+ * @param nParam1
+ * @param nParam2
+ * @param pMediaSample the actual input
+ * @return a value indicating the succes of the processing
+ */
+tResult cSWE_LaneDetection::OnPinEvent(IPin* pSource,
+                                       tInt nEventCode,
+                                       tInt nParam1,
+                                       tInt nParam2,
+                                       IMediaSample* pMediaSample)
+{
+    if(nEventCode == IPinEventSink::PE_MediaSampleReceived)
+    {
+        RETURN_IF_POINTER_NULL(pMediaSample);
+        if(pSource == &_oVideoInputPin)
+        {
+            ProcessInput(pMediaSample);
+        }
+        else if(pSource == &m_oIntersectionPoints)
+        {
+            cObjectPtr<IMediaType> pType;
+            pSource->GetMediaType(&pType);
+            cObjectPtr<IMediaTypeDescription> pMediaTypeDescInputMeasured;
+            RETURN_IF_FAILED(pType->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&pMediaTypeDescInputMeasured));
+            m_pCoderDescInputMeasured = pMediaTypeDescInputMeasured;
+
+            // init temporary objects
+            cv::Point2d trackingPoint;
+
+            // generate Coder object
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+
+            //get values from media sample (x and y exchanged to transform to front axis coo sys)
+            pCoder->Get("intersecPoint.xCoord", (tVoid*)&(trackingPoint.x));
+            pCoder->Get("intersecPoint.yCoord", (tVoid*)&(trackingPoint.y));
+            m_pCoderDescInputMeasured->Unlock(pCoder);
+
+            std::vector< cv::Point2d > pointVec;
+            pointVec.push_back(trackingPoint);
+            transformFromCarCoords(pointVec);
+            cv::Point point = pointVec[0];
+            point.x *= _resultImageScaleFactor;
+            point.y *= _resultImageScaleFactor;
+            point += _resultImageOffsetVector;
+
+            cv::circle(_result, point , 8 , CV_RGB(255, 0, 0), 2);
+
+            // transmit a video of the current result to the video outputpin
+            if (_oInternRepresentationVideoOutputPin.IsConnected())
+            {
+                cObjectPtr<IMediaSample> pNewRGBSample;
+                if (IS_OK(AllocMediaSample(&pNewRGBSample)))
+                {
+                    tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
+                    pNewRGBSample->Update(tmStreamTime, _result.data, _sInternRepresentationBitMapOutputFormat.nSize , 0);
+                    _oInternRepresentationVideoOutputPin.Transmit(pNewRGBSample);
+                }
+            }
+        }
+        RETURN_NOERROR;
+    }
+    RETURN_ERROR(-1);
+}
+
+bool sort_arcLength( const cSWE_LaneDetection::BlobDescriptor& blob1, const cSWE_LaneDetection::BlobDescriptor blob2)
+{
+    return blob1.lengthContour > blob2.lengthContour;
+}
+
+bool sort_yVal( const cv::Point& point1, const cv::Point& point2 )
+{
+    return point1.y > point2.y;
+}
+
+bool sort_yVal_double(const cv::Point2d& point1, const cv::Point2d& point2)
+{
+    return point1.y > point2.y;
+}
+
+bool sort_xVal( const cv::Point& point1, const cv::Point& point2)
+{
+    return point1.x < point2.x;
 }
 
 /**
@@ -832,7 +848,7 @@ void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobD
 		}
 
 		// draw the outer lane boundaries
-		for (size_t i = 0; i < outerLaneBoundariesIndicator; i++)
+        for (int i = 0; i < outerLaneBoundariesIndicator; i++)
 		{
             std::vector< std::vector< cv::Point > > contourToPaint;
 
@@ -995,7 +1011,8 @@ void cSWE_LaneDetection::serializeLane( cObjectPtr<IMediaCoder>& pCoder , std::s
     }
 
     tInt8 BoundaryArrayCountTemp = static_cast<tInt8>(end);
-    pCoder->Set("rightBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
+    std::string tempString( lane + ".Count" );
+    pCoder->Set( tempString.c_str() , (tVoid*)&(BoundaryArrayCountTemp));
 }
 
 tResult cSWE_LaneDetection::transmitLanes( const std::vector< Point2d >& leftSpline , const std::vector< Point2d >& middleSpline , const std::vector< Point2d >& rightSpline )
