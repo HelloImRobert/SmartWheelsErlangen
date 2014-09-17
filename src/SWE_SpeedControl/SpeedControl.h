@@ -1,18 +1,3 @@
-/**
-Copyright (c) 
-Audi Autonomous Driving Cup. All rights reserved.
- 
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
- 
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-3.  All advertising materials mentioning features or use of this software must display the following acknowledgement: “This product includes software developed by the Audi AG and its contributors for Audi Autonomous Driving Cup.”
-4.  Neither the name of Audi nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
- 
-THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL AUDI AG OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-*/
-
 
 #ifndef _SPEEDCONTROL_H_
 #define _SPEEDCONTROL_H_
@@ -28,7 +13,7 @@ class SpeedControl : public adtf::cFilter
 
         cInputPin m_oInputVelocity;				// the input pin for the measured value
         cInputPin m_oInputSetPoint;				// the input pin for the set point value (gear) -2(fast reverse), -1, 0(stop), 1, 2, 3(full speed ahead)
-        cOutputPin m_oOutputPWM;		// the output pin for the manipulated value
+        cOutputPin m_oOutputPWM;                // the output pin for the manipulated value
 
     public:
         SpeedControl(const tChar* __info);
@@ -52,6 +37,13 @@ class SpeedControl : public adtf::cFilter
 		*/
         tFloat32 getControllerValue(tFloat32 measuredSpeed);
 
+        /*! update state of car according to current speed */
+        tResult updateState();
+
+        /*! switch on/off brake and reverse lights */
+        tResult setBrakeLights (tBool state);
+        tResult setReverseLights (tBool state);
+
 		/*! returns the currentstreamtime*/
 		tTimeStamp GetTime();
 		
@@ -67,9 +59,40 @@ class SpeedControl : public adtf::cFilter
 		/*! holds the last sample time */
 		tTimeStamp m_lastSampleTime;
 
+        /*! all other thresholds and definable variables */
+        tFloat32 m_threshold_p3;
+        tFloat32 m_threshold_p2;
+        tFloat32 m_threshold_p1;
+        tFloat32 m_threshold_p0;
+        tFloat32 m_threshold_n0;
+        tFloat32 m_threshold_n1;
+        tFloat32 m_threshold_n2;
+
+        tFloat32 m_pwm_p3;
+        tFloat32 m_pwm_p2;
+        tFloat32 m_pwm_p1;
+        tFloat32 m_pwm_0;
+        tFloat32 m_pwm_n1;
+        tFloat32 m_pwm_n2;
+
+        tFloat32 m_pwm_boost_p3;
+        tFloat32 m_pwm_boost_p2;
+        tFloat32 m_pwm_boost_p1;
+        tFloat32 m_pwm_boost_n1;
+        tFloat32 m_pwm_boost_n2;
+
+        tFloat32 m_strongBrake;
+        tFloat32 m_lightBrake;
+
+        tFloat32 m_inv_strongBrake;
+        tFloat32 m_inv_lightBrake;
+
+        tFloat32 m_pwmScaler;
 
 	    /*! Coder Descriptor for the pins*/
-	    cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;		
+        cObjectPtr<IMediaTypeDescription> m_pCoderDescSignaltSignalValue;
+        cObjectPtr<IMediaTypeDescription> m_pCoderDescSignalint8;
+        cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;
 	
 };
 

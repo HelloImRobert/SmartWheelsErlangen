@@ -8,8 +8,8 @@ adtf_add_filter(${FILTER_NAME}
     stdafx.h
     stdafx.cpp
 
-    #SWE_KIControl.h
-    #SWE_KIControl.cpp
+    SWE_KIControl.h
+    SWE_KIControl.cpp
 
 )
 

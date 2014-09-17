@@ -1,6 +1,16 @@
+/*! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ *
+ * zu klaeren: wo findet Umrechnung in mm statt??
+    Optionen: > in den calibration files (xml)
+              > in den calibration filtern
+              > in diesem filter
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+*/
+
+
+
+
 #include "SWE_DistanceMeasurement.h"
-
-
 
 ADTF_FILTER_PLUGIN("SWE_DistanceMeasurement", OID_ADTF_SWE_DISTANCEMEASUREMENT, SWE_DistanceMeasurement)
 
@@ -19,7 +29,7 @@ ADTF_FILTER_PLUGIN("SWE_DistanceMeasurement", OID_ADTF_SWE_DISTANCEMEASUREMENT, 
 #define POS_USS_REAR			-110    	//x-Value
 #define POS_USS_REAR_LEFT 		56			//y-Value
 #define POS_USS_REAR_RIGHT 		-56			//y-Value
-#define INVALIDE_VALUE 			9999
+#define INVALID_VALUE 			9999
 #define USS_SINUS 				0.258819
 #define USS_COSINUS 			0.965926
 
@@ -87,9 +97,23 @@ tResult SWE_DistanceMeasurement::Init(tInitStage eStage, __exception)
         RETURN_IF_FAILED(RegisterPin(&m_pin_input_ir_rear_right_short));
 
 
-        // Output pins
-        RETURN_IF_FAILED(m_pin_output_detectedPoints.Create("DetectedPoints", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
-        RETURN_IF_FAILED(RegisterPin(&m_pin_output_detectedPoints));
+        // Output pin
+
+        RETURN_IF_FAILED(m_pin_output_detectedPoints.Create( "DetectedPoints", new adtf::cMediaType( MEDIA_TYPE_STRUCTURED_DATA, MEDIA_SUBTYPE_STRUCT_FLOAT32 ) , static_cast<IPinEventSink*> (this) ) );
+        RETURN_IF_FAILED( RegisterPin( &m_pin_output_detectedPoints ) );
+
+        // try3 failed (original)
+        //RETURN_IF_FAILED(m_pin_output_detectedPoints.Create("DetectedPoints", new cMediaType(0, 0, 0, "tFloat32"), static_cast<IPinEventSink*> (this)));
+        //RETURN_IF_FAILED(RegisterPin(&m_pin_output_detectedPoints));
+
+        //try2 failed
+        //RETURN_IF_FAILED(m_pin_output_detectedPoints.Create("DetectedPoints", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+        //RETURN_IF_FAILED(RegisterPin(&m_pin_output_detectedPoints));
+
+        // try1 failed
+        //RETURN_IF_FAILED(m_pin_output_detectedPoints.Create( "DetectedPoints",
+        //                    cObjectPtr<IMediaType>( new adtf::cMediaType( MEDIA_TYPE_STRUCTURED_DATA, MEDIA_SUBTYPE_STRUCT_FLOAT32 ) ), NULL ) );
+        //RETURN_IF_FAILED( RegisterPin( &m_pin_output_detectedPoints ) );
 
     }
     else if (eStage == StageNormal)
@@ -204,7 +228,7 @@ tResult SWE_DistanceMeasurement::sendData()
         cObjectPtr<IMediaSample> pNewSample;
         RETURN_IF_FAILED( AllocMediaSample((tVoid**) &pNewSample) );
         RETURN_IF_POINTER_NULL( pNewSample );
-        RETURN_IF_FAILED( pNewSample->Update( _timeOfLastSample, &_detected_vect.at(0), sizeof(std::pair <tFloat32,tFloat32>), IMediaSample::MSF_None) );
+        RETURN_IF_FAILED( pNewSample->Update( _timeOfLastSample, &_detected_vect, sizeof(_detected_vect), IMediaSample::MSF_None) );
         m_pin_output_detectedPoints.Transmit( pNewSample );
 
     RETURN_NOERROR;
@@ -232,8 +256,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // FRONT LEFT
     if(_mean.uss_front_left <= 200)
     {
-        _transformed.uss_front_left.first = INVALIDE_VALUE;
-        _transformed.uss_front_left.second = INVALIDE_VALUE;
+        _transformed.uss_front_left.first = INVALID_VALUE;
+        _transformed.uss_front_left.second = INVALID_VALUE;
     }
     else if(_mean.uss_front_left > 200 && _mean.uss_front_left < 1500)
     {
@@ -246,15 +270,15 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.uss_front_left >= 1500)
     {
-        _transformed.uss_front_left.first = INVALIDE_VALUE;
-        _transformed.uss_front_left.second = INVALIDE_VALUE;
+        _transformed.uss_front_left.first = INVALID_VALUE;
+        _transformed.uss_front_left.second = INVALID_VALUE;
     }
 
     // FRONT RIGHT
     if(_mean.uss_front_right <= 200)
     {
-        _transformed.uss_front_right.first = INVALIDE_VALUE;
-        _transformed.uss_front_right.second = INVALIDE_VALUE;
+        _transformed.uss_front_right.first = INVALID_VALUE;
+        _transformed.uss_front_right.second = INVALID_VALUE;
     }
     else if(_mean.uss_front_right > 200 && _mean.uss_front_right < 1500)
     {
@@ -267,15 +291,15 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.uss_front_right >= 1500)
     {
-        _transformed.uss_front_right.first = INVALIDE_VALUE;
-        _transformed.uss_front_right.second = INVALIDE_VALUE;
+        _transformed.uss_front_right.first = INVALID_VALUE;
+        _transformed.uss_front_right.second = INVALID_VALUE;
     }
 
     // REAR LEFT
     if(_mean.uss_rear_left <= 200)
     {
-        _transformed.uss_rear_left.first = INVALIDE_VALUE;
-        _transformed.uss_rear_left.second = INVALIDE_VALUE;
+        _transformed.uss_rear_left.first = INVALID_VALUE;
+        _transformed.uss_rear_left.second = INVALID_VALUE;
     }
     else if(_mean.uss_rear_left > 200 && _mean.uss_rear_left < 1500)
     {
@@ -288,15 +312,15 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.uss_rear_left >= 1500)
     {
-        _transformed.uss_rear_left.first = INVALIDE_VALUE;
-        _transformed.uss_rear_left.second = INVALIDE_VALUE;
+        _transformed.uss_rear_left.first = INVALID_VALUE;
+        _transformed.uss_rear_left.second = INVALID_VALUE;
     }
 
     // REAR RIGHT
     if(_mean.uss_rear_right <= 200)
     {
-        _transformed.uss_rear_right.first = INVALIDE_VALUE;
-        _transformed.uss_rear_right.second = INVALIDE_VALUE;
+        _transformed.uss_rear_right.first = INVALID_VALUE;
+        _transformed.uss_rear_right.second = INVALID_VALUE;
     }
     else if(_mean.uss_rear_right > 200 && _mean.uss_rear_right < 1500)
     {
@@ -309,8 +333,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.uss_rear_right >= 1500)
     {
-        _transformed.uss_rear_right.first = INVALIDE_VALUE;
-        _transformed.uss_rear_right.second = INVALIDE_VALUE;
+        _transformed.uss_rear_right.first = INVALID_VALUE;
+        _transformed.uss_rear_right.second = INVALID_VALUE;
     }
 
 
@@ -319,8 +343,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // FRONT LEFT
     if(_mean.ir_front_left_short <= 50)
     {
-        _transformed.ir_front_left.first = INVALIDE_VALUE;
-        _transformed.ir_front_left.second = INVALIDE_VALUE;
+        _transformed.ir_front_left.first = INVALID_VALUE;
+        _transformed.ir_front_left.second = INVALID_VALUE;
     }
     else if(_mean.ir_front_left_short > 50 && _mean.ir_front_left_short <= 150)
     {
@@ -355,16 +379,16 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_front_left_short > 150 && _mean.ir_front_left_long >= 600)
     {
-        _transformed.ir_front_left.first = INVALIDE_VALUE;
-        _transformed.ir_front_left.second = INVALIDE_VALUE;
+        _transformed.ir_front_left.first = INVALID_VALUE;
+        _transformed.ir_front_left.second = INVALID_VALUE;
     }
 
 
     // FRONT RIGHT
     if(_mean.ir_front_right_short <= 50)
     {
-        _transformed.ir_front_right.first = INVALIDE_VALUE;
-        _transformed.ir_front_right.second = INVALIDE_VALUE;
+        _transformed.ir_front_right.first = INVALID_VALUE;
+        _transformed.ir_front_right.second = INVALID_VALUE;
     }
     else if(_mean.ir_front_right_short > 50 && _mean.ir_front_right_short <= 150)
     {
@@ -399,16 +423,16 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_front_right_short > 150 && _mean.ir_front_right_long >= 600)
     {
-        _transformed.ir_front_right.first = INVALIDE_VALUE;
-        _transformed.ir_front_right.second = INVALIDE_VALUE;
+        _transformed.ir_front_right.first = INVALID_VALUE;
+        _transformed.ir_front_right.second = INVALID_VALUE;
     }
 
 
     // FRONT CENTER
     if(_mean.ir_front_center_short <= 50)
     {
-        _transformed.ir_front_center.first = INVALIDE_VALUE;
-        _transformed.ir_front_center.second = INVALIDE_VALUE;
+        _transformed.ir_front_center.first = INVALID_VALUE;
+        _transformed.ir_front_center.second = INVALID_VALUE;
     }
     else if(_mean.ir_front_center_short > 50 && _mean.ir_front_center_short <= 150)
     {
@@ -443,16 +467,16 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_front_center_short > 150 && _mean.ir_front_center_long >= 600)
     {
-        _transformed.ir_front_center.first = INVALIDE_VALUE;
-        _transformed.ir_front_center.second = INVALIDE_VALUE;
+        _transformed.ir_front_center.first = INVALID_VALUE;
+        _transformed.ir_front_center.second = INVALID_VALUE;
     }
 
 
     // REAR CENTER
     if(_mean.ir_rear_center_short <= 50)
     {
-        _transformed.ir_rear_center.first = INVALIDE_VALUE;
-        _transformed.ir_rear_center.second = INVALIDE_VALUE;
+        _transformed.ir_rear_center.first = INVALID_VALUE;
+        _transformed.ir_rear_center.second = INVALID_VALUE;
     }
     else if(_mean.ir_rear_center_short > 50 && _mean.ir_rear_center_short < 150)
     {
@@ -465,16 +489,16 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_rear_center_short >= 150)
     {
-        _transformed.ir_rear_center.first = INVALIDE_VALUE;
-        _transformed.ir_rear_center.second = INVALIDE_VALUE;
+        _transformed.ir_rear_center.first = INVALID_VALUE;
+        _transformed.ir_rear_center.second = INVALID_VALUE;
     }
 
 
     // REAR LEFT
     if(_mean.ir_rear_left_short <= 50)
     {
-        _transformed.ir_rear_left.first = INVALIDE_VALUE;
-        _transformed.ir_rear_left.second = INVALIDE_VALUE;
+        _transformed.ir_rear_left.first = INVALID_VALUE;
+        _transformed.ir_rear_left.second = INVALID_VALUE;
     }
     else if(_mean.ir_rear_left_short > 50 && _mean.ir_rear_left_short < 150)
     {
@@ -487,16 +511,16 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_rear_left_short >= 150)
     {
-        _transformed.ir_rear_left.first = INVALIDE_VALUE;
-        _transformed.ir_rear_left.second = INVALIDE_VALUE;
+        _transformed.ir_rear_left.first = INVALID_VALUE;
+        _transformed.ir_rear_left.second = INVALID_VALUE;
     }
 
 
     // REAR RIGHT
     if(_mean.ir_rear_right_short <= 50)
     {
-        _transformed.ir_rear_right.first = INVALIDE_VALUE;
-        _transformed.ir_rear_right.second = INVALIDE_VALUE;
+        _transformed.ir_rear_right.first = INVALID_VALUE;
+        _transformed.ir_rear_right.second = INVALID_VALUE;
     }
     else if(_mean.ir_rear_right_short > 50 && _mean.ir_rear_right_short < 150)
     {
@@ -509,8 +533,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_rear_right_short >= 150)
     {
-        _transformed.ir_rear_left.first = INVALIDE_VALUE;
-        _transformed.ir_rear_left.second = INVALIDE_VALUE;
+        _transformed.ir_rear_left.first = INVALID_VALUE;
+        _transformed.ir_rear_left.second = INVALID_VALUE;
     }
 
 

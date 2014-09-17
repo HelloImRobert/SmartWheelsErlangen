@@ -4,7 +4,7 @@
 		<language_version>3.00</language_version>
 		<author>odroid</author>
 		<date_creation>22.12.2014</date_creation>
-		<date_change>04.02.2015</date_change>
+		<date_change>22.02.2015</date_change>
 		<description>ADTF generated</description>
 	</header>
 	<units>
@@ -166,6 +166,13 @@
 		</struct>
 		<struct alignment="1" name="tFloat64complex" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="tFloat64complex" type="tFloat64" />
+		</struct>
+		<struct alignment="1" name="tInt8SignalValue" version="1">
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="int8Value" type="tInt8" />
+		</struct>
+		<struct alignment="1" name="tKITC" version="1">
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="tInt8ValueSpeed" type="tInt8" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1" name="tInt8ValueCommand" type="tInt8" />
 		</struct>
 	</structs>
 	<streams />

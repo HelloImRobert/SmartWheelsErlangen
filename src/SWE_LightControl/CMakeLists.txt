@@ -9,7 +9,7 @@ stdafx.h
 stdafx.cpp
 
    SWE_LightControl.h
-    SWE_LightControl.cpp
+   SWE_LightControl.cpp
 
 )
 
