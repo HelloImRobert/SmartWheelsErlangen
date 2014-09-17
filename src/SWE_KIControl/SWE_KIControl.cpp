@@ -414,19 +414,19 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
 
 
-                       stringstream elementGetter;
-                      for( size_t j = 0; j < 10; j++)
-                        {
-                           elementGetter << "tPoint[" << j << "].xCoord";
-                          pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
-                          elementGetter.str(std::string());
+//                       stringstream elementGetter;
+//                      for( size_t j = 0; j < 10; j++)
+//                        {
+//                           elementGetter << "tPoint[" << j << "].xCoord";
+//                          pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
+//                          elementGetter.str(std::string());
 
-                          elementGetter << "tPoint[" << j << "].yCoord";
-                           pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
-                            elementGetter.str(std::string());
-                       }
+//                          elementGetter << "tPoint[" << j << "].yCoord";
+//                           pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
+//                            elementGetter.str(std::string());
+//                       }
 
-            m_pCoderDescInputMeasured->Unlock(pCoder);
+//            m_pCoderDescInputMeasured->Unlock(pCoder);
 
 
 

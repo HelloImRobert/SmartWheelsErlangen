@@ -116,21 +116,21 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         SetPropertyBool("A_ActivateManeuvering", true);
         SetPropertyFloat("A_ManeuverAngleOne(DEG)", 35.0);
         SetPropertyFloat("A_ManeuverAngleTwo(DEG)", 17.0);
-        SetPropertyFloat("A_DriftCompensation", 5.0);
+        SetPropertyFloat("A_DriftCompensation", 0.0);
         SetPropertyFloat("AP_firstAnlge", 2.0);
         SetPropertyFloat("AP_secondAnlge", 15.0);
         SetPropertyFloat("AP_thirdAnlge", 22.0);
         SetPropertyFloat("AP_fourthAnlge", 37.0);
-        SetPropertyFloat("AP_DriftComp(DEG)", 13.0);
+        SetPropertyFloat("AP_DriftComp(DEG)", 0.0);
 
 
-        SetPropertyFloat("C_LotSize", 450.0);
-        SetPropertyFloat("C_StraightForward(mm)", 100.0);
+        SetPropertyFloat("C_LotSize", 400.0);
+        SetPropertyFloat("C_StraightForward(mm)", 60.0);
         SetPropertyFloat("C_HeadingAngleLeftForward(DEG)", 35.0);
-        SetPropertyFloat("C_PerpendicularBackward(mm)", 470.0);
+        SetPropertyFloat("C_PerpendicularBackward(mm)", 250.0);
 
-        SetPropertyFloat("C_PullLeftStraight(mm)", 720.0);
-        SetPropertyFloat("C_PullRightStraight(mm)", 300.0);
+        SetPropertyFloat("CP_PullLeftStraight(mm)", 720.0);
+        SetPropertyFloat("CP_PullRightStraight(mm)", 300.0);
 
 
 
@@ -224,15 +224,19 @@ tResult cSWE_ParkPilot::CreateOutputPins(__exception)
     RETURN_IF_FAILED(RegisterPin(&m_outputBlink));
 
     // PARKSTATE OUTPUT
-    tChar const * strDescParkOutput = pDescManager->GetMediaDescription("tInt8SignalValue");
-    RETURN_IF_POINTER_NULL(strDescParkOutput);
-    cObjectPtr<IMediaType> pTypeParkOutput = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescParkOutput,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
-    RETURN_IF_FAILED(pTypeParkOutput->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescParkOutput));
+    tChar const * strDescTCOutput2 = pDescManager->GetMediaDescription("tInt8SignalValue");
+    RETURN_IF_POINTER_NULL(strDescTCOutput2);
+    cObjectPtr<IMediaType> pTypeParkData = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescTCOutput2,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeParkData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescParkOutput));
 
-    RETURN_IF_FAILED(m_outputParkState.Create("Park_State", pTypeParkOutput, static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_outputParkState));
+    RETURN_IF_FAILED(m_oOutputParking.Create("Parkinglooti", pTypeParkData, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputParking));
 
-    RETURN_NOERROR;
+
+
+ RETURN_NOERROR;
+
+
 }
 
 tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
@@ -252,7 +256,7 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
 
         // lot sizes
         m_AlongsideSize = (tFloat32)GetPropertyFloat("A_LotSize", 765.0);
-        m_CrossSize = (tFloat32)GetPropertyFloat("C_LotSize", 450.0);
+        m_CrossSize = (tFloat32)GetPropertyFloat("C_LotSize", 400.0);
 
         // alongside park and pull
         m_centralAngleSteering = (tFloat32)GetPropertyFloat("A_CentralAngleSteering(0-1max)", 1.0);
@@ -262,19 +266,19 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
         m_manAngleTwo = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_ManeuverAngleTwo(DEG)");
         m_activeManeuvering = (tBool)GetPropertyBool("A_ActivateManeuvering", false);
         m_distStartPark = GetPropertyFloat("A_StraightForward(mm)");
-        m_driftComp = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_DriftCompensation", 5.0);
+        m_driftComp = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_DriftCompensation", 0.0);
         m_pullFirst = DEG_TO_RAD * GetPropertyFloat("AP_firstAnlge", 2.0);
         m_pullSecond = DEG_TO_RAD * GetPropertyFloat("AP_secondAnlge", 15.0);
         m_pullThird = DEG_TO_RAD * GetPropertyFloat("AP_thirdAnlge", 22.0);
         m_pullFourth = DEG_TO_RAD * GetPropertyFloat("AP_fourthAnlge", 39.0);
-        m_pullDriftComp = DEG_TO_RAD * GetPropertyFloat("AP_DriftComp(DEG)", 13.0);
+        m_pullDriftComp = DEG_TO_RAD * GetPropertyFloat("AP_DriftComp(DEG)", 0.0);
 
         // cross park and pull
-        m_straightForward = GetPropertyFloat("C_StraightForward(mm)", 100.0);
+        m_straightForward = GetPropertyFloat("C_StraightForward(mm)", 60.0);
         m_headingAngleForward = DEG_TO_RAD * (tFloat32)GetPropertyFloat("C_HeadingAngleLeftForward(DEG)");
         m_perpendicularBackward = GetPropertyFloat("C_PerpendicularBackward(mm)");
-        m_pullLeftStraight = GetPropertyFloat("C_PullLeftStraight(mm)");
-        m_pullRightStraight = GetPropertyFloat("C_PullRightStraight(mm)");
+        m_pullLeftStraight = GetPropertyFloat("CP_PullLeftStraight(mm)");
+        m_pullRightStraight = GetPropertyFloat("CP_PullRightStraight(mm)");
 
 
     }
@@ -401,6 +405,8 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             {
                 sendSteeringAngle( STEER_NEUTRAL );
                 sendSpeed( 1.0 );
+                //sendParkState(1);
+                //sendBlink(BLINK_LEFT);
                 LOG_ERROR(cString("PP: Trigger set, going forward" ));
                 m_testing = false;
             }
@@ -1102,31 +1108,34 @@ tResult cSWE_ParkPilot::sendSteeringAngle(tFloat32 steeringAngle)
 }
 
 
-tResult cSWE_ParkPilot::sendParkState(tInt8 parkState)
+tResult cSWE_ParkPilot::sendParkState(tInt8 value)
 {
     cObjectPtr<IMediaCoder> pCoder;
 
     //create new media sample
-    cObjectPtr<IMediaSample> pMediaSample;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
 
     //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
     cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderDescParkStateOut->GetMediaSampleSerializer(&pSerializer);
+    m_pCoderDescParkOutput->GetMediaSampleSerializer(&pSerializer);
     tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSample->AllocBuffer(nSize);
+    pMediaSampleOutput->AllocBuffer(nSize);
 
     //write date to the media sample with the coder of the descriptor
-    RETURN_IF_FAILED(m_pCoderDescParkStateOut->WriteLock(pMediaSample, &pCoder));
-    pCoder->Set("int8Value", (tVoid*)&(parkState));
-    m_pCoderDescParkStateOut->Unlock(pCoder);
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+    //---------------------------------------parkwert----------------------------------------------------------------------------------------
+    RETURN_IF_FAILED(m_pCoderDescParkOutput->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("int8Value", (tVoid*)&(value));
+    m_pCoderDescParkOutput->Unlock(pCoder);
 
     //transmit media sample over output pin
-    //RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_outputParkState.Transmit(pMediaSample));
-
+    // ADAPT: m_oIntersectionPointLeft
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputParking.Transmit(pMediaSampleOutput));
     RETURN_NOERROR;
-
 }
 
 

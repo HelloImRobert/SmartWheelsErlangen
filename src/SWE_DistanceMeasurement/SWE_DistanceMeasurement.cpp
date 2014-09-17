@@ -40,7 +40,6 @@ SWE_DistanceMeasurement::SWE_DistanceMeasurement(const tChar* __info) : cFilter(
 {
     SetPropertyFloat("Filter Strength", 0.7);
     SetPropertyFloat("IRscaler", 1.3);
-    SetPropertyInt("Stop Time in ms", 800);
 //    _mean.uss_front_left = INVALIDE_HIGH;
 //    _mean.uss_front_right = INVALIDE_HIGH;
 //    _mean.uss_rear_right = INVALIDE_HIGH;
@@ -132,7 +131,6 @@ tResult SWE_DistanceMeasurement::Init(tInitStage eStage, __exception)
     {
         _filter_strength = (tFloat32)GetPropertyFloat("Filter Strength");
         _IRscaler = (tFloat32)GetPropertyFloat("IRscaler");
-        _stopTime =  (tInt32)GetPropertyInt("Stop Time in ms", 800) * (TIMER_RESOLUTION / 1000.0);
     }
     else if(eStage == StageGraphReady)
     {
@@ -144,7 +142,6 @@ tResult SWE_DistanceMeasurement::Init(tInitStage eStage, __exception)
 
 tResult SWE_DistanceMeasurement::Start(__exception)
 {
-    _timerStart = GetTime();
     return cFilter::Start(__exception_ptr);
 }
 
@@ -234,10 +231,7 @@ tResult SWE_DistanceMeasurement::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
             {
                 _mean.ir_rear_right_short = weightedMean(signalValue,_mean.ir_rear_right_short);
 
-                if( GetTime() - _timerStart >= _stopTime)
-                {
                     sendData();
-                }
             }
 
             // Transform and fusion Sensor Data into Vehicle COS and send Data
