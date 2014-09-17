@@ -31,7 +31,7 @@ class cSWE_KIControl : public adtf::cFilter
     cOutputPin m_oOutputDriverCourse;
     cOutputPin m_oOutputLightControl;
     cOutputPin m_oOutputTC;
-
+    cOutputPin m_oOutputParking;
     //cOutputPin m_oOutputManipulated;
 
 public:
@@ -71,11 +71,13 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
 	bool parking;
     double Punktx;
     double Punkty;
+    tFloat32 signsize;
     //MB Funktionen die benoetigt werden
     void ObjectAvoidance();
     void DriverCalc();
     tResult sendTC(int speed, int type);
-    void Parkroutine();
+
+    tResult Parkroutine(int value);
     void ControlHL();
     tResult ControlLight(int lights);
 
@@ -89,6 +91,7 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
     //MB Objekte/Variablen die benoetigt werden output
     cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescTCOutput;
+     cObjectPtr<IMediaTypeDescription> m_pCoderDescParkOutput;
     /*! Coder Descriptors for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescPointLeft;

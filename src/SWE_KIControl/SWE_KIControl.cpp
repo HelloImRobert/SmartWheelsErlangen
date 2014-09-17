@@ -46,16 +46,23 @@ tResult cSWE_KIControl::CreateInputPins(__exception)
     RETURN_IF_FAILED(m_oInputRoadData.Create("RoadData", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputRoadData));
 
-    RETURN_IF_FAILED(m_oInputSignData.Create("SignData", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oInputSignData));
 
 
 
-    RETURN_IF_FAILED(m_oInputParkData.Create("ParkData", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+//whyyy dont you gooo
+    RETURN_IF_FAILED(m_oInputParkData.Create("ParkData", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputParkData));
 
     RETURN_IF_FAILED(m_oInputTC.Create("TCData", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputTC));
+
+
+    RETURN_IF_FAILED(m_oInputSignData.Create("SignData", new cMediaType(0, 0, 0, "tRoadSign"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oInputSignData));
+
+
+
+
     RETURN_NOERROR;
 }
 
@@ -91,6 +98,16 @@ tResult cSWE_KIControl::CreateOutputPins(__exception)
 
     RETURN_IF_FAILED(m_oOutputTC.Create("TCtoKIData", pTypeTCData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputTC));
+    //--------------------------------------------------------------
+    //----------------------------------------------------Parkingloot----Parkingloot------
+
+    tChar const * strDescTCOutput2 = pDescManager->GetMediaDescription("tInt8SignalValue");
+    RETURN_IF_POINTER_NULL(strDescTCOutput2);
+    cObjectPtr<IMediaType> pTypeParkData = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescTCOutput2,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeParkData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescParkOutput));
+
+    RETURN_IF_FAILED(m_oOutputParking.Create("Parkingloot", pTypeParkData, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputParking));
     //--------------------------------------------------------------
 
 
@@ -139,10 +156,15 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         roadfree=true;
         Signtype=0;
 		parking=false;
-        points[0].x=0;
-        points[0].y=200;
-        objecte[0].x=0;
-        objecte[0].y=200;
+        for(int a=0;a<10;a++)
+        {
+            points[a].x=0;
+            points[a].y=2000+a;
+            objecte[a].x=0;
+            objecte[a].y=2000+a;
+        }
+
+        signsize=0;
     }
     else if(eStage == StageGraphReady)
     {
@@ -206,15 +228,14 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
                 ObjectAvoidance();
 
-              // DriverCalc();
+                DriverCalc();
         }
         //--------------------------------------------------------------RoadData----------------------------------------------------------------------------------------
         else if(pSource == &m_oInputRoadData)
         {
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
-            int value=0;
-            pCoder->Get("int8Value", (tVoid*)&value); //Werte auslesen
+            pCoder->Get("PointArray", (tVoid*)&objecte); //Werte auslesen
             m_pCoderDescInputMeasured->Unlock(pCoder);
             //Punkte liste fuellen
 
@@ -224,40 +245,97 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         else if(pSource== &m_oInputSignData)
         {
           //  LOG_INFO(cString::Format( "MB:Ki empfange Qr"));
+            tInt8 value = 0;
+            tFloat32 area = 0;
            cObjectPtr<IMediaCoder> pCoder;
            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
-           int value=0;
-           pCoder->Get("int8Value", (tVoid*)&value);
+
+           pCoder->Get("i8Identifier", (tVoid*)&value);
+           pCoder->Get("fl32Imagesize", (tVoid*)&area);
+
+
            m_pCoderDescInputMeasured->Unlock(pCoder);
 
-            if(parking&&value==1)//und wenn schildtyp parken.
+
+
+
+// So bekommen wir die Daten
+           //Vorfahrt gewaehren 1
+
+           //Vorfahrt an naechster Kreuzung 2
+
+           //Halt! Vorfahrt gewaehren (Stop) 3
+
+           //Parken 4
+
+           //Vorgeschriebene Fahrtrichtung geradeaus 5
+
+           //Kreuzung 6
+
+           //erstmal unwichtig
+           //Fussgaengerueberweg 7
+
+           //Kreisverkehr 8
+
+           //Ueberholverbot 9
+
+           //Verbot der Einfahrt 10
+
+           //Einbahnstrasse 11
+
+
+            if(parking&&value==4)//und wenn schildtyp parken.
             {
-				SecondSigntype=1;
+                if(signsize>area)
+                {
+                    signsize=area;
+                }
+                else
+                {
+                    SecondSigntype=4;
+                }
 			}
-            else if(value==3)//wenn Nur gerade aus Schild
+            else if(value==5)//wenn Nur gerade aus Schild
 			{
-				SecondSigntype=3;
+                SecondSigntype=5;
 			}
-            else if(value!=1)//wenn schildtyp nicht parken
+            else if(value<=3 || value==6)//wenn schildtyp nicht parken
 			{
-                 Signtype=value;
-			}          
-            /*Hier den  ausgelesenen Wert aus dem Schilder modul rein
-            Es gibt folgende Schildtypen:
-			1=Parken
-			2=Vorfahrt
-			3=Nur gerade aus
-			4=geweahren
-			5=halt
-			6=Vorfahrt rechts
-            */
+                if(signsize>area)
+                {
+                }
+                else
+                {
+                   signsize=area;
+                   Signtype=value;
+                }
+			}                 
 
         }
         //--------------------------------------------------------------Parkdaten einlesen----------------------------------------------------------------------------------------
 
         else if(pSource==&m_oInputParkData)
         {
-            Parkroutine();
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+            int value=0;
+            pCoder->Get("int8Value", (tVoid*)&value);
+            m_pCoderDescInputMeasured->Unlock(pCoder);
+
+            if(value==1 && (Commands[CommandCounter]==4 ||Commands[CommandCounter]==5))
+            {
+                if(CommandCounter!=0)
+                {
+                   CommandCounter--;
+                }
+            }
+            else if(value==2 && (Commands[CommandCounter]==6 ||Commands[CommandCounter]==7))
+            {
+                if(CommandCounter!=0)
+                {
+                   CommandCounter--;
+                }
+             }
         }
         //--------------------------------------------------------------Daten vom TC einlesen----------------------------------------------------------------------------------------
 
@@ -302,9 +380,34 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 //--------------------------------------------------------------Parken-------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void cSWE_KIControl::Parkroutine()
+tResult cSWE_KIControl::Parkroutine(int value)
 {
+    cObjectPtr<IMediaCoder> pCoder;
 
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescParkOutput->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+    //---------------------------------------Front scheinwerfer-----------------------------------------------------------------------------------------
+    RETURN_IF_FAILED(m_pCoderDescParkOutput->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("int8Value", (tVoid*)&(value));
+    m_pCoderDescParkOutput->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    // ADAPT: m_oIntersectionPointLeft
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputParking.Transmit(pMediaSampleOutput));
+   RETURN_NOERROR;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------ObjectAvoidance-------------------------------------------------------------------------------------------------------------
@@ -321,14 +424,17 @@ void cSWE_KIControl::ObjectAvoidance()
 
     cv::Point2d pointtocheck;
 
-
+//Die werte für das Objekt array
         int t=10;
         int i=0;
+
+//Alle Objekte durchlaufen
         for( i=0;i<t;i++)
 		{
            LOG_INFO(cString::Format( "MB:Ki Object wert eingelesen"));
- ControlLight(9);
-          if(objecte[i].x!=0 && objecte[i].y!=0 && 1==0)
+
+//Wenn objekte gleich 0,0 oder 9999,9999 nicht beachten
+          if((objecte[i].x!=0 && objecte[i].y!=0) ||(objecte[i].x!=9999 && objecte[i].y!=9999))
           {
 
 			if(halteLinie)
@@ -341,12 +447,16 @@ void cSWE_KIControl::ObjectAvoidance()
 				3=gerade aus und beides
 				4=links und rechts
 				  Es gibt folgende Schildtypen:
-			1=Parken
+
+            1=geweahren
 			2=Vorfahrt
-			3=Nur gerade aus
-			4=geweahren
-			5=halt
+            3=halt
+            4=Parken
+            5=Nur gerade aus
 			6=Vorfahrt rechts
+
+
+
 				*/
 				switch(Signtype)
 				{
@@ -355,7 +465,7 @@ void cSWE_KIControl::ObjectAvoidance()
 						roadfree=true;
 						break;
 						break;
-                    case 4||5:
+                    case 1||3:
 						//immmer, die Kreuzung an sich prüfen
                         if(kreuzungstyp==1)
 						{
@@ -514,12 +624,10 @@ void cSWE_KIControl::ObjectAvoidance()
 			}
 			else
 			{
-
-
-                if(10>0)//Point checken ob leer-----------------------------------------------------------------------------
-                {
-                    int ti=1;//10 reinschreiben später
+                //Straßenpunkte  auf 10 setzen
+                    int ti=10;
                     int ia=0;
+                    //Alle Straßenpunkte durchlaufen
                     for( ia=0;ia<ti;ia++)
                     {
                         if(ia==0)
@@ -575,7 +683,7 @@ void cSWE_KIControl::ObjectAvoidance()
                         }
 
                     }
-                }
+
 			}
           }
         }
@@ -659,6 +767,13 @@ void cSWE_KIControl::DriverCalc()
        * 7=ausparken2
        *
 
+       Schildtypen:
+            1=geweahren
+            2=Vorfahrt
+            3=halt
+            4=Parken
+            5=Nur gerade aus
+            6=Vorfahrt rechts
 
  */
 
@@ -668,13 +783,13 @@ void cSWE_KIControl::DriverCalc()
     {
         //left-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 1:
-            if(Signtype<=1)
+            if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
             {
                  sendTC(SpeedControl,1);
                  LOG_INFO(cString::Format( "MB:KiLicht an "));
                   ControlLight(1);
             }
-            else if(Signtype>1)
+            else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
             {
 
                 //an Schildtyp anpassen:
@@ -685,11 +800,11 @@ void cSWE_KIControl::DriverCalc()
                 {
 					if(!hlsearch)
 						   ControlHL();
-                    if(Signtype==5)
-                    {
+
+                    //immer bisschen warten am besten aber nur 1 mal
                         tTimeStamp m_currTimeStamp= cSystem::GetTime();
                         while((cSystem::GetTime()-m_currTimeStamp)<5);
-                    }
+
 					//Hier muss Kreuzungstyp feststehen
 					if(SecondSigntype!=3 && kreuzungstyp!=2 )//alle typen bei dennen ein links abbiegen möglich ist.
 					{
@@ -704,6 +819,7 @@ void cSWE_KIControl::DriverCalc()
 							}
 							Signtype=0;
 							SecondSigntype=0;
+                            signsize=0;
 							abgebogen=false;
 							halteLinie=false;
 							roadfree=true;
@@ -725,6 +841,7 @@ void cSWE_KIControl::DriverCalc()
 							
 							Signtype=0;
 							SecondSigntype=0;
+                            signsize=0;
 							abgebogen=false;
 							halteLinie=false;
 							roadfree=true;
@@ -753,12 +870,13 @@ void cSWE_KIControl::DriverCalc()
          break;
         //right-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 2:
-        if(Signtype<=1)
+        if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
         {
              sendTC(SpeedControl,1);
+             LOG_INFO(cString::Format( "MB:KiLicht an "));
               ControlLight(1);
         }
-        else if(Signtype>1)
+        else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
         {
 
             //an Schildtyp anpassen:
@@ -838,12 +956,13 @@ void cSWE_KIControl::DriverCalc()
         break;
         //straigth-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 3:
-        if(Signtype<=1)
+        if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
         {
              sendTC(SpeedControl,1);
+             LOG_INFO(cString::Format( "MB:KiLicht an "));
               ControlLight(1);
         }
-        else if(Signtype>1)
+        else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
         {
 
             //an Schildtyp anpassen:
@@ -923,15 +1042,33 @@ void cSWE_KIControl::DriverCalc()
         break;
         //Einparken1-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 4:
+                    parking=true;
+                    //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das größte schild ist das erkannt wird
+                    if(SecondSigntype==4)
+                    {
+                         Parkroutine(1);
+                    }
+
+
                     break;
         //einparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 5:
+             parking=true;
+             //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das größte schild ist das erkannt wird
+                 if(SecondSigntype==4)
+                 {
+                      Parkroutine(2);
+                 }
                     break;
         //ausparken1-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 6:
+                    SecondSigntype=0;
+                    Parkroutine(3);
                     break;
         //ausparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 7:
+                    SecondSigntype=0;
+                    Parkroutine(4);
                     break;
 
     }
@@ -959,6 +1096,8 @@ tResult cSWE_KIControl::ControlLight(int lights)
     *
     *
     */
+    if(lights==9)
+    {
     cObjectPtr<IMediaCoder> pCoder;
 
     //create new media sample
@@ -984,7 +1123,7 @@ tResult cSWE_KIControl::ControlLight(int lights)
     // ADAPT: m_oIntersectionPointLeft
     RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(m_oOutputLightControl.Transmit(pMediaSampleOutput));
-
+}
 RETURN_NOERROR;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
