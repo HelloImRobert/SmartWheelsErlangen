@@ -1,0 +1,12 @@
+# add the include directory of the filter
+include_directories(../include)
+# declare our filter
+adtf_add_filter(SWE_TrackControl
+    stdafx.h
+    stdafx.cpp
+
+    SWE_TrackControl.h
+    SWE_TrackControl.cpp
+)
+
+adtf_install_plugin(SWE_TrackControl ${AADC_INSTALL_DIR})

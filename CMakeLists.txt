@@ -1,0 +1,12 @@
+include_directories(./include)
+
+add_subdirectory(src/SWE_TemplateFilter)
+add_subdirectory(src/SWE_LaneDetection)
+add_subdirectory(src/SWE_TrackControl)
+add_subdirectory(src/SWE_Odometry)
+add_subdirectory(src/SWE_SpeedControl)
+add_subdirectory(src/SWE_IntersecPointCalc)
+add_subdirectory(src/SWE_KIControl)
+add_subdirectory(src/SWE_Dummy)
+add_subdirectory(src/SWE_SteeringControl)
+add_subdirectory(src/SWE_LightControl)

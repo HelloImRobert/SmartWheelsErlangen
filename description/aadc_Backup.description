@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="iso-8859-1" standalone="no"?>
+<adtf:ddl xmlns:adtf="adtf">
+	<header>
+		<language_version>3.00</language_version>
+		<author>BFFT GmbH</author>
+		<date_creation>04.07.2014</date_creation>
+		<date_change>04.07.2014</date_change>
+		<description>AADC Common Description File</description>
+	</header>
+	<structs>	
+	    <struct name="tArduinoData" aligment="1" version="1">
+			<element type="tInt8"	    name="i8SOF" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>		
+			<element type="tChar"	    name="chID" bytepos="1" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="2" 	arraysize="1" byteorder="LE" alignment="1"/>	
+			<element type="tInt8" 	    name="i8DataLength" 	bytepos="6" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tChar" 	    name="chData" 	bytepos="7" 	arraysize="25" byteorder="LE" alignment="1"/>								 
+		</struct> 
+		<struct name="tJuryEmergencyStopFlag" aligment="1" version="1">
+			 <element type="tBool" 		name="bEmergencyStopFlag" 			bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			 
+		</struct> 
+		<struct name="tJuryRun" aligment="1" version="1">
+			 <element type="tInt16" 	name="i16ManeuverEntry" 			bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			 
+		</struct> 
+		<struct name="tJuryStop" aligment="1" version="1">
+			 <element type="tBool" 		name="bStopFlag" 			bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			 
+		</struct> 
+		<struct name="tDriverState" aligment="1" version="1">
+			 <element type="tBool" 		name="bDriverState" 			bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>
+			 <element type="tInt16" 	name="i16ManeuverEntry" 			bytepos="1" 	arraysize="1" byteorder="LE" alignment="1"/>				 
+		</struct> 
+		<struct name="tSignalValue" aligment="1" version="1">
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tFloat32" 	name="f32Value" 			bytepos="4" 	arraysize="1" byteorder="LE" alignment="1"/>			 
+		</struct> 
+		<struct name="tBoolSignalValue" aligment="1" version="1">
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tBool" 		name="bValue" 			bytepos="4" 	arraysize="1" byteorder="LE" alignment="1"/>			 
+		</struct> 
+		<struct name="tVoltageData" aligment="1" version="1">
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			
+			<element type="tUInt16"		name="ui32MeasurementCircuit" bytepos="4" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt16" 	name="ui32PowerCircuit" 	bytepos="8" 	arraysize="1" byteorder="LE" alignment="1"/>			 
+		</struct> 
+		<struct name="tWheelEncoderData" aligment="1" version="1">
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			
+			<element type="tUInt32"		name="ui32LeftWheel" bytepos="4" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt32" 	name="ui32RightWheel" 	bytepos="8" 	arraysize="1" byteorder="LE" alignment="1"/>			 
+		</struct>
+		<struct name="tPhotoData" aligment="1" version="1">
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			
+			<element type="tUInt32"		name="ui32Luminosity" bytepos="4" 	arraysize="1" byteorder="LE" alignment="1"/>			
+		</struct>
+		<struct name="tSteeringAngleData" aligment="1" version="1">
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			
+			<element type="tUInt16"		name="ui16Angle" bytepos="4" 	arraysize="1" byteorder="LE" alignment="1"/>			
+		</struct>
+		<struct name="tIrData" aligment="1" version="1">
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			
+			<element type="tUInt16"	    name="ui16Front_Center_Longrange" bytepos="4" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt16" 	name="ui16Front_Center_Shortrange" 	bytepos="6" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt16" 	name="ui16Front_Left_Longrange" 	bytepos="8" 	arraysize="1" byteorder="LE" alignment="1"/>		
+			<element type="tUInt16" 	name="ui16Front_Left_Shortrange" 	bytepos="10" 	arraysize="1" byteorder="LE" alignment="1"/>		
+			<element type="tUInt16" 	name="ui16Front_Right_Shortrange" 	bytepos="12" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt16" 	name="ui16Front_Right_Longrange" 	bytepos="14" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt16" 	name="ui16Rear_center_Shortrange" 	bytepos="16" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt16" 	name="ui16Rear_Left_Shortrange" 	bytepos="18" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt16" 	name="ui16Rear_Right_Shortrange" 	bytepos="20" 	arraysize="1" byteorder="LE" alignment="1"/>							 
+		</struct>  	
+		<struct name="tUsData" aligment="1" version="1">
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			
+			<element type="tUInt16"	    name="ui16Front_Left" bytepos="4" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt16" 	name="ui16Front_Right" 	bytepos="6" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tUInt16" 	name="ui16Rear_Left" 	bytepos="8" 	arraysize="1" byteorder="LE" alignment="1"/>		
+			<element type="tUInt16" 	name="ui16Rear_Right" 	bytepos="10" 	arraysize="1" byteorder="LE" alignment="1"/>						 
+		</struct>
+		<struct name="tGyroData" aligment="1" version="1">
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			
+			<element type="tInt16"	    name="i16Q_w" bytepos="4" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tInt16" 	    name="i16Q_x" 	bytepos="6" 	arraysize="1" byteorder="LE" alignment="1"/>
+			<element type="tInt16" 	    name="i16Q_y" 	bytepos="8" 	arraysize="1" byteorder="LE" alignment="1"/>		
+			<element type="tInt16" 	    name="i16Q_z" 	bytepos="10" 	arraysize="1" byteorder="LE" alignment="1"/>									 
+		</struct> 
+		<struct name="tAccData" aligment="1" version="1">
+			<element type="tUInt32"		name="ui32ArduinoTimestamp" bytepos="0" 	arraysize="1" byteorder="LE" alignment="1"/>			
+			<element type="tInt16"	    name="i16A_x" bytepos="4" 	arraysize="1" byteorder="LE" alignment="1"/>                
+			<element type="tInt16"	    name="i16A_y" bytepos="6" 	arraysize="1" byteorder="LE" alignment="1"/>  
+			<element type="tInt16" 	    name="i16A_z" 	bytepos="8" 	arraysize="1" byteorder="LE" alignment="1"/>		
+			<element type="tInt16" 	    name="i16Temperature" 	bytepos="10" 	arraysize="1" byteorder="LE" alignment="1"/>									 
+	<units>
+	</units>
+	<datatypes>
+	</datatypes>
+	<enums>
+	</enums>
+	<structs>
+	</structs>
+	<streams>
+	</streams>
+</adtf:ddl>

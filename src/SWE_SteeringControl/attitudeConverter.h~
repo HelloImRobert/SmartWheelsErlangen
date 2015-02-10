@@ -1,0 +1,55 @@
+#ifndef _SWE_INTERSECPOINTCALC_H_
+#define _SWE_INTERSECPOINTCALC_H_
+
+#include "stdafx.h"
+
+
+#define OID_ADTF_TEMPLATE_FILTER "adtf.swe.intersecpointcalc"
+
+//*************************************************************************************************
+class cAttitudeFilter : public adtf::cFilter
+{
+	ADTF_DECLARE_FILTER_VERSION(OID_ADTF_QUATERNION_FILTER, "AADC Attitude Converter", OBJCAT_DataFilter, "Attitude Converter", 1, 0, 0, "Beta Version");	
+	
+    public:
+        cAttitudeFilter(const tChar* __info);
+        virtual ~cAttitudeFilter();
+	
+    protected: // overwrites cFilter
+        tResult Init(tInitStage eStage, __exception = NULL);
+        tResult Start(__exception = NULL);
+        tResult Stop(__exception = NULL);
+        tResult Shutdown(tInitStage eStage, __exception = NULL);
+        tResult OnPinEvent(IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample);
+	
+	private:
+	    tResult CreateOutputPins(__exception = NULL);
+		tResult CreateInputPins(__exception = NULL);
+		tFloat32 qW;
+		tFloat32 qX;
+		tFloat32 qY;
+		tFloat32 qZ;
+		tResult calulateEulerAngles(tFloat32 &yaw_out, tFloat32 &pitch_out, tFloat32 &roll_out); 
+
+		tResult TransmitAngles(tTimeStamp sampleTimeStamp, const tTimeStamp timeStampValue, const tFloat32 yaw, const tFloat32 pitch, const tFloat32 roll);
+
+		cInputPin m_oInput_qW;
+		cInputPin m_oInput_qX;
+		cInputPin m_oInput_qY;
+		cInputPin m_oInput_qZ;
+		cOutputPin m_oOutputPitch;
+		cOutputPin m_oOutputYaw;
+		cOutputPin m_oOutputRoll;
+		tInt m_EulerAnglesType; 
+		
+		tBool m_bDebugModeEnabled;
+		
+		/*! Coder Descriptor for the pins*/
+	    cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;
+};
+
+
+
+//*************************************************************************************************
+
+#endif // _QUATERNION_FILTER_H_
