@@ -12,17 +12,13 @@ ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_LANEDETECTION_FILTER , cSWE_Lan
 #define LOWER_SEARCH_BORDER "Cut Lower Border for Lane Detection"
 #define CORRESPING_POINTS_XML "Path to external Camera Params xml"
 #define KERNEL_WIDTH "Width of the Kernel"
-#define SMOOTHING_KERNEL_WIDTH "Width of the Smoothing Kernel"
 #define COUNT_OF_STDDEVS "Stddevs for the Thresholding"
-#define ROAD_WIDTH "Width of the Road in pixels"
-#define ROAD_WIDTH_TOLERANCE "Tolerance of the Distance between Lanes"
-#define FIT_WIDTH "Width of the area for line fitting"
-#define MAX_COUNT_LANES "Maximum possible count of lanes"
 #define MAX_ANGULAR_DEVIATION "Allowed deviation from 90°"
 
-bool sort_smaller(cv::Vec2f* lane1, cv::Vec2f* lane2){
+bool sort_smaller(cv::Vec2f* lane1, cv::Vec2f* lane2)
+{
         return (*lane1)[1] > (*lane2)[1];
-    }
+}
 
 /**
  * @brief cSWE_LaneDetection::cSWE_LaneDetection
@@ -59,42 +55,12 @@ cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
     SetPropertyInt( LOWER_SEARCH_BORDER NSSUBPROP_MINIMUM  , 0);
     SetPropertyInt( LOWER_SEARCH_BORDER NSSUBPROP_MAXIMUM  , 480);
 
-    SetPropertyInt( KERNEL_WIDTH , 3 );
-    SetPropertyBool( KERNEL_WIDTH NSSUBPROP_ISCHANGEABLE, tTrue);
-    SetPropertyInt( KERNEL_WIDTH NSSUBPROP_MINIMUM  , 3);
-    SetPropertyInt( KERNEL_WIDTH NSSUBPROP_MAXIMUM  , 25);
-
     SetPropertyInt( COUNT_OF_STDDEVS , 3);
     SetPropertyBool( COUNT_OF_STDDEVS NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyInt( COUNT_OF_STDDEVS NSSUBPROP_MINIMUM  , 0);
     SetPropertyInt( COUNT_OF_STDDEVS NSSUBPROP_MAXIMUM  , 5);
 
-    SetPropertyInt(SMOOTHING_KERNEL_WIDTH, 3);
-    SetPropertyBool(SMOOTHING_KERNEL_WIDTH NSSUBPROP_ISCHANGEABLE, tTrue);
-    SetPropertyInt(SMOOTHING_KERNEL_WIDTH NSSUBPROP_MINIMUM  , 3);
-    SetPropertyInt(SMOOTHING_KERNEL_WIDTH NSSUBPROP_MAXIMUM  , 25);
-
-    SetPropertyInt( ROAD_WIDTH , 30);
-    SetPropertyBool( ROAD_WIDTH  NSSUBPROP_ISCHANGEABLE, tTrue);
-    SetPropertyInt( ROAD_WIDTH  NSSUBPROP_MINIMUM  , 0);
-    SetPropertyInt( ROAD_WIDTH  NSSUBPROP_MAXIMUM  , 9999);
-
-    SetPropertyInt( ROAD_WIDTH_TOLERANCE , 10);
-    SetPropertyBool( ROAD_WIDTH_TOLERANCE  NSSUBPROP_ISCHANGEABLE, tTrue);
-    SetPropertyInt( ROAD_WIDTH_TOLERANCE  NSSUBPROP_MINIMUM  , 0);
-    SetPropertyInt( ROAD_WIDTH_TOLERANCE  NSSUBPROP_MAXIMUM  , 9999);
-
-    SetPropertyInt( FIT_WIDTH , 15);
-    SetPropertyBool( FIT_WIDTH  NSSUBPROP_ISCHANGEABLE, tTrue);
-    SetPropertyInt( FIT_WIDTH  NSSUBPROP_MINIMUM  , 0);
-    SetPropertyInt( FIT_WIDTH  NSSUBPROP_MAXIMUM  , 9999);
-
-    SetPropertyInt( MAX_COUNT_LANES , 4);
-    SetPropertyBool( MAX_COUNT_LANES  NSSUBPROP_ISCHANGEABLE, tTrue);
-    SetPropertyInt( MAX_COUNT_LANES  NSSUBPROP_MINIMUM  , 1);
-    SetPropertyInt( MAX_COUNT_LANES  NSSUBPROP_MAXIMUM  , 20);
-
-    SetPropertyStr( CORRESPING_POINTS_XML , "/home/odroid/Desktop/points.xml");
+    SetPropertyStr( CORRESPING_POINTS_XML , "/home/odroid/AADC/calibration_files/points.xml");
     SetPropertyBool( CORRESPING_POINTS_XML NSSUBPROP_ISCHANGEABLE, tTrue);
 }
 
@@ -151,26 +117,19 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         _upperBorder = GetPropertyInt( UPPER_SEARCH_BORDER );
         _lowerBorder = GetPropertyInt( LOWER_SEARCH_BORDER );
 
+
+        const float oneDegree = CV_PI / 180;
+
         // fetch the algorithmic parameters
-        _KernelWidth = GetPropertyInt( KERNEL_WIDTH );
         _CountStdDevs = GetPropertyInt(COUNT_OF_STDDEVS);
-        _SmoothingKernelWidth = GetPropertyInt( SMOOTHING_KERNEL_WIDTH );
-        _RoadWidth = GetPropertyInt( ROAD_WIDTH );
-        _RoadWidthTolerance = GetPropertyInt( ROAD_WIDTH_TOLERANCE );
-        _FitWidth = GetPropertyInt( FIT_WIDTH );
-        _MaxCountLanes = GetPropertyInt( MAX_COUNT_LANES );
         _MinAngle = 90.0 - GetPropertyInt( MAX_ANGULAR_DEVIATION );
         _MaxAngle = 90.0 + GetPropertyInt( MAX_ANGULAR_DEVIATION );
 
-        // setup the convolution kernels
-        InitKernels();
+        _thetaMax = 90 * oneDegree;
+        _rhoMax = 0 * oneDegree;
 
         // read the parameters from a file and setup a transformation matrix
         InitTransformationMatrices( GetPropertyStr( CORRESPING_POINTS_XML ) );
-
-        // initialize the formats of the pins;
-        InitPinFormats();
-
     }
     else if (eStage == StageGraphReady)
     {
@@ -277,39 +236,6 @@ tResult cSWE_LaneDetection::InitTransformationMatrices( std::string pathExternal
 }
 
 /**
- * @brief cSWE_LaneDetection::InitKernels Helper initalization of the Image Processing Kernels
- * @return a value indicating the succes of the stage
- */
-tResult cSWE_LaneDetection::InitKernels()
-{
-    // setup the image processing separable Kernel
-/*
-    int halfKernelWidth = (int)floor( _KernelWidth / 2.0);
-
-    double sigmaSquared = pow( 1.8 * ( CV_PI ) , 2 );
-
-    double sumKernelEntries = 0;
-    _YDirKernel = Mat1d(_KernelWidth, 1, 0.0);
-    for (int i = -halfKernelWidth; i <= halfKernelWidth; i++)
-    {
-        double iSquared = pow(i, 2);
-        double entry = (exp(-0.5 * iSquared) / sigmaSquared) - (iSquared * exp(-(0.5 / sigmaSquared)* iSquared) / pow(sigmaSquared, 2));
-
-        _YDirKernel.at< double >(i + halfKernelWidth) = entry;
-        sumKernelEntries += entry;
-    }
-
-    _YDirKernel /= sumKernelEntries;*/
-
-    Mat dummy;
-    cv::getDerivKernels( _YDirKernel , dummy , 2 , 2 , _KernelWidth , false , CV_32F );
-
-    _XDirKernel = cv::getGaussianKernel(_KernelWidth, -1, CV_32F);
-
-    RETURN_NOERROR;
-}
-
-/**
  * @brief cSWE_LaneDetection::Shutdown The deinitialization method of this filter
  * @param eStage the stage of deinitialization
  * @return a value indicating the succes of the stage
@@ -356,149 +282,6 @@ tResult cSWE_LaneDetection::OnPinEvent(IPin* pSource,
 }
 
 /**
- * @brief cSWE_LaneDetection::SearchLocalMaxima
- * Searches for local maxima in a matrix by simply looking up the predecessor and the successor of each element
- * and comparing them to the current pixel.
- * @param scalarMat a Matrix containing only scalar entries
- * @param peakLocations < OUT > locations of local maxima
- * @return a value indicating the succes of the processing
- */
-tResult cSWE_LaneDetection::SearchLocalMaxima( Mat scalarMat , std::vector< int >& peakLocations )
-{
-    // setup values to access the successor and the predecessor
-    ptrdiff_t successor = 1;
-    ptrdiff_t predecessor = -1;
-
-    // loop readonly over the matrix
-    for( cv::MatConstIterator_< float > iter = scalarMat.begin< float >() ; iter != scalarMat.end< float >() ; iter++ )
-    {
-        // don't do anything at start or end
-        if( iter != scalarMat.begin< float >() && iter != scalarMat.end< float >() )
-        {
-            // compare the values of this pixel with successor and predecessor
-            if( *iter > iter[ predecessor ] && *iter > iter[ successor ] )
-            {
-                // add the local maximum to the output
-                peakLocations.push_back( iter.pos().x );
-            }
-        }
-    }
-    RETURN_NOERROR;
-}
-
-/**
- * @brief cSWE_LaneDetection::SearchRoadMarkingLocations
- * Searches for candidate Locations of RoadMarkings by assuming a constant width of the road.
- * The search builds a chain of positions which are separated by a predefined number of Pixels.
- * It decides for the longest chain it can find.
- * @param peakLocations locations of local maxima
- * @param markingLocations < OUT > locations found to correspond best du lane boundaries
- * @return a value indicating the succes of the processing
- */
-tResult cSWE_LaneDetection::SearchRoadMarkingLocations( const std::vector< int >& peakLocations , std::vector< int >& markingLocations )
-{
-    // loop over each location
-    for (size_t i = 0; i < peakLocations.size(); i++)
-    {
-        // abort early if we can't find a longer chain anymore
-        if (peakLocations.size() - i <= markingLocations.size())
-        {
-            RETURN_NOERROR;
-        }
-
-        // current point to build a chain on
-        int match = peakLocations[i];
-
-        // current chain
-        std::vector< int > chain;
-
-        // loop is aborted internally if the chain can't be continued
-        while ( true )
-        {
-            // add the match to the chain at the start of the loop, to deal with initialization
-            chain.push_back(match);
-
-            // predict the location of the next peak
-            int prediction = match + _RoadWidth;
-            int upperBound = prediction + _RoadWidthTolerance;
-            int lowerBound = prediction - _RoadWidthTolerance;
-
-            // calculate potential matches in the predicted neighborhood
-            std::vector< int > matches;
-            for (size_t j = 0; j < peakLocations.size(); j++)
-            {
-                // if in predicted neighborhood
-                if (peakLocations[j] < upperBound && peakLocations[j] > lowerBound)
-                {
-                    // add match to list
-                    matches.push_back( peakLocations[j] );
-                }
-            }
-
-            // calculate weights of trust for each match depending on the distance to it's prediction
-            // weights are calculated as : 1 / abs( deviation )
-            std::vector< double > weights;
-            for (size_t j = 0; j < matches.size(); j++)
-            {
-                // calculate absolute value of deviation from prediction
-                double weight = std::abs((double) matches[j] - (double)prediction);
-
-                // handle the special case of the point being exactly where it was predicted to be
-                if (weight <= 0.0)
-                {
-                    weight = 1.0;
-                }
-                else
-                {
-                    weight = 1 / weight;
-                }
-                weights.push_back(weight);
-            }
-
-            // calculated the match as a weighted mean
-            double sumWeights = 0;
-            double floatingMatch = 0;
-            for (size_t j = 0; j < matches.size(); j++)
-            {
-                // sum up the weighted locations
-                floatingMatch += matches[j] * weights[j];
-                // sum up the weights for normalization
-                sumWeights += weights[j];
-            }
-
-            // check if we had entries
-            if (floatingMatch >= 0 && sumWeights >= 0)
-            {
-                // divide by the sum of the weights to get back locations
-                floatingMatch /= sumWeights;
-            }
-
-            // round to nearest location
-            match = ( int ) floor(floatingMatch + 0.5);
-
-            // if we found any matches this iteration add the match to our chain and continue
-            if (matches.size() > 0)
-            {
-                match = matches[0];
-                continue;
-            }
-
-            // abort if we didn't find a match
-            break;
-        }
-
-        // decide for the longest chain we can find
-        // TODO: use prior knowledge of number of road markings
-        if (chain.size() > markingLocations.size())
-        {
-            markingLocations = chain;
-        }
-    }
-
-    RETURN_NOERROR;
-}
-
-/**
  * @brief cSWE_LaneDetection::ProcessInput The actual image processing of the LaneDetection
  * ... Description of the algorithm
  * @param pMediaSample the input Image
@@ -511,116 +294,6 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     pMediaSample->Lock((const tVoid**) &pData);
     Mat image( _oVideoInputPin.GetFormat()->nHeight , _oVideoInputPin.GetFormat()->nWidth , CV_8UC3 , pData );
     pMediaSample->Unlock(pData);
-
-    /*
-    // transform the image to a grayscale image
-    Mat greyScaleImage;
-    cvtColor(image, greyScaleImage, CV_RGB2GRAY, 1);
-
-    // apply an inverse Perspective mapping
-    Mat warpedImage;
-    cv::warpPerspective(greyScaleImage, warpedImage, _projectionMatrix, greyScaleImage.size());
-
-    // cut the image to the desired size
-    Mat cutImage;
-    if ( _applyCut )
-    {
-        cutImage = warpedImage(cv::Range(_upperBorder, _lowerBorder), cv::Range(_leftBorder, _rightBorder)).clone();
-    }
-    else
-    {
-        cutImage = warpedImage;
-    }
-
-    // apply the filter for Detection of Lane Markers
-    Mat blurredImage;
-    cv::sepFilter2D(cutImage, blurredImage, CV_8UC1, _YDirKernel.t(), _XDirKernel);
-
-    // aquire mean and stdDev of the image
-    cv::Scalar mean, stdDev;
-    cv::meanStdDev(blurredImage, mean, stdDev);
-
-    // threshold the image to remove objects which don't necessary represent lane markings
-    cv::threshold(blurredImage, blurredImage, mean[0] + _CountStdDevs * stdDev[0], 255, cv::THRESH_TOZERO);
-
-    // sum the image up over the x - axis, the x-axis defined as the axis where the car is heading currently
-    Mat columnSums;
-    cv::reduce(blurredImage, columnSums, 0, CV_REDUCE_SUM, CV_32F);
-
-    // smooth the column sums
-    cv::GaussianBlur(columnSums, columnSums, cv::Size(_SmoothingKernelWidth, 1), 0);
-
-    // find candidates for road marking locations
-    std::vector< int > peakLocations;
-    SearchLocalMaxima(columnSums, peakLocations);
-
-    // refine candidates for road marking locations using prior knowledge about the width of the road
-    std::vector< int > markingLocations;
-    SearchRoadMarkingLocations(peakLocations, markingLocations);
-
-    // fit lines to the neighborhoods of road marking locations
-    for (size_t i = 0; i < markingLocations.size(); i++)
-    {
-        // calculate Neighborhood boundaries
-        int leftBorder = markingLocations[i] - _FitWidth;
-        int rightBorder = markingLocations[i] + _FitWidth;
-
-        // if the calculated Boundaries are outside of the image set them to the image boundaries
-        if (leftBorder < 0)
-        {
-            leftBorder = 0;
-        }
-        if (rightBorder > blurredImage.cols)
-        {
-            rightBorder = blurredImage.cols;
-        }
-
-        // get a ROI around the Neighborhood
-        Mat roiedImage = blurredImage(cv::Range(0, blurredImage.rows), cv::Range(leftBorder, rightBorder));
-
-        // find contours in the image
-        vector< Point > pointsForFitting;
-
-        for ( int j = 0 ; j < roiedImage.rows ; j++ )
-        {
-            for ( int k = 0 ; k < roiedImage.cols ; k++)
-            {
-                if (roiedImage.at< uchar >(j, k) > 0)
-                {
-                    pointsForFitting.push_back(Point(k, j));
-                }
-            }
-        }
-
-        // if a enough data was found
-        if ( pointsForFitting.size() > 4 )
-        {
-            // fit a line
-            Vec4f lines;
-            cv::fitLine( Mat( pointsForFitting ), lines, CV_DIST_L2 , 0, 0.01, 0.01);
-
-            // calculate the angle of the line to the y direction of the car
-            double angle = atan2(lines[1], lines[0]) * 180.0 / CV_PI;
-
-            // filter every line deviating to much from 90°
-            if ( ( angle > _MinAngle && angle < _MaxAngle ) || ( angle < -_MinAngle && angle > -_MaxAngle ) )
-            {
-                // transform the line back to the image which was not roied
-                int lines2BackTransformed = lines[2] + leftBorder;
-
-                // calculate the left and right heightvalue for the line
-                int lowerXValue = lines2BackTransformed + ( ( blurredImage.rows - lines[3] ) / lines[1]) * lines[0];
-                int upperXValue = lines2BackTransformed + (-lines[3] / lines[1]) * lines[0];
-
-                // paint the lines into the debug images
-                cv::line(blurredImage, Point( upperXValue , 0), Point( lowerXValue , blurredImage.rows), Scalar(255, 0, 0), 2);
-            }
-        }
-    }*/
-
-    float oneDegree = CV_PI / 180;
-    float thetaMax = 90 * oneDegree;
-    float rhoMax = 0 * oneDegree;
 
     // transform the image to a grayscale image
     Mat greyScaleImage;
@@ -658,13 +331,13 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         double theta = (*line)[1];
         double rho = (*line)[0];
 
-        if (rho > rhoMax)
+        if (rho > _rhoMax)
         {
-            if (theta >= 0 && theta < thetaMax)
+            if (theta >= 0 && theta < _thetaMax)
             {
                 leftLines.push_back( line ); // line in region from 0 to thetamax degree
             }
-            else if (theta > -thetaMax && theta < 0)
+            else if (theta > -_thetaMax && theta < 0)
             {
                 rightLines.push_back( line );// line in region from -90 to thetamax degree
             }
@@ -711,7 +384,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         pt2.x = cvRound(x0 - 1000 * (-b));
         pt2.y = cvRound(y0 - 1000 * (a));
 
-        if (theta >= 0 && theta < thetaMax)
+        if (theta >= 0 && theta < _thetaMax)
         {
             line(image, pt1, pt2, Scalar(0, 255, 0), 3, CV_AA);
         }
@@ -740,7 +413,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         tFloat64 picWidth = 640;
 
         // transform points to vehicle coo sys in front axis center
-        if (theta >= 0 && theta < thetaMax)
+        if (theta >= 0 && theta < _thetaMax)
         {
             leftFrontY = scaleFac*((-1.0)*(pt1.x - picWidth/2.0)) + distMidToCam;
             leftFrontX = scaleFac*((-1.0)*(pt1.y - picHeight)) + distFrontToCam;

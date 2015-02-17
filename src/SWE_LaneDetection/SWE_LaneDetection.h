@@ -78,22 +78,13 @@ class cSWE_LaneDetection : public adtf::cFilter
             std::string _pathExternalCameraParams;         /**< Path to the xml with the points of the inverse perspective transformation*/
             FileStorage _inversePerspectiveFileStorage;    /**< Stream to deserialize the XML with the points*/
 
-            tInt _KernelWidth;                             /**< the width of the Kernel for the Detection of Lane Markings*/
             tInt _CountStdDevs;                            /**< the count of stdDevs for the Tresholding*/
-            tInt _SmoothingKernelWidth;                        /**< the width of the Kernel for the Smoothing 1D Lane position indicator*/
-            tInt _RoadWidth;                               /**< the expected width of the road in pixels*/
-            tInt _RoadWidthTolerance;                      /**< the tolerance on the width of the road*/
-            tInt _FitWidth;                                /**< the width around the candidate positions for the lanes to fit the (sp)lines*/
-            tInt _MaxCountLanes;                           /**< the maximum number of lanes which should be found*/
 
             tFloat64 _MinAngle;
             tFloat64 _MaxAngle;
 
-            // Kernels for the Algorithm
-            cv::Mat _YDirKernel;                           /**< the Second Derivate of Gaussian Kernel in Y-Direction for the Detection of Lane Markings*/
-            cv::Mat _XDirKernel;                           /**< the Gaussian Kernel in X-Direction for the Detection of Lane Markings*/
-
-
+            tFloat32 _thetaMax;
+            tFloat32 _rhoMax;
 
             /*! Coder Descriptors for the pins*/
             cObjectPtr<IMediaTypeDescription> m_pCoderDescLines;
