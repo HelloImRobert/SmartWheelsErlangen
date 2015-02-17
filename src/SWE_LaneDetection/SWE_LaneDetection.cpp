@@ -130,6 +130,9 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
 
         // read the parameters from a file and setup a transformation matrix
         InitTransformationMatrices( GetPropertyStr( CORRESPING_POINTS_XML ) );
+
+        // initialize the formats of the pins;
+        InitPinFormats();
     }
     else if (eStage == StageGraphReady)
     {
