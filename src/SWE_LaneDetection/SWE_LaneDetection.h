@@ -56,7 +56,8 @@ class cSWE_LaneDetection : public adtf::cFilter
             tResult InitTransformationMatrices( std::string pathExternalCameraParams );
             tResult InitPinFormats();
 
-            double ComputeEnergy( const cv::Mat src , const cv::Point2i& start , const cv::Point2i& end );
+            std::pair< cv::Point, double > computeEnergy(const cv::Mat& src, const cv::Point2i& start, const cv::Point2i& directionStart, const cv::Point2i& directionEnd, size_t steps);
+            cv::Point findNextPoint(const cv::Mat& src, const cv::Point2i& start, const cv::Point2i& directionStart, size_t steps);
 
             cv::Mat _backProjectionMatrix;
             cv::Mat _projectionMatrix;                     /**< the projection Matrix for the inverse Perspective Mapping*/

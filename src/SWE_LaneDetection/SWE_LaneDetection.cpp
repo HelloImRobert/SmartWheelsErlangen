@@ -168,6 +168,7 @@ tResult cSWE_LaneDetection::InitPinFormats()
     tInt32 height = _lowerBorder - _upperBorder;
     tInt32 width = _rightBorder - _leftBorder;
 
+    /*
     // if the cut is valid
     if ( height > 0 && width > 0 )
     {
@@ -180,7 +181,7 @@ tResult cSWE_LaneDetection::InitPinFormats()
         _sGreyScaleBitMapOutputFormat.nBytesPerLine = width;
         _sGreyScaleBitMapOutputFormat.nSize = _sGreyScaleBitMapOutputFormat.nBytesPerLine * height;
      }
-     else
+     else*/
      {
         // just use the default (input) format
         _sGreyScaleBitMapOutputFormat.nWidth = 640;
@@ -284,18 +285,66 @@ tResult cSWE_LaneDetection::OnPinEvent(IPin* pSource,
     RETURN_NOERROR;
 }
 
-double cSWE_LaneDetection::ComputeEnergy( const cv::Mat src , const cv::Point2i& start , const cv::Point2i& end )
+std::pair< cv::Point, double > cSWE_LaneDetection::computeEnergy(const cv::Mat& src, const cv::Point2i& start, const cv::Point2i& directionStart, const cv::Point2i& directionEnd , size_t steps )
 {
     double sum = 0;
-    LineIterator iter = LineIterator( src , start , end );
 
-    for ( int i = 0 ; i < iter.count; i++ , iter++ )
+    cv::Point2i end;
+
+    cv::Point2d direction = directionEnd - directionStart;
+    double length = cv::norm(directionEnd - directionStart);
+    if( length > 0.5 )
     {
-        cv::Point cur_point = iter.pos();
-        sum += src.at<uchar>(cur_point.x,cur_point.y);
+        direction.x = direction.x / length;
+        direction.y = direction.y / length;
     }
-    return sum;
+
+    if ( !std::signbit(direction.y) )
+    {
+        direction.y = -direction.y;
+        direction.x = -direction.x;
+    }
+
+    end.x = std::floor( start.x + 500 * direction.x + 0.5 );
+    end.y = std::floor( start.y + 500 * direction.y + 0.5 );
+
+    LineIterator iter = LineIterator(src, start, end);
+
+    cv::Point cur_point;
+    for (size_t i = 0; i < steps ; i++, iter++)
+    {
+        cur_point = iter.pos();
+        sum += src.at< uchar >(cur_point.y, cur_point.x);
+    }
+    return std::pair< cv::Point , double >( cur_point , sum );
 }
+
+cv::Point cSWE_LaneDetection::findNextPoint(const cv::Mat& src, const cv::Point2i& start, const cv::Point2i& end, size_t steps)
+{
+    std::vector< std::pair< cv::Point, double > > results;
+    results.push_back(computeEnergy(src, end, start, end, steps));
+
+    int triesHalf = 5;
+    for (int i = -triesHalf; i <= triesHalf; i++)
+    {
+        cv::Point point2Try = end;
+        point2Try.x = end.x + i;
+        point2Try.y = end.y + std::abs( i );
+        results.push_back(computeEnergy(src, end, start, point2Try, steps));
+    }
+
+    size_t index = 0;
+    for (size_t i = 1; i < results.size(); i++ )
+    {
+        if ( results[ i ].second > results[ index ].second)
+        {
+            index = i;
+        }
+    }
+
+    return results[ index ].first;
+}
+
 
 /**
  * @brief cSWE_LaneDetection::ProcessInput The actual image processing of the LaneDetection
@@ -314,6 +363,8 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     // transform the image to a grayscale image
     Mat greyScaleImage;
     cvtColor(image, greyScaleImage, CV_RGB2GRAY, 1);
+
+    //imwrite("/home/odroid/Desktop/kreuzung.jpg" , image );
 
     // apply the filter for Detection of Lane Markers
     Mat blurredImage;
@@ -384,23 +435,55 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         float rho = lanes[i][0], theta = lanes[i][1];
 
         cv::Point start;
-        cv::Point end;
+        cv::Point pFirst;
+        cv::Point pSecond;
 
-        if((theta < CV_PI/4. || theta > 3. * CV_PI/4.))
+        if ((theta < CV_PI / 4. || theta > 3. * CV_PI / 4.))
         {
-            start = cv::Point(rho / std::cos(theta), 0);
-            end = cv::Point( (rho - image.rows * std::sin(theta))/std::cos(theta), image.rows);
-
+            pFirst = cv::Point(rho / std::cos(theta), 0);
+            pSecond = cv::Point((rho - image.rows * std::sin(theta)) / std::cos(theta), image.rows);
         }
         else
         {
-            start = cv::Point(0, rho / std::sin(theta));
-            end = cv::Point(image.cols, (rho - image.cols * std::cos(theta))/std::sin(theta));
+            pFirst = cv::Point(0, rho / std::sin(theta));
+            pSecond = cv::Point(image.cols, (rho - image.cols * std::cos(theta)) / std::sin(theta));
         }
 
-        double a = ComputeEnergy( blurredImage , start , end );
+        if (pFirst.y > pSecond.y)
+        {
+            start = pFirst;
+        }
+        else
+        {
+            start = pSecond;
+        }
+
+        int stepSize = 60;
+        size_t maxSteps = 18;
+
+        circle(image, start, 20, Scalar(255, 0, 0), 2, 8);
+
+        std::pair< cv::Point , double > result = computeEnergy(blurredImage, start, pFirst, pSecond, stepSize);
+
+        circle(image, result.first, 20, Scalar(255, 0, 0), 2, 8);
+
+        cv::Point next = result.first;
+        cv::Point next2;
+        cv::Point current = start;
+        for (size_t j = 0; j < maxSteps; j++)
+        {
+            next2 = findNextPoint(blurredImage, current, next, stepSize);
+            if( next2.x < 0 || next2.y < 0 || next2.x >= blurredImage.cols || next2.y >= blurredImage.rows )
+            {
+                break;
+            }
+            current = next;
+            next = next2;
+           circle(image, next, 20, Scalar(255, 0, 0), 2, 8);
+        }
     }
 
+    double useless = -1;
 
     double leftFrontX = -1;
     double leftFrontY = -1;
@@ -469,7 +552,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     }
 
     // apply an inverse Perspective mapping
-    Mat warpedImage = image;
+    Mat warpedImage;
     cv::warpPerspective(image, warpedImage, _projectionMatrix, greyScaleImage.size());
 
     {
@@ -516,7 +599,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         if (IS_OK(AllocMediaSample(&pNewRGBSample)))
         {
             tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
-            pNewRGBSample->Update(tmStreamTime, warpedImage.data, _sColorBitMapOutputFormat.nSize , 0);
+            pNewRGBSample->Update(tmStreamTime, image.data, _sColorBitMapOutputFormat.nSize , 0);
             _oColorVideoOutputPin.Transmit(pNewRGBSample);
         }
     }
