@@ -53,12 +53,10 @@ class cSWE_LaneDetection : public adtf::cFilter
         private:
 
             tResult ProcessInput(IMediaSample* pSample);
-            tResult InitKernels();
             tResult InitTransformationMatrices( std::string pathExternalCameraParams );
             tResult InitPinFormats();
 
-            tResult SearchLocalMaxima( cv::Mat scalarMat , std::vector< int >& peakLocations );
-            tResult SearchRoadMarkingLocations( const std::vector< int >& peakLocations , std::vector< int >& markingLocations );
+            double ComputeEnergy( const cv::Mat src , const cv::Point2i& start , const cv::Point2i& end );
 
             cv::Mat _backProjectionMatrix;
             cv::Mat _projectionMatrix;                     /**< the projection Matrix for the inverse Perspective Mapping*/

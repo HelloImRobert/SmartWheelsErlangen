@@ -284,6 +284,19 @@ tResult cSWE_LaneDetection::OnPinEvent(IPin* pSource,
     RETURN_NOERROR;
 }
 
+double cSWE_LaneDetection::ComputeEnergy( const cv::Mat src , const cv::Point2i& start , const cv::Point2i& end )
+{
+    double sum = 0;
+    LineIterator iter = LineIterator( src , start , end );
+
+    for ( int i = 0 ; i < iter.count; i++ , iter++ )
+    {
+        cv::Point cur_point = iter.pos();
+        sum += src.at<uchar>(cur_point.x,cur_point.y);
+    }
+    return sum;
+}
+
 /**
  * @brief cSWE_LaneDetection::ProcessInput The actual image processing of the LaneDetection
  * ... Description of the algorithm
@@ -308,17 +321,17 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     //cv::blur(greyScaleImage, blurredImage, cv::Size(7, 7));
     //cv::medianBlur(blurredImage, blurredImage, 3);
     cv::Sobel(greyScaleImage, blurredImage, CV_8UC1, 1, 1, 3);
-    //cv::Canny(blurredImage, blurredImage, 170, 180);
 
     // aquire mean and stdDev of the image
     cv::Scalar mean, stdDev;
     cv::meanStdDev(blurredImage, mean, stdDev);
 
+    Mat thresholdedImage;
     //threshold the image to remove objects which don't necessary represent lane markings
-    cv::threshold(blurredImage, blurredImage, mean[0] + _CountStdDevs * stdDev[0], 255, cv::THRESH_TOZERO);
+    cv::threshold(blurredImage, thresholdedImage, mean[0] + _CountStdDevs * stdDev[0], 255, cv::THRESH_TOZERO);
 
     vector<Vec2f> lines;
-    HoughLines(blurredImage, lines, 1, CV_PI / 180, 60, 0, 0);
+    HoughLines(thresholdedImage, lines, 1, CV_PI / 180, 60, 0, 0);
 
     std::vector<Vec2f*> leftLines, rightLines;
 
@@ -365,6 +378,29 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         theta = (*rightLines.at(lanesNum / 2))[1];
         lanes.push_back(cv::Vec2f(rho, theta));
     }
+
+    for (size_t i = 0; i < lanes.size(); i++)
+    {
+        float rho = lanes[i][0], theta = lanes[i][1];
+
+        cv::Point start;
+        cv::Point end;
+
+        if((theta < CV_PI/4. || theta > 3. * CV_PI/4.))
+        {
+            start = cv::Point(rho / std::cos(theta), 0);
+            end = cv::Point( (rho - image.rows * std::sin(theta))/std::cos(theta), image.rows);
+
+        }
+        else
+        {
+            start = cv::Point(0, rho / std::sin(theta));
+            end = cv::Point(image.cols, (rho - image.cols * std::cos(theta))/std::sin(theta));
+        }
+
+        double a = ComputeEnergy( blurredImage , start , end );
+    }
+
 
     double leftFrontX = -1;
     double leftFrontY = -1;
@@ -492,7 +528,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         if (IS_OK(AllocMediaSample(&pNewRGBSample)))
         {
             tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
-            pNewRGBSample->Update(tmStreamTime, blurredImage.data, _sGreyScaleBitMapOutputFormat.nSize , 0);
+            pNewRGBSample->Update(tmStreamTime, thresholdedImage.data, _sGreyScaleBitMapOutputFormat.nSize , 0);
             _oGreyScaleVideoOutputPin.Transmit(pNewRGBSample);
         }
     }
