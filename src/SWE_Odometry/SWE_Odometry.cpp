@@ -276,6 +276,8 @@ void SWE_Odometry::odometryOutput()
 	m_odometryData.distance = sqrt( (m_distanceY_sum * m_distanceY_sum) + (m_distanceX_sum * m_distanceX_sum) );
 	
 	m_odometryData.heading = m_heading_sum;
+
+    m_odometryData.distanceSum = m_distanceAllSum;
 	
     m_distanceAllSum = 0;
 	m_distanceX_sum = 0;

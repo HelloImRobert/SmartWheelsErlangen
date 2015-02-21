@@ -23,8 +23,8 @@ ADTF_FILTER_PLUGIN("SWE Motor Speed Controller", OID_ADTF_SWE_SPEEDCONTROL, Spee
 
 SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_lastMeasuredError(0), m_setPoint(0), m_lastSampleTime(0)
 {
-    SetPropertyFloat("Gear 3 PWM value",90); //the pwm value sent to the car motor when driving in this gear 0-180 90=stop
-    SetPropertyFloat("Gear 3 speed threshold",1); // the speed (measured) at which the controller decides it has reached the desired gear/speed
+    SetPropertyFloat("Gear 3 PWM value",90); //the pwm value sent to the car motor when driving in this gear. In degrees 0-180 => 90 = stop/neutral
+    SetPropertyFloat("Gear 3 speed threshold",1); // the speed in mm/s (measured) at which the controller decides it has reached the desired gear/speed
 
     SetPropertyFloat("Gear 2 PWM value",90);
     SetPropertyFloat("Gear 2 speed threshold",1);
@@ -41,11 +41,12 @@ SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_lastMeasure
     SetPropertyFloat("Gear -2 PWM value", 90);
     SetPropertyFloat("Gear -2 speed threshold",1);
 
-    SetPropertyFloat("light brake PWM value", 85); //pwm value for light braking
-    SetPropertyFloat("strong brake PWM value",80);
+    SetPropertyFloat("light brake strength", 0.05); //pwm value for light braking
+    SetPropertyFloat("strong brake strength",0.1);
 
-    SetPropertyFloat("light acceleration PWM value", 95); //pwm value for light acceleration
-    SetPropertyFloat("strong acceleration PWM value",100);
+    SetPropertyFloat("acceleration boost", 1.1); //pwm boost value for acceleration
+
+    SetPropertyFloat("speed threshold window", 0.1); //threshold window for smooth transitions
 
 }
 
@@ -59,11 +60,8 @@ tResult SpeedControl::CreateInputPins(__exception)
 
 
 
-    RETURN_IF_FAILED(m_oInputMeasured1.Create("measured speed", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oInputMeasured));
-
-    RETURN_IF_FAILED(m_oInputMeasured1.Create("measured speed", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oInputMeasured));
+    RETURN_IF_FAILED(m_oInputVelocity.Create("car velocity", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oInputVelocity));
 
     //--------------------------------
     //TODO: create an int input pin -->
@@ -137,7 +135,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
         RETURN_IF_POINTER_NULL( pMediaSample);
 
-        if (pSource == &m_oInputMeasured1)
+        if (pSource == &m_oInputVelocity)
         {
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
@@ -193,11 +191,11 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
 
             //write values with zero
-            tFloat32 value = 0;
+            tInt16 value = 0;
             tUInt32 timeStamp = 0;
 
             //get values from media sample
-            pCoder->Get("f32Value", (tVoid*)&value);
+            pCoder->Get("i16Value", (tVoid*)&value);
             pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoder);
 

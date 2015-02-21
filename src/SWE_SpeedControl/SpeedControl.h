@@ -26,8 +26,8 @@ class SpeedControl : public adtf::cFilter
 {
     ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_SPEEDCONTROL, "SWE motor speed control", OBJCAT_DataFilter, "Speed Control", 1, 0,0, "beta version");
 
-		cInputPin m_oInputMeasured;				// the input pin for the measured value
-        cInputPin m_oInputSetPoint;				// the input pin for the set point value (gear)
+        cInputPin m_oInputVelocity;				// the input pin for the measured value
+        cInputPin m_oInputSetPoint;				// the input pin for the set point value (gear) -2(fast reverse), -1, 0(stop), 1, 2, 3(full speed ahead)
         cOutputPin m_oOutputPWM;		// the output pin for the manipulated value
 
     public:
@@ -56,13 +56,13 @@ class SpeedControl : public adtf::cFilter
 		tTimeStamp GetTime();
 		
 		/*! holds the last measuredValue */
-        tFloat32 m_measuredSpeed;
+        tFloat32 m_velocity;
 
-        /*! holds the current setpoint */
-        tInt16 m_setPoint ;
+        /*! holds the current setpoint/gear */
+        tInt16 m_setPoint;
 
-        /*! holds the last active gear*/
-        tInt16 m_lastGear ;
+        /*! holds the last active gear/setpoint*/
+        tFloat32 m_currentState;
 
 		/*! holds the last sample time */
 		tTimeStamp m_lastSampleTime;
