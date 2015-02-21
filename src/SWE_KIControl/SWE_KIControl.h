@@ -21,7 +21,9 @@ class cSWE_KIControl : public adtf::cFilter
     //MB Input
     cInputPin m_oInputRoadData;
     cInputPin m_oInputObjectData;
-
+    cInputPin m_oInputSignData;
+    cInputPin m_oInputParkData;
+    cInputPin m_oInputTC;
     //Was das?V
     cOutputPin m_oIntersectionPointLeft;  //cOutputPin m_oIntersectionPointRight;
 
@@ -51,10 +53,23 @@ private:
     tResult CreateInputPins(__exception = NULL);
     /*! creates all the output Pins*/
     tResult CreateOutputPins(__exception = NULL);
-
+    int Commands[];
+    int CommandCounter;
+    int Signtype;
+    int SpeedControl;
+    bool halteLinie;
+    bool hlsearch;
+    bool abgebogen;
+    bool roadfree;
+    double Punktx;
+    double Punkty;
     //MB Funktionen die benoetigt werden
     void ObjectAvoidance();
     void DriverCalc();
+    void sendTC(int speed, int type);
+    void Parkroutine();
+    void ControlHL();
+    void ControlLight(int lights);
     //MB Objekte/Variablen die benoetigt werden
     cObjectPtr<IMediaTypeDescription> m_pCoderDescDriverDATA;
     //-------------------------------//

@@ -18,6 +18,7 @@ class cSWE_TrackControl : public adtf::cFilter
     cInputPin m_oIntersectionPoints;
 
     cOutputPin m_oSteeringAngle;
+    cOutputPin m_oMiddlePoint;
 
 public:
     cSWE_TrackControl(const tChar* __info);
@@ -41,11 +42,14 @@ private:
     cv::Point2d m_PerpenticularPoint;
     tFloat64 m_steeringAngle;
 
+    cv::Point2d m_middlePoint;
+
 
 
     /*! Coder Descriptors for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSteeringAngle;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescMiddlePoint;
 
 };
 

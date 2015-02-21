@@ -168,20 +168,19 @@ tResult cSWE_LaneDetection::InitPinFormats()
     tInt32 height = _lowerBorder - _upperBorder;
     tInt32 width = _rightBorder - _leftBorder;
 
-    /*
     // if the cut is valid
-    if ( height > 0 && width > 0 )
-    {
-        // setup the algorithm to cut
-        _applyCut = tTrue;
+//    if ( height > 0 && width > 0 )
+//    {
+//        // setup the algorithm to cut
+//        _applyCut = tTrue;
 
-        // calculate the format
-        _sGreyScaleBitMapOutputFormat.nWidth = width;
-        _sGreyScaleBitMapOutputFormat.nHeight = height;
-        _sGreyScaleBitMapOutputFormat.nBytesPerLine = width;
-        _sGreyScaleBitMapOutputFormat.nSize = _sGreyScaleBitMapOutputFormat.nBytesPerLine * height;
-     }
-     else*/
+//        // calculate the format
+//        _sGreyScaleBitMapOutputFormat.nWidth = width;
+//        _sGreyScaleBitMapOutputFormat.nHeight = height;
+//        _sGreyScaleBitMapOutputFormat.nBytesPerLine = width;
+//        _sGreyScaleBitMapOutputFormat.nSize = _sGreyScaleBitMapOutputFormat.nBytesPerLine * height;
+//     }
+//     else
      {
         // just use the default (input) format
         _sGreyScaleBitMapOutputFormat.nWidth = 640;
@@ -430,60 +429,58 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         lanes.push_back(cv::Vec2f(rho, theta));
     }
 
-    for (size_t i = 0; i < lanes.size(); i++)
-    {
-        float rho = lanes[i][0], theta = lanes[i][1];
+//    for (size_t i = 0; i < lanes.size(); i++)
+//    {
+//        float rho = lanes[i][0], theta = lanes[i][1];
 
-        cv::Point start;
-        cv::Point pFirst;
-        cv::Point pSecond;
+//        cv::Point start;
+//        cv::Point pFirst;
+//        cv::Point pSecond;
 
-        if ((theta < CV_PI / 4. || theta > 3. * CV_PI / 4.))
-        {
-            pFirst = cv::Point(rho / std::cos(theta), 0);
-            pSecond = cv::Point((rho - image.rows * std::sin(theta)) / std::cos(theta), image.rows);
-        }
-        else
-        {
-            pFirst = cv::Point(0, rho / std::sin(theta));
-            pSecond = cv::Point(image.cols, (rho - image.cols * std::cos(theta)) / std::sin(theta));
-        }
+//        if ((theta < CV_PI / 4. || theta > 3. * CV_PI / 4.))
+//        {
+//            pFirst = cv::Point(rho / std::cos(theta), 0);
+//            pSecond = cv::Point((rho - image.rows * std::sin(theta)) / std::cos(theta), image.rows);
+//        }
+//        else
+//        {
+//            pFirst = cv::Point(0, rho / std::sin(theta));
+//            pSecond = cv::Point(image.cols, (rho - image.cols * std::cos(theta)) / std::sin(theta));
+//        }
 
-        if (pFirst.y > pSecond.y)
-        {
-            start = pFirst;
-        }
-        else
-        {
-            start = pSecond;
-        }
+//        if (pFirst.y > pSecond.y)
+//        {
+//            start = pFirst;
+//        }
+//        else
+//        {
+//            start = pSecond;
+//        }
 
-        int stepSize = 60;
-        size_t maxSteps = 18;
+//        int stepSize = 60;
+//        size_t maxSteps = 18;
 
-        circle(image, start, 20, Scalar(255, 0, 0), 2, 8);
+//        circle(image, start, 20, Scalar(255, 0, 0), 2, 8);
 
-        std::pair< cv::Point , double > result = computeEnergy(blurredImage, start, pFirst, pSecond, stepSize);
+//        std::pair< cv::Point , double > result = computeEnergy(blurredImage, start, pFirst, pSecond, stepSize);
 
-        circle(image, result.first, 20, Scalar(255, 0, 0), 2, 8);
+//        circle(image, result.first, 20, Scalar(255, 0, 0), 2, 8);
 
-        cv::Point next = result.first;
-        cv::Point next2;
-        cv::Point current = start;
-        for (size_t j = 0; j < maxSteps; j++)
-        {
-            next2 = findNextPoint(blurredImage, current, next, stepSize);
-            if( next2.x < 0 || next2.y < 0 || next2.x >= blurredImage.cols || next2.y >= blurredImage.rows )
-            {
-                break;
-            }
-            current = next;
-            next = next2;
-           circle(image, next, 20, Scalar(255, 0, 0), 2, 8);
-        }
-    }
-
-    double useless = -1;
+//        cv::Point next = result.first;
+//        cv::Point next2;
+//        cv::Point current = start;
+//        for (size_t j = 0; j < maxSteps; j++)
+//        {
+//            next2 = findNextPoint(blurredImage, current, next, stepSize);
+//            if( next2.x < 0 || next2.y < 0 || next2.x >= blurredImage.cols || next2.y >= blurredImage.rows )
+//            {
+//                break;
+//            }
+//            current = next;
+//            next = next2;
+//            circle(image, next, 20, Scalar(255, 0, 0), 2, 8);
+//        }
+//    }
 
     double leftFrontX = -1;
     double leftFrontY = -1;
@@ -529,7 +526,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         // distance from front axis to nearest edge of camera picture
         tFloat64 distFrontToCam = 179+83-70;
         // value to correct camera not cenered in y-direction
-        tFloat64 distMidToCam = 22;
+        tFloat64 distMidToCam = -22;
         // picture heigth and width
         tFloat64 picHeight = 480;
         tFloat64 picWidth = 640;
@@ -554,6 +551,8 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     // apply an inverse Perspective mapping
     Mat warpedImage;
     cv::warpPerspective(image, warpedImage, _projectionMatrix, greyScaleImage.size());
+
+    imwrite( "/home/odroid/Desktop/invBild.jpg" , warpedImage );
 
     {
     cObjectPtr<IMediaCoder> pCoder;
@@ -599,7 +598,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         if (IS_OK(AllocMediaSample(&pNewRGBSample)))
         {
             tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
-            pNewRGBSample->Update(tmStreamTime, image.data, _sColorBitMapOutputFormat.nSize , 0);
+            pNewRGBSample->Update(tmStreamTime, warpedImage.data, _sColorBitMapOutputFormat.nSize , 0);
             _oColorVideoOutputPin.Transmit(pNewRGBSample);
         }
     }

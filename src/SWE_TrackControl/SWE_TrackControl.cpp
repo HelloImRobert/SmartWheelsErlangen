@@ -52,6 +52,16 @@ tResult cSWE_TrackControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(m_oSteeringAngle.Create("Steering_Angle", pTypeSteeringAngle, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oSteeringAngle));
 
+    // Struct for Intersection Point Transmission
+    // TO ADAPT for new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
+    tChar const * strDescMiddlePoint = pDescManager->GetMediaDescription("tPoint2d");
+    RETURN_IF_POINTER_NULL(strDescMiddlePoint);
+    cObjectPtr<IMediaType> pTypeMiddlePoint = new cMediaType(0, 0, 0, "tPoint2d", strDescMiddlePoint,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeMiddlePoint->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescMiddlePoint));
+
+    RETURN_IF_FAILED(m_oMiddlePoint.Create("Middle_Point", pTypeMiddlePoint, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oMiddlePoint));
+
     RETURN_NOERROR;
 }
 
@@ -137,7 +147,10 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
 
             // CALCUALTIONS -------------------------------------------------------------------
 
-            tFloat32 steeringAngle = 20*(CalcSteeringAngle( leftIntersectionPoint, rightIntersectionPoint, intersectionIndicator ));
+            //leftIntersectionPoint.x = 200; leftIntersectionPoint.y = 100;
+            //rightIntersectionPoint.x = 200; rightIntersectionPoint.y = -350;
+
+            tFloat32 steeringAngle = 180.0/3.14*(CalcSteeringAngle( leftIntersectionPoint, rightIntersectionPoint, intersectionIndicator ));
 
 
             // TRANSMIT OUTPUT VALUES -------------------------------------------------------------------
@@ -170,6 +183,28 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
             //file << lineBoundaries[0] << endl << lineBoundaries[1] << endl << lineBoundaries[2] << endl << lineBoundaries[3] << endl;
             //file.close();
 
+
+
+            //allocate memory with the size given by the descriptor
+            // ADAPT: m_pCoderDescPointLeft
+            //cObjectPtr<IMediaSerializer> pSerializer;
+            m_pCoderDescMiddlePoint->GetMediaSampleSerializer(&pSerializer);
+            nSize = pSerializer->GetDeserializedSize();
+            pMediaSampleOutput->AllocBuffer(nSize);
+
+            //write date to the media sample with the coder of the descriptor
+            // ADAPT: m_pCoderDescPointLeft, steering Angle
+            //cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescMiddlePoint->WriteLock(pMediaSampleOutput, &pCoder));
+            pCoder->Set("xCoord", (tVoid*)&(m_middlePoint.x));
+            pCoder->Set("yCoord", (tVoid*)&(m_middlePoint.y));
+            m_pCoderDescMiddlePoint->Unlock(pCoder);
+
+            //transmit media sample over output pin
+            // ADAPT: m_oIntersectionPointLeft
+            RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+            RETURN_IF_FAILED(m_oMiddlePoint.Transmit(pMediaSampleOutput));
+
         }
         else
             RETURN_NOERROR;
@@ -185,9 +220,12 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngle( cv::Point2d leftIntersectionPoint
 
     if( intersectionIndicator != 0 )
     {
-        cv::Point2d middlePoint = (leftIntersectionPoint + rightIntersectionPoint)*0.5;
-        steeringAngle = acos(middlePoint.dot(m_PerpenticularPoint)/cv::norm(middlePoint));
-        if(middlePoint.y < 0)
+        m_middlePoint = (leftIntersectionPoint + rightIntersectionPoint)*0.5;
+        steeringAngle = acos(m_middlePoint.dot(m_PerpenticularPoint)/cv::norm(m_middlePoint));
+        if(m_middlePoint.y < 0)
+        //cv::Point2d middlePoint = (leftIntersectionPoint + rightIntersectionPoint)*0.5;
+        //steeringAngle = acos(middlePoint.dot(m_PerpenticularPoint)/cv::norm(middlePoint));
+        //if(middlePoint.y < 0)
         {
             steeringAngle = (-1.0)*steeringAngle;
         }

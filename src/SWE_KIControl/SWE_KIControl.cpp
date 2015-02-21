@@ -67,10 +67,33 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         CreateOutputPins(__exception_ptr);
 
         //Hier XML Datei einlesen etc
+        //Dummmy funktion bis xml einlesen steht
+        CommandCounter=6;
+        int dummycount=CommandCounter;
+        int Commands[]=new int[CommandCounter];
+        while (dummycount>=0)
+        {
+            Commands[dummycount]=3;
+            dummycount--;
+        }
+      /*
+       *Int werte in Commands:
+       * 1=left
+       * 2=right
+       * 3=straigth
+       * 4=einparken1
+       * 5=einparken2
+       * 6=ausparken1
+       * 7=ausparken2
+       *
+       */
     }
     else if (eStage == StageNormal)
     {
-
+        halteLinie=false;
+        hlsearch=false;
+        abgebogen=false;
+        roadfree=true;
     }
     else if(eStage == StageGraphReady)
     {
@@ -113,6 +136,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
     {
 
         RETURN_IF_POINTER_NULL( pMediaSample);
+
         //MB hier die OnPinEventsRein
         if(pSource == &m_oInputObjectData)
         {
@@ -122,8 +146,24 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         {
                 DriverCalc();
         }
+        else if(pSource== &m_oInputSignData)
+        {
+            Signtype=1;
+            /*Hier den  ausgelesenen Wert aus dem Schilder modul rein
+            Es gibt folgende Schildtypen:
 
+            */
 
+        }
+        else if(pSource==&m_oInputParkData)
+        {
+            Parkroutine();
+        }
+        else if(pSource==&m_oInputTC)
+        {
+            //Hier warten, bis wir eine Nachticht bekommen die uns sagt, das der Abbiege vorgang abgeschlossen ist.
+            abgebogen=true;
+        }
 
 
 
@@ -207,50 +247,299 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
 
 //Modul fuer Juroren einbauen
+
+void cSWE_KIControl::Parkroutine()
+{
+
+}
+
 void cSWE_KIControl::ObjectAvoidance()
 {
     /*
-     * 1. Pruefen ob Emergency Stopp, falls Ja einleiten
-     * 2. Situation analysieren:
-     *      a) Gerade ausfahren oder Abbiegen/Kreuzung/Vorfahrt
-     *      b) Gerade aus, Geschwindigkeit runter und Hinterherfahren
-     *      c) Unbewegtes Objekt ueberholen
-     *      d) Bewegtes Objekt ueberholen
-     *      e) Vorfahrt, Warten bis Objekt vorbei 3 Varianten
-     *              1) Wir biegen rechts ab, dann nur nach links achten
-     *              2) Wir biegen links ab, dann auf Rechts, Links und gerade aus verkehr achten
-     *              3) Wir fahren gerade aus, dann auf Rechts und Links achten
-     *      f)Objekt auf Gegenfahrbahn ignorieren
-     *
+     * Relevante Objekte bestimmen.
+     *Distanz auslesen
+     * Werte anpassen
+     * Objektliste anlegen zum durchlaufen
+     * an Kreuzung neues system
      */
+    double distanz=12;
+
+
+    if(halteLinie)
+    {
+        //pruefen ob Kreuzung frei
+
+        roadfree=false;
+    }
+    else
+    {
+        switch(distanz)
+        {
+            //Notbremsung
+            case distanz<5:
+                            SpeedControl=0;
+                            sendTC(0,0);
+                            ControlLight(9);
+                            break;
+            //langsames Hinterherfahren
+            case 10>distanz>5:
+                            SpeedControl=1;
+                            sendTC(1,1);
+                            break;
+            //Objekte weit genug weg
+            default:
+                            SpeedControl=2;
+                            sendTC(2,1);
+                            break;
+        }
+    }
+}
+void cSWE_KIControl::sendTC(int speed, int type)
+{
+
+   /*Hier das senden an den TC rein(Speed, Punkt und Typ)
+    Typen:
+    0=Notbremsung
+    1=normales fahren
+    2=Links abbiegen
+    3=rechtsabbiegen
+    4=ueberholen
+    5=Kreuzung gerade aus
+    Speed:
+    Stufen: 2,1,0,-1,-2
+    Punkt auslesen aus der gespeicherten Punkt liste.
+    Punktx;
+    Punkty;
+    */
 }
 
 void cSWE_KIControl::DriverCalc()
 {
+
 /*
- *  1. Pruefen der Aufgaben
- *  2. Aktualliesieren der DriverDaten
- *  3. Anhand der Aufgaben pruefen was als neachstes getan wird
- *  4. Daraus folgend, die beste Route berrechnen
- *      a) Dabei Schilder beachten
- *      b) Ueberholen mit einplannen
- *      c) Geschwindigkeit anpassen
- *      d) Auf Kreuzungen reagieren
- *  5. Wenn gesucht, Parkplatz anfahren
- *      a)Parkmodul starten
- *  6. Pruefen welcher datensatz aktueller ist
- *          a)Entweder jedesmal komplett neu berrechnen
- *          b)Oder die Datenanpassen(Aufweandiger)
- * 7.Erfuellung der Aufgaben Pruefen
- * 8. Lichtanlage einstellen vlt eigenes Modul das zwischen geschalten wird
+ *
+ * Daten in Punkte array schreiben
+ *
+ * Bestimmt nicht die Geschwindikeit, die wird allein durch das immer aktive Objektmodul angegeben.
  *
  *
  *
  *
  *
- *
+       *Int werte in Commands:
+       * 1=left
+       * 2=right
+       * 3=straigth
+       * 4=einparken1
+       * 5=einparken2
+       * 6=ausparken1
+       * 7=ausparken2
+       *
+
  *
  */
+    switch (Commands[CommandCounter])
+    {
+        //left-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        case 1:
+            if(Signtype<=1)
+            {
+                 sendTC(SpeedControl,1);
+                  ControlLight(1);
+            }
+            else if(Signtype>1)
+            {
+
+                //an Schildtyp anpassen:
+                //auch im Objectavoidance Modul zb. Rechts vor links anders als vorfahrt gewaehren
+              //  if(Signtype==2)
+                 //   roadfree=true;
+
+                //pruefen ob wir schon an der HalteLinie stehen.
+                if(halteLinie)
+                {
+                    if(!hlsearch)
+                       ControlHL();
+
+
+
+                    if(abgebogen)
+                    {
+                        if(CommandCounter!=0)
+                            CommandCounter--;
+                        else
+                        {
+                            //Game Over
+                        }
+                        Signtype=0;
+                        abgebogen=false;
+                        halteLinie=false;
+                        roadfree=true;
+                    }
+                    else
+                    {
+                        if(roadfree)
+                        {
+                            sendTC(SpeedControl,2);
+                            ControlLight(3);
+                        }
+                    }
+
+
+
+                }
+                else
+                {
+                    if(hlsearch)
+                        ControlHL();
+
+                    sendTC(SpeedControl,1);
+                     ControlLight(1);
+                }
+            }
+                    break;
+        //right-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        case 2:
+                if(Signtype<=1)
+                {
+                     sendTC(SpeedControl,1);
+                      ControlLight(1);
+                }
+                else if(Signtype>1)
+                {
+                    //pruefen ob wir schon an der HalteLinie stehen.
+                    if(halteLinie)
+                    {
+                        if(!hlsearch)
+                           ControlHL();
+
+
+
+                        if(abgebogen)
+                        {
+                            if(CommandCounter!=0)
+                                CommandCounter--;
+                            else
+                            {
+                                //Game Over
+                            }
+                            Signtype=0;
+                            abgebogen=false;
+                            halteLinie=false;
+                        }
+                        else
+                        {
+                            if(roadfree)
+                            {
+                                sendTC(SpeedControl,3);
+                                ControlLight(5);
+                            }
+                        }
+
+
+
+                    }
+                    else
+                    {
+                        if(hlsearch)
+                            ControlHL();
+
+                        sendTC(SpeedControl,1);
+                         ControlLight(1);
+                    }
+                }
+                            break;
+        //straigth-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        case 3:
+                    if(Signtype<=1)
+                    {
+                         sendTC(SpeedControl,1);
+                          ControlLight(1);
+                    }
+                    else if(Signtype>1)
+                    {
+                        //pruefen ob wir schon an der HalteLinie stehen.
+                        if(halteLinie)
+                        {
+                            if(!hlsearch)
+                               ControlHL();
+
+
+
+                            if(abgebogen)
+                            {
+                                if(CommandCounter!=0)
+                                    CommandCounter--;
+                                else
+                                {
+                                    //Game Over
+                                }
+                                Signtype=0;
+                                abgebogen=false;
+                                halteLinie=false;
+                            }
+                            else
+                            {
+                                if(roadfree)
+                                {
+                                    sendTC(SpeedControl,5);
+                                    ControlLight(1);
+                                }
+                            }
+
+
+
+                        }
+                        else
+                        {
+                            if(hlsearch)
+                                ControlHL();
+
+                            sendTC(SpeedControl,1);
+                             ControlLight(1);
+                        }
+                    }
+                    break;
+        //Einparken1-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        case 4:
+                    break;
+        //einparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        case 5:
+                    break;
+        //ausparken1-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        case 6:
+                    break;
+        //ausparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        case 7:
+                    break;
+
+    }
+
+
+
+
+
+}
+void cSWE_KIControl::ControlLight(int lights)
+{
+    /*Hier kommen daten als Zahl an, wobei dies als Byte interpretiert wird mit:
+    *Bits:
+    *1=Headlight
+    *2=Turnleft
+    *4=Turnright
+    *8=Brake
+    *16=reverse
+    *
+    *bsp 24=brake und reverse
+    *
+    *
+    */
+}
+
+void cSWE_KIControl::ControlHL()
+{
+    hlsearch=!hlsearch;
+    //Enable or Disable HalteLinien
 }
 
 

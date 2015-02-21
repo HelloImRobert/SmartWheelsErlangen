@@ -19,7 +19,7 @@ cSWE_IntersecPointCalc::cSWE_IntersecPointCalc(const tChar* __info) : cFilter(__
     SetPropertyFloat("Intersection Line Angle",0.0);
     SetPropertyFloat("Road Width",500.0);
     SetPropertyFloat("max Road Width Deviation",100);
-    SetPropertyFloat("Distance Missing Boundary",500);
+    SetPropertyFloat("Distance Missing Boundary",250);
 
     //SetPropertyStr("Controller Typ" NSSUBPROP_VALUELISTNOEDIT, "1@P|2@PI|3@PID");
 }
@@ -205,119 +205,126 @@ tResult cSWE_IntersecPointCalc::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt
 tUInt32 cSWE_IntersecPointCalc::intersecPointCalc(std::pair<cv::Point2d, cv::Point2d> &intersectionPoints, std::vector<SWE_cBoundary> boundaries)
 {
     int indexLeftBoundary = -1;
-    int indexRightBoundary = -1;
-    double oldDistanceLeft(std::numeric_limits<double>::max());
-    double oldDistanceRight(std::numeric_limits<double>::max());
-    // calculate perpenticular distance from reference point to all boundary objects
-    // if no intersection point found: DirectionToReferencePoint = -1
-    for(unsigned int i = 0; i < boundaries.size(); i++)
-    {
-        double distance;
+        bool leftBoundarySet = false;
+        int indexRightBoundary = -1;
+        bool rightBoundarySet = false;
+        double oldDistanceLeft(std::numeric_limits<double>::max());
+        double oldDistanceRight(std::numeric_limits<double>::max());
+        // calculate perpenticular distance from reference point to all boundary objects
+        // if no intersection point found: DirectionToReferencePoint = -1
+        for(unsigned int i = 0; i < boundaries.size(); i++)
+        {
+            double distance;
 
-        try
-        {
-            distance = boundaries[i].getPerpendicDistance(m_referencePoint);
+            try
+            {
+                distance = boundaries[i].getPerpendicDistance(m_referencePoint);
+            }
+            catch (int e)
+            {
+
+            }
+
+            if(distance >= 0.0 && ( fabs(distance) < fabs(oldDistanceLeft) || leftBoundarySet == false ) )
+            {
+                leftBoundarySet = true;
+                indexLeftBoundary = i;
+            }
+            if(distance < 0.0 && ( fabs(distance) < fabs(oldDistanceRight) || rightBoundarySet == false ) )
+            {
+                rightBoundarySet = true;
+                indexRightBoundary = i;
+            }
         }
-        catch (int e)
+
+
+        bool hasLeftIntersectionPoint = true;
+        bool hasRightIntersectionPoint = true;
+
+        if(indexLeftBoundary != -1)
+        {
+            try
+            {
+                intersectionPoints.first = boundaries[indexLeftBoundary].getIntersection(m_intersectionLineAngle, m_intersectionLineDistance);
+            }
+            catch(int e)
+            {
+                hasLeftIntersectionPoint = false;
+            }
+        }
+        else
+        {
+            hasLeftIntersectionPoint = false;
+        }
+        if(indexRightBoundary != -1)
+        {
+            try
+            {
+                intersectionPoints.second = boundaries[indexRightBoundary].getIntersection(m_intersectionLineAngle, m_intersectionLineDistance);
+            }
+            catch(int e)
+            {
+                hasRightIntersectionPoint = false;
+            }
+        }
+        else
+        {
+            hasRightIntersectionPoint = false;
+        }
+
+        // set indicator according to the existing intersection points
+        // intersecIndocator == 0: no intersection points
+        // intersecIndocator == 1: two intersection points
+        // intersecIndocator == 2: only left intersection point
+        // intersecIndocator == 3: only right intersection points
+        int intersectionIndicator = 0;
+        if(hasLeftIntersectionPoint == true)
+        {
+            if(hasRightIntersectionPoint == true)
+            {
+                intersectionIndicator = 1;
+            }
+            else
+            {
+                intersectionIndicator = 2;
+            }
+        }
+        else if(hasRightIntersectionPoint == true)
+        {
+            intersectionIndicator = 3;
+        }
+        else
+        {
+            intersectionIndicator = 0;
+        }
+
+        // set missing intersection points according to intersectionIndicator
+        if(intersectionIndicator == 2)
+        {
+            double sign = 1.0;
+            cv::Point2d normalUnitVector = boundaries[indexLeftBoundary].getNormalUnitVector();
+            if(normalUnitVector.y >= 0.0)
+            {
+                sign = -1.0;
+            }
+            intersectionPoints.second = intersectionPoints.first + sign*m_distMissingBoundary*normalUnitVector;
+        }
+        else if(intersectionIndicator == 3)
+        {
+            double sign = 1.0;
+            cv::Point2d  normalUnitVector = boundaries[indexRightBoundary].getNormalUnitVector();
+            if(normalUnitVector.y <= 0.0)
+            {
+                sign = -1.0;
+            }
+            intersectionPoints.first = intersectionPoints.second + sign*m_distMissingBoundary*normalUnitVector;
+        }
+        else if(intersectionIndicator == 0)
         {
 
         }
 
-        if(distance >= 0 && ( fabs(distance) < fabs(oldDistanceLeft) || std::numeric_limits<double>::max() ) )
-        {
-            indexLeftBoundary = i;
-        }
-        if(distance < 0 && ( fabs(distance) < fabs(oldDistanceRight) || std::numeric_limits<double>::max() ) )
-        {
-            indexRightBoundary = i;
-        }
-    }
-
-
-    bool hasFirstIntersectionPoint = true;
-    bool hasSecondIntersectionPoint = true;
-
-    if(indexLeftBoundary != -1)
-    {
-        try
-        {
-            intersectionPoints.first = boundaries[indexLeftBoundary].getIntersection(m_intersectionLineAngle, m_intersectionLineDistance);
-        }
-        catch(int e)
-        {
-            hasFirstIntersectionPoint = false;
-        }
-    }
-    else
-    {
-        hasFirstIntersectionPoint = false;
-    }
-    if(indexRightBoundary != -1)
-    {
-        try
-        {
-            intersectionPoints.second = boundaries[indexRightBoundary].getIntersection(m_intersectionLineAngle, m_intersectionLineDistance);
-        }
-        catch(int e)
-        {
-            hasSecondIntersectionPoint = false;
-        }
-    }
-    else
-    {
-        hasSecondIntersectionPoint = false;
-    }
-
-    // set indicator according to the existing intersection points
-    // intersecIndocator == 0: no intersection points
-    // intersecIndocator == 1: two intersection points
-    // intersecIndocator == 2: only left intersection point
-    // intersecIndocator == 3: only right intersection points
-    tUInt32 intersectionIndicator = 0;
-    if(hasFirstIntersectionPoint == true)
-    {
-        if(hasSecondIntersectionPoint == true)
-        {
-            intersectionIndicator = 1;
-        }
-        intersectionIndicator = 2;
-    }
-    else if(hasSecondIntersectionPoint == true)
-    {
-        intersectionIndicator = 4;
-    }
-    else
-    {
-        intersectionIndicator = 0;
-    }
-
-    // set missing intersection points according to intersectionIndicator
-    if(intersectionIndicator == 2)
-    {
-        tFloat64 sign = 1.0;
-        cv::Point2d normalUnitVecor = boundaries[indexLeftBoundary].getNormalUnitVector();
-        if(normalUnitVecor.y >= 0)
-        {
-            sign = -1;
-        }
-        intersectionPoints.second = intersectionPoints.first + sign*m_distMissingBoundary*normalUnitVecor;
-    }
-    else if(intersectionIndicator == 3)
-    {
-        tFloat64 sign = 1.0;
-        cv::Point2d  normalUnitVecor = boundaries[indexRightBoundary].getNormalUnitVector();
-        if(normalUnitVecor.y <= 0)
-        {
-            sign = -1;
-        }
-        intersectionPoints.first = intersectionPoints.second + sign*m_distMissingBoundary*normalUnitVecor;
-    }
-    else if(intersectionIndicator == 0)
-    {
-
-    }
-
-    return intersectionIndicator;
+        return intersectionIndicator;
 }
 
 

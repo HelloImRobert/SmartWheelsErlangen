@@ -6,13 +6,13 @@
 ADTF_FILTER_PLUGIN("SWE_DistanceMeasurement", OID_ADTF_SWE_DISTANCEMEASUREMENT, SWE_DistanceMeasurement)
 
 //SENSOR X AND Y VALUES IN FAHRZEUG KOS in cm (Calibration-Filter liefert Datem schon in cm !!!)
-#define DIST_IR_FRONT_SIDE 45              //y-Value
-#define DIST_IR_FRONT_CENTER 48            //y-Value
-#define DIST_IR_REAR_CENTER -11            //y-Value
-#define DIST_IR_FRONT_SIDE_LEFT 15        //x-Value
-#define DIST_IR_FRONT_SIDE_RIGHT -15        //x-Value
-#define DIST_IR_REAR_SIDE_LEFT 15         //x-Value
-#define DIST_IR_REAR_SIDE_RIGHT -15         //x-Value
+#define DIST_IR_FRONT_SIDE 45              //x-Value
+#define DIST_IR_FRONT_CENTER 48            //x-Value
+#define DIST_IR_REAR_CENTER -11            //x-Value
+#define DIST_IR_FRONT_SIDE_LEFT 15        //y-Value
+#define DIST_IR_FRONT_SIDE_RIGHT -15        //y-Value
+#define DIST_IR_REAR_SIDE_LEFT 15         //y-Value
+#define DIST_IR_REAR_SIDE_RIGHT -15         //y-Value
 
 SWE_DistanceMeasurement::SWE_DistanceMeasurement(const tChar* __info) : cFilter(__info)
 {
@@ -302,65 +302,65 @@ void SWE_DistanceMeasurement::transfrom()
 {
 
     /*! This bullshit is to be tested */
-//    float32 fusionBuffer;
+    float32 fusionBuffer;
 
 
-//    // Transform USS
-//    //
-//    //
+    // Transform USS
+    //
+    //
 
 
-//    // Transform (and fusion) IR
-//    // Take SR for dist < 15 cm
-//    // Combine SR and LR for dist 15 - 40 cm
-//    // Take LR for dist > 40 cm
+    // Transform (and fusion) IR
+    // Take SR for dist < 15 cm
+    // Combine SR and LR for dist 15 - 40 cm
+    // Take LR for dist > 40 cm
 
-//    // FRONT LEFT
+    // FRONT LEFT
 
-//    if(_mean.ir_front_left_short <= 5.0)
-//    {
-//        _transformed.ir_front_left.first = 9999;
-//        _transformed.ir_front_left.second = 9999;
-//    }
-//    else if(_mean.ir_front_left_short > 5.0 && _mean.ir_front_left_short < 15.0 && _mean.ir_front_left_long <= 15.0)
-//    {
-//        _transformed.ir_front_left.first = sqrt( DIST_IR_FRONT_SIDE * DIST_IR_FRONT_SIDE + (_mean.ir_front_left_short + DIST_IR_FRONT_SIDE_LEFT) * (_mean.ir_front_left_short + DIST_IR_FRONT_SIDE_LEFT) );
-//        _transformed.ir_front_left.second = tan( DIST_IR_FRONT_SIDE / (_mean.ir_front_left_short + DIST_IR_FRONT_SIDE_LEFT) );
-//    }
-//    else if(_mean.ir_front_left_short >= 15.0 && _mean.ir_front_left_short < 40.0 && _mean.ir_front_left_long > 15.0 && _mean.ir_front_left_long < 40.0)
-//    {
-//        //fusion
-//        fusionBuffer = ( _mean.ir_front_left_short + _mean.ir_front_left_long ) / 2;
+    if(_mean.ir_front_left_short <= 5.0)
+    {
+        _transformed.ir_front_left.first = 9999;
+        _transformed.ir_front_left.second = 9999;
+    }
+    else if(_mean.ir_front_left_short > 5.0 && _mean.ir_front_left_short <= 15.0 && _mean.ir_front_left_long < 15.0)
+    {
+        _transformed.ir_front_left.first = DIST_IR_FRONT_SIDE;
+        _transformed.ir_front_left.second = _mean.ir_front_left_short + DIST_IR_FRONT_SIDE_LEFT;
+    }
+    else if(_mean.ir_front_left_short >= 15.0 && _mean.ir_front_left_short < 40.0 && _mean.ir_front_left_long > 15.0 && _mean.ir_front_left_long < 40.0)
+    {
+        //fusion
+        fusionBuffer = ( _mean.ir_front_left_short + _mean.ir_front_left_long ) / 2;
 
-//        //transform
-//        _transformed.ir_front_left.first = sqrt( DIST_IR_FRONT_SIDE * DIST_IR_FRONT_SIDE + (fusionBuffer + DIST_IR_FRONT_SIDE_LEFT) * (fusionBuffer + DIST_IR_FRONT_SIDE_LEFT) );
-//        _transformed.ir_front_left.second = tan( DIST_IR_FRONT_SIDE / (fusionBuffer + DIST_IR_FRONT_SIDE_LEFT) );
-//    }
-//    else if(_mean.ir_front_left_short > 15.0 && _mean.ir_front_left_long >= 40.0 && _mean.ir_front_left_long < 60.0)
-//    {
-//        _transformed.ir_front_left.first = sqrt( DIST_IR_FRONT_SIDE * DIST_IR_FRONT_SIDE + (_mean.ir_front_left_long + DIST_IR_FRONT_SIDE_LEFT) * (_mean.ir_front_left_long + DIST_IR_FRONT_SIDE_LEFT) );
-//        _transformed.ir_front_left.second = tan( DIST_IR_FRONT_SIDE / (_mean.ir_front_left_long + DIST_IR_FRONT_SIDE_LEFT) );
-//    }
-//    else if(_mean.ir_front_left_short > 15.0 && _mean.ir_front_left_long >= 60.0)
-//    {
-//        _transformed.ir_front_left.first = 9999;
-//        _transformed.ir_front_left.second = 9999;
-//    }
+        //transform
+        _transformed.ir_front_left.first = sqrt( DIST_IR_FRONT_SIDE * DIST_IR_FRONT_SIDE + (fusionBuffer + DIST_IR_FRONT_SIDE_LEFT) * (fusionBuffer + DIST_IR_FRONT_SIDE_LEFT) );
+        _transformed.ir_front_left.second = tan( DIST_IR_FRONT_SIDE / (fusionBuffer + DIST_IR_FRONT_SIDE_LEFT) );
+    }
+    else if(_mean.ir_front_left_short > 15.0 && _mean.ir_front_left_long >= 40.0 && _mean.ir_front_left_long < 60.0)
+    {
+        _transformed.ir_front_left.first = sqrt( DIST_IR_FRONT_SIDE * DIST_IR_FRONT_SIDE + (_mean.ir_front_left_long + DIST_IR_FRONT_SIDE_LEFT) * (_mean.ir_front_left_long + DIST_IR_FRONT_SIDE_LEFT) );
+        _transformed.ir_front_left.second = tan( DIST_IR_FRONT_SIDE / (_mean.ir_front_left_long + DIST_IR_FRONT_SIDE_LEFT) );
+    }
+    else if(_mean.ir_front_left_short > 15.0 && _mean.ir_front_left_long >= 60.0)
+    {
+        _transformed.ir_front_left.first = 9999;
+        _transformed.ir_front_left.second = 9999;
+    }
 
-//    // FRONT RIGHT
+    // FRONT RIGHT
 
-//    // FRONT CENTER
+    // FRONT CENTER
 
 
-//    // REAR
-//    _transformed.ir_rear_center.first = _mean.ir_rear_center_short + DIST_IR_REAR_CENTER;;
-//    _transformed.ir_rear_center.second = 0.0;
+    // REAR
+    _transformed.ir_rear_center.first = _mean.ir_rear_center_short + DIST_IR_REAR_CENTER;;
+    _transformed.ir_rear_center.second = 0.0;
 
-//    _transformed.ir_rear_left.first = 0.0;
-//    _transformed.ir_rear_left.second = _mean.ir_rear_left_short + DIST_IR_REAR_SIDE_LEFT;
+    _transformed.ir_rear_left.first = 0.0;
+    _transformed.ir_rear_left.second = _mean.ir_rear_left_short + DIST_IR_REAR_SIDE_LEFT;
 
-//    _transformed.ir_rear_right.first = 0.0;
-//    _transformed.ir_rear_right.second = -_mean.ir_rear_left_short + DIST_IR_REAR_SIDE_RIGHT;
+    _transformed.ir_rear_right.first = 0.0;
+    _transformed.ir_rear_right.second = -_mean.ir_rear_left_short + DIST_IR_REAR_SIDE_RIGHT;
 
 
 }
