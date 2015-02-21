@@ -3,7 +3,7 @@
 
 #define OID_ADTF_SWE_DISTANCEMEASUREMENT "adtf.aadc.SWE_distancemeasurement"
 
-
+#include "stdafx.h"
 #include "math.h"
 
 class SWE_DistanceMeasurement : public adtf::cFilter
@@ -26,26 +26,20 @@ class SWE_DistanceMeasurement : public adtf::cFilter
     cInputPin               m_pin_input_ir_rear_left_short;
     cInputPin               m_pin_input_ir_rear_right_short;
 
-    cOutputPin              m_pin_output_sensorData;
-
-    // for testing issues ++++++++++++++
-    cOutputPin              m_pin_output_ir_front_left_long;
-    cOutputPin              m_pin_output_ir_front_left_short;
-    cOutputPin              m_pin_output_ir_rear_left_short;
-    // +++++++++++++++++++++++++++++++++
+    cOutputPin              m_pin_output_detectedPoints;
 
     public:
         SWE_DistanceMeasurement(const tChar* __info);
         virtual ~SWE_DistanceMeasurement();
-	
+
     protected: // overwrites cFilter
         tResult Init(tInitStage eStage, __exception = NULL);
         tResult OnPinEvent(IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample);
-	
+
     private:
     /*!gets the actual time as a tTimeStamp */
     tTimeStamp GetTime();
-		
+
     /*! Coder Descriptor for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescBoolSignal;
@@ -70,8 +64,8 @@ class SWE_DistanceMeasurement : public adtf::cFilter
     }sensorData;
 
     /*! sensor data transformed into vehicle coordinate system */
-    /*! first: Dist to VCOS Center
-     *  second: Angle */
+    /*! first: x coordinate
+     *  second: y coordinate */
 
     typedef struct
     {
@@ -88,12 +82,13 @@ class SWE_DistanceMeasurement : public adtf::cFilter
     }XYSensorData;
 
     /*! Private member variables */
-    sensorData          _mean;
-    XYSensorData      _transformed;
-    tFloat32            _filter_strength;
-    tTimeStamp          _currTimeStamp;
+    sensorData          	_mean;
+    XYSensorData      		_transformed;
+    tFloat32            	_filter_strength;
+    tTimeStamp          	_timeOfLastSample;
+    std::vector<std::pair <tFloat32,tFloat32> > _detected_vect;
+    std::pair <tFloat32,tFloat32> _new_vect_entry;
 
-    /* SWE METHODS */
 
     /*! Helper method to send Media Sample */
     tResult sendData();
@@ -103,12 +98,8 @@ class SWE_DistanceMeasurement : public adtf::cFilter
     tFloat32 weightedMean(tFloat32 latest, tFloat32 old);
 
     /*! Transform Sensor Data into Car Coordinate System */
-    void transfrom();
+    tResult transfrom();
 
-
-
-    /*! Odometry output, reset*/
-    // void odometryOutput();
 };
 
 
