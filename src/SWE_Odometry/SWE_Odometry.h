@@ -8,6 +8,8 @@
 /*!
 * Simple odometry based on bicycle model. The relative position and heading are updated whenever a new data sample arrives. Output of the accumulated position change in distance, angle and heading on trigger event (accumulated since last trigger).
 
+->trigger triggers the output of a new new accumulated position and heading change on the odometry output pin
+->velocity continuously sends the current (estimated) car speed
 
 ----- Coordinate System -----
 
@@ -33,14 +35,16 @@ class SWE_Odometry : public adtf::cFilter
 
 		/*!input pin for the steering angle */
 		cInputPin m_oInputSteeringAngle;
-		/*!input pin for the rpm of the left wheel */
+        /*!input pin for the speed of the left wheel !!the raw rpm value from the sensors has to be sent through a proper calibration filter first!! */
 		cInputPin m_oInputVelocityLeft;
-		/*!input pin for the rpm of the right wheel */
+        /*!input pin for the speed of the right wheel */
 		cInputPin m_oInputVelocityRight;
-		/*!input pin for the rpm of the right wheel */
+        /*!input pin for the triger*/
 		cInputPin m_oInputTrigger;
 		/*!output pin for the odometry data */
 		cOutputPin m_oOutputOdometry;
+        /*!output pin for the vehicle speed */
+        cOutputPin m_oOutputVelocity;
 
     public:
         SWE_Odometry(const tChar* __info);
@@ -63,6 +67,7 @@ class SWE_Odometry : public adtf::cFilter
 		tFloat32	 angle;			// angle in radians
 		tFloat32	 distance; 		// distance in mm
 		tFloat32   	 heading;		// heading in radians
+        tFloat32     distanceSum;   // sum of driven distance
 	}odometryData;
 
 	/*! Private member variables */
@@ -71,6 +76,9 @@ class SWE_Odometry : public adtf::cFilter
 	tFloat32 m_velocityLeft;
 	tFloat32 m_velocityRight;
 	tFloat32 m_buffer;
+
+    tFloat32 m_velocityFiltered;
+    tFloat32 m_filterStrength;
 	
 	tTimeStamp m_currTimeStamp;
 	tTimeStamp m_oldTimeStamp;
@@ -79,13 +87,17 @@ class SWE_Odometry : public adtf::cFilter
 	tFloat32 m_distanceX_sum;
 	tFloat32 m_distanceY_sum;
 	tFloat32 m_heading_sum;
+    tFloat32 m_distanceAllSum;
 
 	odometryData m_odometryData;
 
 	/* SWE METHODS */
 
 	/*! Helper method to send Media Sample */
-    	tResult sendData(odometryData odometryData);
+    tResult sendData(odometryData odometryData);
+
+    /*! calculate and send velocity */
+    tResult updateVelocity();
 
 
 	/*! Odometry single step */

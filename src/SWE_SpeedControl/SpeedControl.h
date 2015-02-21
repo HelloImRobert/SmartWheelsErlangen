@@ -24,11 +24,11 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS “AS IS” AND ANY EXPRESS OR
 */
 class SpeedControl : public adtf::cFilter
 {
-	ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_SPEEDCONTROL, "SWE motor speed control", OBJCAT_DataFilter, "Speed Control", 1, 0,0, "pre alpha version");	
+    ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_SPEEDCONTROL, "SWE motor speed control", OBJCAT_DataFilter, "Speed Control", 1, 0,0, "beta version");
 
 		cInputPin m_oInputMeasured;				// the input pin for the measured value
-		cInputPin m_oInputSetPoint;				// the input pin for the set point value
-		cOutputPin m_oOutputManipulated;		// the output pin for the manipulated value
+        cInputPin m_oInputSetPoint;				// the input pin for the set point value (gear)
+        cOutputPin m_oOutputPWM;		// the output pin for the manipulated value
 
     public:
         SpeedControl(const tChar* __info);
@@ -50,21 +50,23 @@ class SpeedControl : public adtf::cFilter
 		/*! calculates the manipulated value for the given values, it uses the setpoint in m_setPoint
 		@param measuredValue	the measuredValue
 		*/
-		tFloat32 getControllerValue(tFloat32 measuredValue);
+        tFloat32 getControllerValue(tFloat32 measuredSpeed);
 
 		/*! returns the currentstreamtime*/
 		tTimeStamp GetTime();
 		
 		/*! holds the last measuredValue */
-		tFloat32 m_measuredVariable;
-		/*! holds the last measured error */
-		tFloat32 m_lastMeasuredError;
-		/*! holds the last setpoint */
-		tFloat32 m_setPoint ;
+        tFloat32 m_measuredSpeed;
+
+        /*! holds the current setpoint */
+        tInt16 m_setPoint ;
+
+        /*! holds the last active gear*/
+        tInt16 m_lastGear ;
+
 		/*! holds the last sample time */
 		tTimeStamp m_lastSampleTime;
-		/*! holds the accumulatedVariable for the controller*/
-		tFloat32 m_accumulatedVariable;
+
 
 	    /*! Coder Descriptor for the pins*/
 	    cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;		

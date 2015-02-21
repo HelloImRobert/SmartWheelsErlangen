@@ -23,18 +23,30 @@ ADTF_FILTER_PLUGIN("SWE Motor Speed Controller", OID_ADTF_SWE_SPEEDCONTROL, Spee
 
 SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_lastMeasuredError(0), m_setPoint(0), m_lastSampleTime(0)
 {
-    SetPropertyFloat("Controller Kp value",1);
-    SetPropertyFloat("Controller Ki value",1);
-    SetPropertyFloat("Controller Kd value",1);
-    SetPropertyFloat("Controller Precontrol Value", 1.0);
-    SetPropertyFloat("MaxPWMValue", 170.0);
-    SetPropertyFloat("MinPWMValue", 10.0);
-    SetPropertyBool("SetPoint is PWM Value",1);
+    SetPropertyFloat("Gear 3 PWM value",90); //the pwm value sent to the car motor when driving in this gear 0-180 90=stop
+    SetPropertyFloat("Gear 3 speed threshold",1); // the speed (measured) at which the controller decides it has reached the desired gear/speed
 
-    SetPropertyInt("Sample Interval [msec]",1);
-    SetPropertyBool("use automatically calculated sample interval",1);
-    SetPropertyInt("Controller Typ", 1);
-    SetPropertyStr("Controller Typ" NSSUBPROP_VALUELISTNOEDIT, "1@P|2@PI|3@PID");
+    SetPropertyFloat("Gear 2 PWM value",90);
+    SetPropertyFloat("Gear 2 speed threshold",1);
+
+    SetPropertyFloat("Gear 1 PWM value",90);
+    SetPropertyFloat("Gear 1 speed threshold",1);
+
+    SetPropertyFloat("Gear 0 PWM value",90);
+    SetPropertyFloat("Gear 0 speed threshold",1);
+
+    SetPropertyFloat("Gear -1 PWM value", 90);
+    SetPropertyFloat("Gear -1 speed threshold",1);
+
+    SetPropertyFloat("Gear -2 PWM value", 90);
+    SetPropertyFloat("Gear -2 speed threshold",1);
+
+    SetPropertyFloat("light brake PWM value", 85); //pwm value for light braking
+    SetPropertyFloat("strong brake PWM value",80);
+
+    SetPropertyFloat("light acceleration PWM value", 95); //pwm value for light acceleration
+    SetPropertyFloat("strong acceleration PWM value",100);
+
 }
 
 SpeedControl::~SpeedControl()
@@ -47,9 +59,16 @@ tResult SpeedControl::CreateInputPins(__exception)
 
 
 
-    RETURN_IF_FAILED(m_oInputMeasured.Create("measured variable", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oInputMeasured1.Create("measured speed", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputMeasured));
-    RETURN_IF_FAILED(m_oInputSetPoint.Create("set point", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+
+    RETURN_IF_FAILED(m_oInputMeasured1.Create("measured speed", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oInputMeasured));
+
+    //--------------------------------
+    //TODO: create an int input pin -->
+
+    RETURN_IF_FAILED(m_oInputSetPoint.Create("set point (gear/speed)", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputSetPoint));
     RETURN_NOERROR;
 }
@@ -65,9 +84,13 @@ tResult SpeedControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(pTypeSignalValue->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSignal));
 
 
-    RETURN_IF_FAILED(m_oOutputManipulated.Create("manipulated variable", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oOutputPWM.Create("PWM value", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputManipulated));
     RETURN_NOERROR;
+
+    //---------------------------------
+    //TODO: output pin for brake lights
+
 }
 
 tResult SpeedControl::Init(tInitStage eStage, __exception)
@@ -114,7 +137,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
         RETURN_IF_POINTER_NULL( pMediaSample);
 
-        if (pSource == &m_oInputMeasured)
+        if (pSource == &m_oInputMeasured1)
         {
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
@@ -129,55 +152,18 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoder);
 
-            //// ----------------------!!!!! We broke it here !!!!! -------------------------
 
-
-            // TODO: remove this when not needed
-
-
-            m_measuredVariable = value;
+            m_measuredSensor1 = value;
+            m_measuredSpeed = calcSpeed();
 
 
 
             //execute controller
-            outputData = getControllerValue(value);
-
-            //make pwm signal
-
-            //calculate PWM Signal from mm/s
-            outputData = outputData / 20.0;
-
-            //precontrol
-            outputData = outputData + (tFloat32(GetPropertyFloat("Controller Precontrol Value", 1.0) * m_setPoint / 20.0 ));
-            //outputData = (tFloat32(GetPropertyFloat("Controller Precontrol Value", 1.0) * m_setPoint ));
-
-            outputData = outputData + 90.0;
-
-            // prevent value overflow -> hard constraints
-            if ( outputData < 10.0 )
-            {
-                outputData = 10.0;
-            }
-            else if ( value > 170.0 )
-            {
-                outputData = 170.0;
-            }
+            outputData = getControllerValue(m_measuredSpeed);
 
 
 
-            //confine output signal in externally defined constraints -> soft constraints
 
-            if (outputData > tFloat32(GetPropertyFloat("MaxPWMValue",170.0)))
-            {
-                outputData = tFloat32(GetPropertyFloat("MaxPWMValue",170.0));
-            }
-            else if (outputData < tFloat32(GetPropertyFloat("MinPWMValue",10.0)))
-            {
-                outputData = tFloat32(GetPropertyFloat("MinPWMValue",10.0));
-            }
-
-
-            // -------------------------------------------------------------------------------
 
             //create new media sample
             cObjectPtr<IMediaSample> pMediaSample;
@@ -216,79 +202,52 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             m_pCoderDescSignal->Unlock(pCoder);
 
 
-            // ----------------- We broke it here --------------------
-
-            if(GetPropertyBool("SetPoint is PWM Value",1) == tTrue)
-            {
-                //un-pwm setpoint to mm/s
-                value = value - 90.0;
-
-                if ( value < -90.0 ) // prevent stupid values
+                if ( value < -2 ) // prevent stupid values
                 {
-                    value = -90.0;
+                    value = -2;
                 }
-                else if ( value > 90.0 )
+                else if ( value > 3)
                 {
-                    value = 90.0;
+                    value = 3;
                 }
-
-                value = value * 20;	//full throttle := 1000mm/s
-            }
 
             m_setPoint = value;
         }
         else
             RETURN_NOERROR;
-        // -------------------------------------------------------------------
 
     }
     RETURN_NOERROR;
 }
 
 
-tFloat32 SpeedControl::getControllerValue(tFloat32 measuredValue)
+tFloat32 SpeedControl::calcSpeed()
 {
-    //calculate the sample time in milliseceonds if necessary
-    tInt sampleTime;
-    if (GetPropertyBool("use automatically calculated sample interval",1)==tTrue)
-        sampleTime = tInt(GetTime() - m_lastSampleTime)*1000;
-    else
-        sampleTime	= GetPropertyInt("Sample Intervall [msec]",1);
-    m_lastSampleTime = GetTime();
+    tFloat32 outputData = 0;
 
-    //the three controller algorithms
-    if (GetPropertyInt("Controller Typ", 1)==1)
+    return outputData;
+}
+
+tFloat32 SpeedControl::getControllerValue(tFloat32 measuredSpeed)
+{
+    tFloat32 outputData = 0;
+
+    //update m_lastGear according to speed + m_setPoint
+
+    //
+
+
+    // prevent value overflow
+    if ( outputData < 10.0 )
     {
-        //P-Regler y = Kp * e
-        tFloat32 result = tFloat32(GetPropertyFloat("Controller Kp value",1)*(m_setPoint-measuredValue));
-
-        return result;
+        outputData = 10.0;
     }
-    else if(GetPropertyInt("Controller Typ", 1)==2) //PI- Regler
+    else if ( value > 170.0 )
     {
-        //esum = esum + e
-        //y = Kp * e + Ki * Ta * esum
-        m_accumulatedVariable +=(m_setPoint-measuredValue);
-        tFloat32 result = tFloat32(GetPropertyFloat("Controller Kp value",1)*(m_setPoint-measuredValue) \
-                                   +GetPropertyFloat("Controller Ki value",1)*sampleTime*m_accumulatedVariable);
-
-        return result;
+        outputData = 170.0;
     }
-    else if(GetPropertyInt("Controller Typ", 1)==3)
-    {
-        //esum = esum + e
-        //y = Kp * e + Ki * Ta * esum + Kd * (e – ealt)/Ta
-        //ealt = e
-        m_accumulatedVariable +=(m_setPoint-measuredValue);
-        tFloat32 result =  tFloat32(GetPropertyFloat("Controller Kp value",1)*(m_setPoint-measuredValue) \
-                                    +tFloat32(GetPropertyFloat("Controller Ki value",1))*sampleTime*m_accumulatedVariable) \
-                +tFloat32(GetPropertyFloat("Controller Kd value",1))*((m_setPoint-measuredValue)-m_lastMeasuredError)/sampleTime;
-        m_lastMeasuredError = (m_setPoint-measuredValue);
 
-        return result;
-    }
-    else
-        return 0;
+        return outputData;
 }
 
 tTimeStamp SpeedControl::GetTime()
