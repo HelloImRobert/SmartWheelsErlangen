@@ -172,12 +172,15 @@
 		<struct alignment="1" name="tInt8SignalValue" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="int8Value" type="tInt8" />
 		</struct>
+<<<<<<< HEAD
 		<struct alignment="1" name="tSplineBoundaries" version="1">
 			<element alignment="1" arraysize="2" byteorder="LE" bytepos="0" name="BoundaryArray" type="tBoundary" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="202" name="BoundaryCount" type="tInt8" />
+=======
 		<struct alignment="1" name="tKITC" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="tInt8ValueSpeed" type="tInt8" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1" name="tInt8ValueCommand" type="tInt8" />
+>>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
 		</struct>
 	</structs>
 	<streams />

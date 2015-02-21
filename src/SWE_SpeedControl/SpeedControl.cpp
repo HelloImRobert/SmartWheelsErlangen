@@ -1,40 +1,34 @@
-/**
-Copyright (c) 
-Audi Autonomous Driving Cup. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-3.  All advertising materials mentioning features or use of this software must display the following acknowledgement: “This product includes software developed by the Audi AG and its contributors for Audi Autonomous Driving Cup.”
-4.  Neither the name of Audi nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL AUDI AG OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-*/
-
-
-// arduinofilter.cpp : Definiert die exportierten Funktionen für die DLL-Anwendung.
-//
 #include "stdafx.h"
 #include "SpeedControl.h"
 
 ADTF_FILTER_PLUGIN("SWE Motor Speed Controller", OID_ADTF_SWE_SPEEDCONTROL, SpeedControl)
 
-SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_lastMeasuredError(0), m_setPoint(0), m_lastSampleTime(0)
+SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0), m_setPoint(0), m_currentState(0), m_lastSampleTime(0)
 {
-    SetPropertyFloat("Controller Kp value",1);
-    SetPropertyFloat("Controller Ki value",1);
-    SetPropertyFloat("Controller Kd value",1);
-    SetPropertyFloat("Controller Precontrol Value", 1.0);
-    SetPropertyFloat("MaxPWMValue", 170.0);
-    SetPropertyFloat("MinPWMValue", 10.0);
-    SetPropertyBool("SetPoint is PWM Value",1);
+    SetPropertyFloat("Gear 3 PWM value",105); //the pwm value sent to the car motor when driving in this gear. In degrees 0-180 => 90 = stop/neutral
+    SetPropertyFloat("Gear 3 speed threshold",150); // the speed in mm/s (measured) at which the controller decides it has reached the desired gear/speed
 
-    SetPropertyInt("Sample Interval [msec]",1);
-    SetPropertyBool("use automatically calculated sample interval",1);
-    SetPropertyInt("Controller Typ", 1);
-    SetPropertyStr("Controller Typ" NSSUBPROP_VALUELISTNOEDIT, "1@P|2@PI|3@PID");
+    SetPropertyFloat("Gear 2 PWM value",100);
+    SetPropertyFloat("Gear 2 speed threshold",100);
+
+    SetPropertyFloat("Gear 1 PWM value",95);
+    SetPropertyFloat("Gear 1 speed threshold",50);
+
+    SetPropertyFloat("Gear -1 PWM value", 85);
+    SetPropertyFloat("Gear -1 speed threshold",-50);
+
+    SetPropertyFloat("Gear -2 PWM value", 80);
+    SetPropertyFloat("Gear -2 speed threshold",-100);
+
+    SetPropertyFloat("light brake strength", 0.05); //pwm value for light braking
+    SetPropertyFloat("strong brake strength",0.1);
+
+    SetPropertyFloat("acceleration boost", 1.2); //pwm boost value for acceleration 1.0 = no boost
+
+    SetPropertyFloat("Gear 0 speed window", 20); //threshold window for reliable stopping in mm/s
+
+    SetPropertyFloat("PWM scaler", 1.0); //all pwm values are multiplied by this value
+
 }
 
 SpeedControl::~SpeedControl()
@@ -47,9 +41,13 @@ tResult SpeedControl::CreateInputPins(__exception)
 
 
 
-    RETURN_IF_FAILED(m_oInputMeasured.Create("measured variable", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oInputMeasured));
-    RETURN_IF_FAILED(m_oInputSetPoint.Create("set point", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oInputVelocity.Create("car velocity", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oInputVelocity));
+
+    //--------------------------------
+    //TODO: create an int input pin -->
+
+    RETURN_IF_FAILED(m_oInputSetPoint.Create("set point (gear/speed)", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputSetPoint));
     RETURN_NOERROR;
 }
@@ -65,9 +63,13 @@ tResult SpeedControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(pTypeSignalValue->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSignal));
 
 
-    RETURN_IF_FAILED(m_oOutputManipulated.Create("manipulated variable", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oOutputManipulated));
+    RETURN_IF_FAILED(m_oOutputPWM.Create("PWM value", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputPWM));
     RETURN_NOERROR;
+
+    //---------------------------------
+    //TODO: output pins for brake/reverse lights
+
 }
 
 tResult SpeedControl::Init(tInitStage eStage, __exception)
@@ -87,6 +89,46 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
     {
 
     }
+
+    tFloat32 thresholdWindow_0 = (tFloat32)GetPropertyFloat("Gear 0 speed window", 20);
+
+    tFloat32 boostValue = (tFloat32)GetPropertyFloat("acceleration boost", 1.2);
+
+    m_pwm_p3 = (tFloat32)GetPropertyFloat("Gear 3 PWM value",105);
+    m_pwm_boost_p3 = 90 + (m_pwm_p3 - 90) * boostValue;
+    m_threshold_p3 = (tFloat32)GetPropertyFloat("Gear 3 speed threshold",150);
+
+    m_pwm_p2 = (tFloat32)GetPropertyFloat("Gear 2 PWM value",100);
+    m_pwm_boost_p2 = 90 + (m_pwm_p2 - 90) * boostValue;
+    m_threshold_p2 = (tFloat32)GetPropertyFloat("Gear 2 speed threshold",100);
+
+    m_pwm_p1 = (tFloat32)GetPropertyFloat("Gear 1 PWM value",95);
+    m_pwm_boost_p1 = 90 + (m_pwm_p1 - 90) * boostValue;
+    m_threshold_p1 = (tFloat32)GetPropertyFloat("Gear 1 speed threshold",50);
+
+
+    m_pwm_0 = 90;
+    m_threshold_p0 = 0 + thresholdWindow_0;
+    m_threshold_n0 = 0 - thresholdWindow_0;
+
+
+    m_pwm_n1 = (tFloat32)GetPropertyFloat("Gear -1 PWM value",85);
+    m_pwm_boost_n1 = 90 + (m_pwm_n1 - 90) * boostValue;
+    m_threshold_n1 = (tFloat32)GetPropertyFloat("Gear -1 speed threshold",-50);
+
+    m_pwm_n2 = (tFloat32)GetPropertyFloat("Gear -2 PWM value",80);
+    m_pwm_boost_n2 = 90 + (m_pwm_n2 - 90) * boostValue;
+    m_threshold_n2 = (tFloat32)GetPropertyFloat("Gear -2 speed threshold",-100);
+
+
+
+    m_lightBrake = 90 - 90*(tFloat32)GetPropertyFloat("light brake strength", 0.05);
+    m_inv_lightBrake = 90 + 90*(tFloat32)GetPropertyFloat("light brake strength", 0.05);
+
+    m_lightBrake = 90 - 90*(tFloat32)GetPropertyFloat("strong brake strength",0.1);
+    m_inv_lightBrake = 90 + 90*(tFloat32)GetPropertyFloat("strong brake strength",0.1);
+
+    m_pwmScaler = (tFloat32)GetPropertyFloat("PWM scaler", 1.0);
 
     RETURN_NOERROR;
 }
@@ -108,13 +150,14 @@ tResult SpeedControl::Shutdown(tInitStage eStage, __exception)
 
 tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample)
 {
-
+    cObjectPtr<IMediaType> pType;
+    pSource->GetMediaType(&pType);
     if (nEventCode == IPinEventSink::PE_MediaSampleReceived && pMediaSample != NULL && m_pCoderDescSignal != NULL)
     {
 
         RETURN_IF_POINTER_NULL( pMediaSample);
 
-        if (pSource == &m_oInputMeasured)
+        if (pSource == &m_oInputVelocity)
         {
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
@@ -129,55 +172,11 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoder);
 
-            //// ----------------------!!!!! We broke it here !!!!! -------------------------
-
-
-            // TODO: remove this when not needed
-
-
-            m_measuredVariable = value;
-
-
 
             //execute controller
-            outputData = getControllerValue(value);
+            m_velocity = value;
+            outputData = getControllerValue(m_velocity);
 
-            //make pwm signal
-
-            //calculate PWM Signal from mm/s
-            outputData = outputData / 20.0;
-
-            //precontrol
-            outputData = outputData + (tFloat32(GetPropertyFloat("Controller Precontrol Value", 1.0) * m_setPoint / 20.0 ));
-            //outputData = (tFloat32(GetPropertyFloat("Controller Precontrol Value", 1.0) * m_setPoint ));
-
-            outputData = outputData + 90.0;
-
-            // prevent value overflow -> hard constraints
-            if ( outputData < 10.0 )
-            {
-                outputData = 10.0;
-            }
-            else if ( value > 170.0 )
-            {
-                outputData = 170.0;
-            }
-
-
-
-            //confine output signal in externally defined constraints -> soft constraints
-
-            if (outputData > tFloat32(GetPropertyFloat("MaxPWMValue",170.0)))
-            {
-                outputData = tFloat32(GetPropertyFloat("MaxPWMValue",170.0));
-            }
-            else if (outputData < tFloat32(GetPropertyFloat("MinPWMValue",10.0)))
-            {
-                outputData = tFloat32(GetPropertyFloat("MinPWMValue",10.0));
-            }
-
-
-            // -------------------------------------------------------------------------------
 
             //create new media sample
             cObjectPtr<IMediaSample> pMediaSample;
@@ -198,7 +197,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
             //transmit media sample over output pin
             RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-            RETURN_IF_FAILED(m_oOutputManipulated.Transmit(pMediaSample));
+            RETURN_IF_FAILED(m_oOutputPWM.Transmit(pMediaSample));
 
         }
         else if (pSource == &m_oInputSetPoint)
@@ -207,88 +206,270 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
 
             //write values with zero
-            tFloat32 value = 0;
+            tInt16 value = 0;
             tUInt32 timeStamp = 0;
 
             //get values from media sample
-            pCoder->Get("f32Value", (tVoid*)&value);
+            pCoder->Get("i8Value", (tVoid*)&value);
             pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoder);
 
 
-            // ----------------- We broke it here --------------------
-
-            if(GetPropertyBool("SetPoint is PWM Value",1) == tTrue)
-            {
-                //un-pwm setpoint to mm/s
-                value = value - 90.0;
-
-                if ( value < -90.0 ) // prevent stupid values
+                if ( value < -2 ) // prevent stupid values
                 {
-                    value = -90.0;
+                    value = -2;
                 }
-                else if ( value > 90.0 )
+                else if ( value > 3)
                 {
-                    value = 90.0;
+                    value = 3;
                 }
-
-                value = value * 20;	//full throttle := 1000mm/s
-            }
 
             m_setPoint = value;
         }
         else
-            RETURN_NOERROR;
-        // -------------------------------------------------------------------
-
+        RETURN_NOERROR;
     }
     RETURN_NOERROR;
 }
 
-
-tFloat32 SpeedControl::getControllerValue(tFloat32 measuredValue)
+tResult SpeedControl::updateState()
 {
-    //calculate the sample time in milliseceonds if necessary
-    tInt sampleTime;
-    if (GetPropertyBool("use automatically calculated sample interval",1)==tTrue)
-        sampleTime = tInt(GetTime() - m_lastSampleTime)*1000;
-    else
-        sampleTime	= GetPropertyInt("Sample Intervall [msec]",1);
-    m_lastSampleTime = GetTime();
+    m_currentState = 0;
 
-    //the three controller algorithms
-    if (GetPropertyInt("Controller Typ", 1)==1)
+    if (m_velocity > m_threshold_p2) //is the car going forwards?
     {
-        //P-Regler y = Kp * e
-        tFloat32 result = tFloat32(GetPropertyFloat("Controller Kp value",1)*(m_setPoint-measuredValue));
-
-        return result;
+        m_currentState = 3;
     }
-    else if(GetPropertyInt("Controller Typ", 1)==2) //PI- Regler
+    else if (m_velocity > m_threshold_p1)
     {
-        //esum = esum + e
-        //y = Kp * e + Ki * Ta * esum
-        m_accumulatedVariable +=(m_setPoint-measuredValue);
-        tFloat32 result = tFloat32(GetPropertyFloat("Controller Kp value",1)*(m_setPoint-measuredValue) \
-                                   +GetPropertyFloat("Controller Ki value",1)*sampleTime*m_accumulatedVariable);
-
-        return result;
+        m_currentState = 2;
     }
-    else if(GetPropertyInt("Controller Typ", 1)==3)
+    else if (m_velocity > m_threshold_p0)
     {
-        //esum = esum + e
-        //y = Kp * e + Ki * Ta * esum + Kd * (e – ealt)/Ta
-        //ealt = e
-        m_accumulatedVariable +=(m_setPoint-measuredValue);
-        tFloat32 result =  tFloat32(GetPropertyFloat("Controller Kp value",1)*(m_setPoint-measuredValue) \
-                                    +tFloat32(GetPropertyFloat("Controller Ki value",1))*sampleTime*m_accumulatedVariable) \
-                +tFloat32(GetPropertyFloat("Controller Kd value",1))*((m_setPoint-measuredValue)-m_lastMeasuredError)/sampleTime;
-        m_lastMeasuredError = (m_setPoint-measuredValue);
-
-        return result;
+        m_currentState = 1;
     }
-    else
-        return 0;
+
+    if ((m_velocity > m_threshold_n0) && (m_velocity < m_threshold_p0)) //has it stopped?
+    {
+        m_currentState = 0;
+    }
+
+    if (m_velocity < m_threshold_n1) //is it going backwards?
+    {
+        m_currentState = -1;
+    }
+    else if (m_velocity < m_threshold_n0)
+    {
+        m_currentState = -2;
+    }
+
+    RETURN_NOERROR;
+}
+
+tFloat32 SpeedControl::getControllerValue(tFloat32 measuredSpeed)
+{
+    tFloat32 outputData = 0;
+
+    //update current state
+    updateState();
+
+
+    if (m_currentState == 3)
+    {
+        setReverseLights(false);
+
+        switch(m_setPoint)
+        {
+            case 3:
+                setBrakeLights(false);
+                outputData = m_pwm_p3;
+                break;
+            case 2:
+                setBrakeLights(true);
+                outputData = m_lightBrake;
+                break;
+            default:
+                setBrakeLights(true);
+                outputData = m_strongBrake;
+        }   
+    }
+    else if (m_currentState == 2)
+    {
+        setReverseLights(false);
+
+        switch(m_setPoint)
+        {
+            case 3:
+                setBrakeLights(false);
+                outputData = m_pwm_boost_p3;
+                break;
+            case 2:
+                setBrakeLights(false);
+                outputData = m_pwm_p2;
+                break;
+            case 1:
+                setBrakeLights(true);
+                outputData = m_lightBrake;
+                break;
+            default:
+                setBrakeLights(true);
+                outputData = m_strongBrake;
+        }
+    }
+    else if (m_currentState == 1)
+    {
+        setReverseLights(false);
+
+        switch(m_setPoint)
+        {
+            case 3:
+                setBrakeLights(false);
+                outputData = m_pwm_boost_p3;
+                break;
+            case 2:
+                setBrakeLights(false);
+                outputData = m_pwm_boost_p2;
+                break;
+            case 1:
+                setBrakeLights(false);
+                outputData = m_pwm_p1;
+                break;
+            case 0:
+                setBrakeLights(true);
+                outputData = m_lightBrake;
+                break;
+            default:
+                setBrakeLights(true);
+                outputData = m_strongBrake;
+        }
+    }
+    else if (m_currentState == 0)
+    {
+        switch(m_setPoint)
+        {
+            case 3:
+                setReverseLights(false);
+                setBrakeLights(false);
+                outputData = m_pwm_boost_p3;
+                break;
+            case 2:
+                setReverseLights(false);
+                setBrakeLights(false);
+                outputData = m_pwm_boost_p2;
+                break;
+            case 1:
+                setReverseLights(false);
+                setBrakeLights(false);
+                outputData = m_pwm_boost_p1;
+                break;
+            case 0:
+                setReverseLights(false);
+                setBrakeLights(false);
+                outputData = m_pwm_0;
+                break;
+            case -1:
+                setReverseLights(true);
+                setBrakeLights(false);
+                outputData = m_pwm_boost_n1;
+                break;
+            case -2:
+                setReverseLights(true);
+                setBrakeLights(false);
+                outputData = m_pwm_boost_n2;
+                break;
+        }
+    }
+    else if (m_currentState == -1)
+    {
+        setReverseLights(true);
+
+        switch(m_setPoint)
+        {
+            case 3:
+                setBrakeLights(true);
+                outputData = m_inv_strongBrake;
+                break;
+            case 2:
+                setBrakeLights(true);
+                outputData = m_inv_strongBrake;
+                break;
+            case 1:
+                setBrakeLights(true);
+                outputData = m_inv_strongBrake;
+                break;
+            case 0:
+                setBrakeLights(true);
+                outputData = m_inv_lightBrake;;
+                break;
+            case -1:
+                setBrakeLights(false);
+                outputData = m_pwm_n1;
+                break;
+            case -2:
+                setBrakeLights(false);
+                outputData = m_pwm_boost_n2;
+                break;
+        }
+
+    }
+    else if (m_currentState == -2)
+    {
+        setReverseLights(false);
+
+        switch(m_setPoint)
+        {
+            case 3:
+                setBrakeLights(true);
+                outputData = m_inv_strongBrake;
+                break;
+            case 2:
+                setBrakeLights(true);
+                outputData = m_inv_strongBrake;
+                break;
+            case 1:
+                setBrakeLights(true);
+                outputData = m_inv_strongBrake;
+                break;
+            case 0:
+                setBrakeLights(true);
+                outputData = m_inv_strongBrake;;
+                break;
+            case -1:
+                setBrakeLights(true);
+                outputData = m_inv_lightBrake;
+                break;
+            case -2:
+                setBrakeLights(false);
+                outputData = m_pwm_n2;
+                break;
+        }
+    }
+
+    outputData = outputData * m_pwmScaler;
+
+    // prevent erratic values (due to a stupid configuration)
+    if ( outputData < 10.0 )
+    {
+        outputData = 10.0;
+    }
+    else if ( outputData > 170.0 )
+    {
+        outputData = 170.0;
+    }
+
+        return outputData;
+}
+
+tResult SpeedControl::setBrakeLights(tBool state)
+{
+
+    RETURN_NOERROR;
+}
+
+tResult SpeedControl::setReverseLights(tBool state)
+{
+
+    RETURN_NOERROR;
 }
 
 tTimeStamp SpeedControl::GetTime()

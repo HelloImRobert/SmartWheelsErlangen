@@ -62,6 +62,10 @@ private:
     cObjectPtr<IMediaTypeDescription> m_pCoderDescLightData;
     // Coder Descriptors for output pins
     cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput;
+<<<<<<< HEAD
+=======
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput2;
+>>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
 
 };
 

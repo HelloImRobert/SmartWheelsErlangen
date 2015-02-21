@@ -29,8 +29,8 @@ class cSWE_KIControl : public adtf::cFilter
 
     //MB Output
     cOutputPin m_oOutputDriverCourse;
-
-
+    cOutputPin m_oOutputLightControl;
+    cOutputPin m_oOutputTC;
 
     //cOutputPin m_oOutputManipulated;
 
@@ -53,11 +53,19 @@ private:
     tResult CreateInputPins(__exception = NULL);
     /*! creates all the output Pins*/
     tResult CreateOutputPins(__exception = NULL);
+<<<<<<< HEAD
 
 	vector<int> Commands;
 
     vector<pair<tFloat32,tFloat32> > objecte;
     vector<double> points;
+=======
+double getPerpendicDistance(const cv::Point2d& referencePoint);
+	vector<int> Commands;
+
+    vector<pair<tFloat32,tFloat32> > objecte;
+    vector<pair<tFloat32,tFloat32> > points;
+>>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
     int CommandCounter;
     int Signtype;
 	int SecondSigntype;
@@ -73,17 +81,29 @@ private:
     //MB Funktionen die benoetigt werden
     void ObjectAvoidance();
     void DriverCalc();
-    void sendTC(int speed, int type);
+    tResult sendTC(int speed, int type);
     void Parkroutine();
     void ControlHL();
+<<<<<<< HEAD
     void ControlLight(int lights);
     //MB Objekte/Variablen die benoetigt werden
     cObjectPtr<IMediaTypeDescription> m_pCoderDescDriverDATA;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputRoadSign;
     //-------------------------------//
+=======
+    tResult ControlLight(int lights);
+>>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
 
+    std::pair<cv::Point2d, cv::Point2d> m_boundary;
 
+    //MB Objekte/Variablen die benoetigt werden Input
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescDriverDATA;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescInputRoadSign;
+    //-------------------------------//
 
+    //MB Objekte/Variablen die benoetigt werden output
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescTCOutput;
     /*! Coder Descriptors for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescPointLeft;
