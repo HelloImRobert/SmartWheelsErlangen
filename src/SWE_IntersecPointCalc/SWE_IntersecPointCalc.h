@@ -16,6 +16,7 @@ class cSWE_IntersecPointCalc : public adtf::cFilter
 
     // create pins
     cInputPin m_oLines;
+    cInputPin m_oSplines;
 
     cOutputPin m_oIntersectionPoints;
 

@@ -150,7 +150,7 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
             //leftIntersectionPoint.x = 200; leftIntersectionPoint.y = 100;
             //rightIntersectionPoint.x = 200; rightIntersectionPoint.y = -350;
 
-            tFloat32 steeringAngle = 180.0/3.14*(CalcSteeringAngle( leftIntersectionPoint, rightIntersectionPoint, intersectionIndicator ));
+            tFloat32 steeringAngle = -180.0/3.14*(CalcSteeringAngle( leftIntersectionPoint, rightIntersectionPoint, intersectionIndicator ));
 
 
             // TRANSMIT OUTPUT VALUES -------------------------------------------------------------------

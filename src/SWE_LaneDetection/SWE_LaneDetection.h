@@ -41,6 +41,7 @@ class cSWE_LaneDetection : public adtf::cFilter
             cVideoPin       _oGreyScaleVideoOutputPin;              /**< outputpin for the debug video */
             cVideoPin       _oColorVideoOutputPin;              /**< outputpin for the debug video */
             cOutputPin     m_oLines;
+            cOutputPin     m_oSplines;
 
         protected:
 
@@ -87,6 +88,7 @@ class cSWE_LaneDetection : public adtf::cFilter
 
             /*! Coder Descriptors for the pins*/
             cObjectPtr<IMediaTypeDescription> m_pCoderDescLines;
+            cObjectPtr<IMediaTypeDescription> m_pCoderDescSplines;
         };
 
         //*************************************************************************************************

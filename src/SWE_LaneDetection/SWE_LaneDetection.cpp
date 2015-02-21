@@ -17,7 +17,7 @@ ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_LANEDETECTION_FILTER , cSWE_Lan
 
 bool sort_smaller(cv::Vec2f* lane1, cv::Vec2f* lane2)
 {
-        return (*lane1)[1] > (*lane2)[1];
+    return (*lane1)[1] > (*lane2)[1];
 }
 
 /**
@@ -81,8 +81,8 @@ cSWE_LaneDetection::~cSWE_LaneDetection()
 tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
 {
     RETURN_IF_FAILED(cFilter::Init(eStage, __exception_ptr))
-    
-    if (eStage == StageFirst)
+
+            if (eStage == StageFirst)
     {
         // register a Video Input
         RETURN_IF_FAILED(_oVideoInputPin.Create("Video_Input", IPin::PD_Input, static_cast<IPinEventSink*>(this)));
@@ -108,6 +108,15 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
 
         RETURN_IF_FAILED(m_oLines.Create("Line_Boundaries", pTypeLines, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oLines));
+
+        // Output pin for Splines
+        tChar const * strDescSplines = pDescManager->GetMediaDescription("tSplineBoundaries");
+        RETURN_IF_POINTER_NULL(strDescSplines);
+        cObjectPtr<IMediaType> pTypeSplines = new cMediaType(0, 0, 0, "tSplineBoundaries", strDescSplines,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+        RETURN_IF_FAILED(pTypeSplines->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSplines));
+
+        RETURN_IF_FAILED(m_oSplines.Create("Spline_Boundaries", pTypeSplines, static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&m_oSplines));
     }
     else if (eStage == StageNormal)
     {
@@ -169,25 +178,25 @@ tResult cSWE_LaneDetection::InitPinFormats()
     tInt32 width = _rightBorder - _leftBorder;
 
     // if the cut is valid
-//    if ( height > 0 && width > 0 )
-//    {
-//        // setup the algorithm to cut
-//        _applyCut = tTrue;
+    //    if ( height > 0 && width > 0 )
+    //    {
+    //        // setup the algorithm to cut
+    //        _applyCut = tTrue;
 
-//        // calculate the format
-//        _sGreyScaleBitMapOutputFormat.nWidth = width;
-//        _sGreyScaleBitMapOutputFormat.nHeight = height;
-//        _sGreyScaleBitMapOutputFormat.nBytesPerLine = width;
-//        _sGreyScaleBitMapOutputFormat.nSize = _sGreyScaleBitMapOutputFormat.nBytesPerLine * height;
-//     }
-//     else
-     {
+    //        // calculate the format
+    //        _sGreyScaleBitMapOutputFormat.nWidth = width;
+    //        _sGreyScaleBitMapOutputFormat.nHeight = height;
+    //        _sGreyScaleBitMapOutputFormat.nBytesPerLine = width;
+    //        _sGreyScaleBitMapOutputFormat.nSize = _sGreyScaleBitMapOutputFormat.nBytesPerLine * height;
+    //     }
+    //     else
+    {
         // just use the default (input) format
         _sGreyScaleBitMapOutputFormat.nWidth = 640;
         _sGreyScaleBitMapOutputFormat.nHeight = 480;
         _sGreyScaleBitMapOutputFormat.nBytesPerLine = 640;
         _sGreyScaleBitMapOutputFormat.nSize = _sGreyScaleBitMapOutputFormat.nBytesPerLine * 480;
-     }
+    }
 
     // set the format to the outputpin
     _oGreyScaleVideoOutputPin.SetFormat( &_sGreyScaleBitMapOutputFormat , NULL );
@@ -268,18 +277,18 @@ tResult cSWE_LaneDetection::Shutdown(tInitStage eStage, __exception)
  * @return a value indicating the succes of the processing
  */
 tResult cSWE_LaneDetection::OnPinEvent(IPin* pSource,
-                                           tInt nEventCode,
-                                           tInt nParam1,
-                                           tInt nParam2,
-                                           IMediaSample* pMediaSample)
+                                       tInt nEventCode,
+                                       tInt nParam1,
+                                       tInt nParam2,
+                                       IMediaSample* pMediaSample)
 {
     if(nEventCode == IPinEventSink::PE_MediaSampleReceived)
     {
-         RETURN_IF_POINTER_NULL(pMediaSample);
-         if(pSource == &_oVideoInputPin)
-         {
-             ProcessInput(pMediaSample);
-         }
+        RETURN_IF_POINTER_NULL(pMediaSample);
+        if(pSource == &_oVideoInputPin)
+        {
+            ProcessInput(pMediaSample);
+        }
     }
     RETURN_NOERROR;
 }
@@ -363,8 +372,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     Mat greyScaleImage;
     cvtColor(image, greyScaleImage, CV_RGB2GRAY, 1);
 
-    double useless;
-    imwrite("/home/odroid/Desktop/kreuzung.jpg" , image );
+    //imwrite("/home/odroid/Desktop/BilderMatthias/bild.jpg" , image );
 
     // apply the filter for Detection of Lane Markers
     Mat blurredImage;
@@ -430,58 +438,58 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         lanes.push_back(cv::Vec2f(rho, theta));
     }
 
-//    for (size_t i = 0; i < lanes.size(); i++)
-//    {
-//        float rho = lanes[i][0], theta = lanes[i][1];
+    //    for (size_t i = 0; i < lanes.size(); i++)
+    //    {
+    //        float rho = lanes[i][0], theta = lanes[i][1];
 
-//        cv::Point start;
-//        cv::Point pFirst;
-//        cv::Point pSecond;
+    //        cv::Point start;
+    //        cv::Point pFirst;
+    //        cv::Point pSecond;
 
-//        if ((theta < CV_PI / 4. || theta > 3. * CV_PI / 4.))
-//        {
-//            pFirst = cv::Point(rho / std::cos(theta), 0);
-//            pSecond = cv::Point((rho - image.rows * std::sin(theta)) / std::cos(theta), image.rows);
-//        }
-//        else
-//        {
-//            pFirst = cv::Point(0, rho / std::sin(theta));
-//            pSecond = cv::Point(image.cols, (rho - image.cols * std::cos(theta)) / std::sin(theta));
-//        }
+    //        if ((theta < CV_PI / 4. || theta > 3. * CV_PI / 4.))
+    //        {
+    //            pFirst = cv::Point(rho / std::cos(theta), 0);
+    //            pSecond = cv::Point((rho - image.rows * std::sin(theta)) / std::cos(theta), image.rows);
+    //        }
+    //        else
+    //        {
+    //            pFirst = cv::Point(0, rho / std::sin(theta));
+    //            pSecond = cv::Point(image.cols, (rho - image.cols * std::cos(theta)) / std::sin(theta));
+    //        }
 
-//        if (pFirst.y > pSecond.y)
-//        {
-//            start = pFirst;
-//        }
-//        else
-//        {
-//            start = pSecond;
-//        }
+    //        if (pFirst.y > pSecond.y)
+    //        {
+    //            start = pFirst;
+    //        }
+    //        else
+    //        {
+    //            start = pSecond;
+    //        }
 
-//        int stepSize = 60;
-//        size_t maxSteps = 18;
+    //        int stepSize = 60;
+    //        size_t maxSteps = 18;
 
-//        circle(image, start, 20, Scalar(255, 0, 0), 2, 8);
+    //        circle(image, start, 20, Scalar(255, 0, 0), 2, 8);
 
-//        std::pair< cv::Point , double > result = computeEnergy(blurredImage, start, pFirst, pSecond, stepSize);
+    //        std::pair< cv::Point , double > result = computeEnergy(blurredImage, start, pFirst, pSecond, stepSize);
 
-//        circle(image, result.first, 20, Scalar(255, 0, 0), 2, 8);
+    //        circle(image, result.first, 20, Scalar(255, 0, 0), 2, 8);
 
-//        cv::Point next = result.first;
-//        cv::Point next2;
-//        cv::Point current = start;
-//        for (size_t j = 0; j < maxSteps; j++)
-//        {
-//            next2 = findNextPoint(blurredImage, current, next, stepSize);
-//            if( next2.x < 0 || next2.y < 0 || next2.x >= blurredImage.cols || next2.y >= blurredImage.rows )
-//            {
-//                break;
-//            }
-//            current = next;
-//            next = next2;
-//            circle(image, next, 20, Scalar(255, 0, 0), 2, 8);
-//        }
-//    }
+    //        cv::Point next = result.first;
+    //        cv::Point next2;
+    //        cv::Point current = start;
+    //        for (size_t j = 0; j < maxSteps; j++)
+    //        {
+    //            next2 = findNextPoint(blurredImage, current, next, stepSize);
+    //            if( next2.x < 0 || next2.y < 0 || next2.x >= blurredImage.cols || next2.y >= blurredImage.rows )
+    //            {
+    //                break;
+    //            }
+    //            current = next;
+    //            next = next2;
+    //            circle(image, next, 20, Scalar(255, 0, 0), 2, 8);
+    //        }
+    //    }
 
     double leftFrontX = -1;
     double leftFrontY = -1;
@@ -493,6 +501,8 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     double rightRearY = -1;
 
 
+    vector< vector<cv::Point2d> > splines;
+    splines.resize(lanes.size());
     for (size_t i = 0; i < lanes.size(); i++)
     {
         float rho = lanes[i][0], theta = lanes[i][1];
@@ -521,11 +531,12 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
 
         pt1 = vec[ 0 ];
         pt2 = vec[ 1 ];
+//        splines[i] = vec;
 
         // scaling factor for calculating pixel in mm
         tFloat64 scaleFac = 0.95;
         // distance from front axis to nearest edge of camera picture
-        tFloat64 distFrontToCam = 179+83-70;
+        tFloat64 distFrontAxisToInvImage = 220-20-65;
         // value to correct camera not cenered in y-direction
         tFloat64 distMidToCam = -22;
         // picture heigth and width
@@ -536,61 +547,122 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         if (theta >= 0 && theta < _thetaMax)
         {
             leftFrontY = scaleFac*((-1.0)*(pt1.x - picWidth/2.0)) + distMidToCam;
-            leftFrontX = scaleFac*((-1.0)*(pt1.y - picHeight)) + distFrontToCam;
+            leftFrontX = scaleFac*((-1.0)*(pt1.y - picHeight)) + distFrontAxisToInvImage;
             leftRearY = scaleFac*((-1.0)*(pt2.x - picWidth/2.0)) + distMidToCam;
-            leftRearX = scaleFac*((-1.0)*(pt2.y - picHeight)) + distFrontToCam;
+            leftRearX = scaleFac*((-1.0)*(pt2.y - picHeight)) + distFrontAxisToInvImage;
+
+            splines[i].push_back(cv::Point2d(leftFrontX, leftFrontY));
+            splines[i].push_back(cv::Point2d(leftRearX, leftRearY));
         }
         else
         {
             rightFrontY = scaleFac*((-1.0)*(pt1.x - picWidth/2.0)) + distMidToCam;
-            rightFrontX = scaleFac*((-1.0)*(pt1.y - picHeight)) + distFrontToCam;
+            rightFrontX = scaleFac*((-1.0)*(pt1.y - picHeight)) + distFrontAxisToInvImage;
             rightRearY = scaleFac*((-1.0)*(pt2.x - picWidth/2.0)) + distMidToCam;
-            rightRearX = scaleFac*((-1.0)*(pt2.y - picHeight)) + distFrontToCam;
+            rightRearX = scaleFac*((-1.0)*(pt2.y - picHeight)) + distFrontAxisToInvImage;
+
+            splines[i].push_back(cv::Point2d(rightFrontX, rightFrontY));
+            splines[i].push_back(cv::Point2d(rightRearX, rightRearY));
         }
+
+
     }
 
     // apply an inverse Perspective mapping
     Mat warpedImage;
     cv::warpPerspective(image, warpedImage, _projectionMatrix, greyScaleImage.size());
 
-    imwrite( "/home/odroid/Desktop/invBild.jpg" , warpedImage );
+    imwrite( "/home/odroid/Desktop/BilderMatthias/invBild.jpg" , warpedImage );
 
     {
-    cObjectPtr<IMediaCoder> pCoder;
+        cObjectPtr<IMediaCoder> pCoder;
 
-    //create new media sample
-    cObjectPtr<IMediaSample> pMediaSample;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+        //create new media sample
+        cObjectPtr<IMediaSample> pMediaSample;
+        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
 
-    //allocate memory with the size given by the descriptor
-    // ADAPT: m_pCoderDescPointLeft
-    cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderDescLines->GetMediaSampleSerializer(&pSerializer);
-    tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSample->AllocBuffer(nSize);
+        // OUTPUT LINES -----------------------------------------------------------
+        //allocate memory with the size given by the descriptor
+        // ADAPT: m_pCoderDescPointLeft
+        cObjectPtr<IMediaSerializer> pSerializer;
+        m_pCoderDescLines->GetMediaSampleSerializer(&pSerializer);
+        tInt nSize = pSerializer->GetDeserializedSize();
+        pMediaSample->AllocBuffer(nSize);
 
-    //write date to the media sample with the coder of the descriptor
-    // ADAPT: m_pCoderDescPointLeft
-    //cObjectPtr<IMediaCoder> pCoder;
-    RETURN_IF_FAILED(m_pCoderDescLines->WriteLock(pMediaSample, &pCoder));
-
-
-    pCoder->Set("leftFrontX", (tVoid*)&(leftFrontX));
-    pCoder->Set("leftFrontY", (tVoid*)&(leftFrontY));
-    pCoder->Set("leftRearX", (tVoid*)&(leftRearX));
-    pCoder->Set("leftRearY", (tVoid*)&(leftRearY));
-    pCoder->Set("rightFrontX", (tVoid*)&(rightFrontX));
-    pCoder->Set("rightFrontY", (tVoid*)&(rightFrontY));
-    pCoder->Set("rightRearX", (tVoid*)&(rightRearX));
-    pCoder->Set("rightRearY", (tVoid*)&(rightRearY));
-    m_pCoderDescLines->Unlock(pCoder);
+        //write date to the media sample with the coder of the descriptor
+        // ADAPT: m_pCoderDescPointLeft
+        //cObjectPtr<IMediaCoder> pCoder;
+        RETURN_IF_FAILED(m_pCoderDescLines->WriteLock(pMediaSample, &pCoder));
 
 
-    //transmit media sample over output pin
-    // ADAPT: m_oIntersectionPointLeft
-    RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_oLines.Transmit(pMediaSample));
-}
+        pCoder->Set("leftFrontX", (tVoid*)&(leftFrontX));
+        pCoder->Set("leftFrontY", (tVoid*)&(leftFrontY));
+        pCoder->Set("leftRearX", (tVoid*)&(leftRearX));
+        pCoder->Set("leftRearY", (tVoid*)&(leftRearY));
+        pCoder->Set("rightFrontX", (tVoid*)&(rightFrontX));
+        pCoder->Set("rightFrontY", (tVoid*)&(rightFrontY));
+        pCoder->Set("rightRearX", (tVoid*)&(rightRearX));
+        pCoder->Set("rightRearY", (tVoid*)&(rightRearY));
+        m_pCoderDescLines->Unlock(pCoder);
+
+
+        //transmit media sample over output pin
+        // ADAPT: m_oIntersectionPointLeft
+        RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oLines.Transmit(pMediaSample));
+        // OUTPUT LINES -----------------------------------------------------------
+
+        // OUTPUT SPLINES -----------------------------------------------------------
+        //allocate memory with the size given by the descriptor
+        // ADAPT: m_pCoderDescPointLeft
+        //cObjectPtr<IMediaSerializer> pSerializer;
+        m_pCoderDescSplines->GetMediaSampleSerializer(&pSerializer);
+        nSize = pSerializer->GetDeserializedSize();
+        pMediaSample->AllocBuffer(nSize);
+
+        //write date to the media sample with the coder of the descriptor
+        // ADAPT: m_pCoderDescPointLeft
+        //cObjectPtr<IMediaCoder> pCoder;
+        RETURN_IF_FAILED(m_pCoderDescSplines->WriteLock(pMediaSample, &pCoder));
+
+
+        for(int i=0; i < splines.size(); i++)
+        {
+            stringstream elementSetter;
+
+            for(int j=0; j < splines[i].size(); j++)
+            {
+                elementSetter << "BoundaryArray[" << i << "].Points[" << j << "].xCoord";
+                const string& tempRef1 = elementSetter.str();
+                const tChar* tempPointer1 = tempRef1.c_str();
+                pCoder->Set(tempPointer1, (tVoid*)&(splines[i][j].x));
+                elementSetter.str(std::string());
+
+                elementSetter << "BoundaryArray[" << i << "].Points[" << j << "].yCoord";
+                const string& tempRef2 = elementSetter.str();
+                const tChar* tempPointer2 = tempRef2.c_str();
+                pCoder->Set(tempPointer2, (tVoid*)&(splines[i][j].y));
+                elementSetter.str(std::string());
+            }
+
+            elementSetter << "BoundaryArray[" << i << "].Count";
+            const string& tempRef3 = elementSetter.str();
+            const tChar* tempPointer3 = tempRef3.c_str();
+            int BoundaryArrayCountTemp = splines[i].size();
+            pCoder->Set(tempPointer3, (tVoid*)&(BoundaryArrayCountTemp));
+            elementSetter.str(std::string());
+        }
+        int BoundaryCountTemp = splines.size();;
+        pCoder->Set("BoundaryCount", (tVoid*)&(BoundaryCountTemp));
+        m_pCoderDescSplines->Unlock(pCoder);
+
+
+        //transmit media sample over output pin
+        // ADAPT: m_oIntersectionPointLeft
+        RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oSplines.Transmit(pMediaSample));
+        // OUTPUT SPLINES -----------------------------------------------------------
+    }
 
     // transmit a video of the current result to the video outputpin
     if (_oColorVideoOutputPin.IsConnected())
@@ -599,7 +671,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         if (IS_OK(AllocMediaSample(&pNewRGBSample)))
         {
             tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
-            pNewRGBSample->Update(tmStreamTime, warpedImage.data, _sColorBitMapOutputFormat.nSize , 0);
+            pNewRGBSample->Update(tmStreamTime, image.data, _sColorBitMapOutputFormat.nSize , 0);
             _oColorVideoOutputPin.Transmit(pNewRGBSample);
         }
     }

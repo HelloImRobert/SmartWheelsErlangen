@@ -49,16 +49,19 @@ private:
     tResult CreateOutputPins(__exception = NULL);
 
     //MB Funktionen die benoetigt werden
-    void LichtAn(tInt8 value);
+    tResult LichtAn(tInt8 value);
     //MB Objekte/Variablen die benoetigt werden
-    cObjectPtr<IMediaTypeDescription> m_pCoderDescDriverDATA;
+
     //-------------------------------//
 
 
 
     /*! Coder Descriptors for the pins*/
-    cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
-    cObjectPtr<IMediaTypeDescription> m_pCoderDescPointLeft;
+
+    // Coder Descriptors for input pins
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightData;
+    // Coder Descriptors for output pins
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput;
 
 };
 

@@ -5,10 +5,11 @@ include_directories(${OpenCV_INCLUDE_DIR})
 
 # declare our filter
 adtf_add_filter(${FILTER_NAME}
+stdafx.h
+stdafx.cpp
 
-
-   SWE_LightControl.h
-    SWE_LightControl.cpp
+   #SWE_LightControl.h
+   #SWE_LightControl.cpp
 
 )
 

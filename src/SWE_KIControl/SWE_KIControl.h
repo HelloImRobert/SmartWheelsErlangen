@@ -53,14 +53,21 @@ private:
     tResult CreateInputPins(__exception = NULL);
     /*! creates all the output Pins*/
     tResult CreateOutputPins(__exception = NULL);
-    int Commands[];
+
+	vector<int> Commands;
+
+    vector<pair<tFloat32,tFloat32> > objecte;
+    vector<double> points;
     int CommandCounter;
     int Signtype;
+	int SecondSigntype;
     int SpeedControl;
+	int kreuzungstyp;
     bool halteLinie;
     bool hlsearch;
     bool abgebogen;
     bool roadfree;
+	bool parking;
     double Punktx;
     double Punkty;
     //MB Funktionen die benoetigt werden
@@ -72,6 +79,7 @@ private:
     void ControlLight(int lights);
     //MB Objekte/Variablen die benoetigt werden
     cObjectPtr<IMediaTypeDescription> m_pCoderDescDriverDATA;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescInputRoadSign;
     //-------------------------------//
 
 

@@ -302,7 +302,7 @@ void SWE_DistanceMeasurement::transfrom()
 {
 
     /*! This bullshit is to be tested */
-    float32 fusionBuffer;
+    //float32 fusionBuffer;
 
 
     // Transform USS
@@ -327,14 +327,14 @@ void SWE_DistanceMeasurement::transfrom()
         _transformed.ir_front_left.first = DIST_IR_FRONT_SIDE;
         _transformed.ir_front_left.second = _mean.ir_front_left_short + DIST_IR_FRONT_SIDE_LEFT;
     }
-    else if(_mean.ir_front_left_short >= 15.0 && _mean.ir_front_left_short < 40.0 && _mean.ir_front_left_long > 15.0 && _mean.ir_front_left_long < 40.0)
+    else if(_mean.ir_front_left_short > 15.0 && _mean.ir_front_left_short < 40.0 && _mean.ir_front_left_long > 15.0 && _mean.ir_front_left_long < 40.0)
     {
         //fusion
-        fusionBuffer = ( _mean.ir_front_left_short + _mean.ir_front_left_long ) / 2;
+        //fusionBuffer = ( _mean.ir_front_left_short + _mean.ir_front_left_long ) / 2;
 
         //transform
-        _transformed.ir_front_left.first = sqrt( DIST_IR_FRONT_SIDE * DIST_IR_FRONT_SIDE + (fusionBuffer + DIST_IR_FRONT_SIDE_LEFT) * (fusionBuffer + DIST_IR_FRONT_SIDE_LEFT) );
-        _transformed.ir_front_left.second = tan( DIST_IR_FRONT_SIDE / (fusionBuffer + DIST_IR_FRONT_SIDE_LEFT) );
+       // _transformed.ir_front_left.first = DIST_IR
+      //  _transformed.ir_front_left.second = tan( DIST_IR_FRONT_SIDE / (fusionBuffer + DIST_IR_FRONT_SIDE_LEFT) );
     }
     else if(_mean.ir_front_left_short > 15.0 && _mean.ir_front_left_long >= 40.0 && _mean.ir_front_left_long < 60.0)
     {

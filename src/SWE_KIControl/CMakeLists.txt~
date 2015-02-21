@@ -1,4 +1,4 @@
-set(FILTER_NAME SWE_KIControl)
+set(FILTER_NAME SWE_IntersecPointCalc)
 
 # include directories
 include_directories(${OpenCV_INCLUDE_DIR}) 

@@ -15,11 +15,11 @@ cSWE_IntersecPointCalc::cSWE_IntersecPointCalc(const tChar* __info) : cFilter(__
 {
     SetPropertyFloat("Reference Point x-Coord",0.0);
     SetPropertyFloat("Reference Point y-Coord",0.0);
-    SetPropertyFloat("Intersection Line Distance",200.0);
+    SetPropertyFloat("Intersection Line Distance",300.0);
     SetPropertyFloat("Intersection Line Angle",0.0);
-    SetPropertyFloat("Road Width",500.0);
+    SetPropertyFloat("Road Width",900.0);
     SetPropertyFloat("max Road Width Deviation",100);
-    SetPropertyFloat("Distance Missing Boundary",250);
+    SetPropertyFloat("Distance Missing Boundary",490);
 
     //SetPropertyStr("Controller Typ" NSSUBPROP_VALUELISTNOEDIT, "1@P|2@PI|3@PID");
 }
@@ -32,6 +32,9 @@ tResult cSWE_IntersecPointCalc::CreateInputPins(__exception)
 {
     RETURN_IF_FAILED(m_oLines.Create("Line_Boundaries", new cMediaType(0, 0, 0, "tLineBoundaries"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oLines));
+
+    RETURN_IF_FAILED(m_oSplines.Create("Spline_Boundaries", new cMediaType(0, 0, 0, "tSplineBoundaries"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oSplines));
     RETURN_NOERROR;
 }
 
@@ -192,6 +195,105 @@ tResult cSWE_IntersecPointCalc::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt
             //file << lineBoundaries[0] << endl << lineBoundaries[1] << endl << lineBoundaries[2] << endl << lineBoundaries[3] << endl;
             //file.close();
 
+        }
+        else if (pSource == &m_oSplines)
+        {
+
+            // READ INPUT VALUES -------------------------------------------------------------------
+
+            // generate Coder object
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+
+            //get values from media sample (x and y exchanged to transform to front axis coo sys)
+            int BoundaryCountTemp;
+            pCoder->Get("BoundaryCount", (tVoid*)&(BoundaryCountTemp));
+
+            vector< vector<cv::Point2d> > splines;
+            splines.resize(BoundaryCountTemp);
+
+            for(int i=0; i < BoundaryCountTemp; i++)
+            {
+                stringstream elementSetter;
+
+                int BoundaryArrayCountTemp;
+                elementSetter << "BoundaryArray[" << i << "].Count";
+                const string& tempRef3 = elementSetter.str();
+                const tChar* tempPointer3 = tempRef3.c_str();
+                pCoder->Get(tempPointer3, (tVoid*)&(BoundaryArrayCountTemp));
+                elementSetter.str(std::string());
+
+                splines[i].resize(BoundaryCountTemp);
+
+                for( int j = 0; j < BoundaryArrayCountTemp; j++)
+                {
+                    elementSetter << "BoundaryArray[" << i << "].Points[" << j << "].xCoord";
+                    const string& tempRef1 = elementSetter.str();
+                    const tChar* tempPointer1 = tempRef1.c_str();
+                    pCoder->Get(tempPointer1, (tVoid*)&(splines[i][j].x));
+                    elementSetter.str(std::string());
+
+                    elementSetter << "BoundaryArray[" << i << "].Points[" << j << "].yCoord";
+                    const string& tempRef2 = elementSetter.str();
+                    const tChar* tempPointer2 = tempRef2.c_str();
+                    pCoder->Get(tempPointer2, (tVoid*)&(splines[i][j].y));
+                    elementSetter.str(std::string());
+                }
+            }
+
+            m_pCoderDescInputMeasured->Unlock(pCoder);
+/*
+            // generate boundaries from read in values
+            SWE_cBoundary leftBoundary( leftFront, leftRear );
+            SWE_cBoundary rightBoundary( rightFront, rightRear );
+
+            std::vector<SWE_cBoundary> lineBoundaries;
+            lineBoundaries.push_back( leftBoundary );
+            lineBoundaries.push_back( rightBoundary );
+
+
+            // CALCUALTIONS -------------------------------------------------------------------
+
+            // calculate intersection points with boundaries
+            std::pair<cv::Point2d, cv::Point2d> intersectionPoints;
+            tUInt32 intersecIndicator = intersecPointCalc(intersectionPoints, lineBoundaries);
+            lineBoundaries.clear();
+
+
+            // TRANSMIT OUTPUT VALUES -------------------------------------------------------------------
+
+
+            //create new media sample
+            cObjectPtr<IMediaSample> pMediaSampleOutput;
+            RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+            //allocate memory with the size given by the descriptor
+            // ADAPT: m_pCoderDescPointLeft
+            cObjectPtr<IMediaSerializer> pSerializer;
+            m_pCoderDescPoints->GetMediaSampleSerializer(&pSerializer);
+            tInt nSize = pSerializer->GetDeserializedSize();
+            pMediaSampleOutput->AllocBuffer(nSize);
+
+            //write date to the media sample with the coder of the descriptor
+            // ADAPT: m_pCoderDescPointLeft
+            //cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescPoints->WriteLock(pMediaSampleOutput, &pCoder));
+            pCoder->Set("xCoordLeft", (tVoid*)&(intersectionPoints.first.x));
+            pCoder->Set("yCoordLeft", (tVoid*)&(intersectionPoints.first.y));
+            pCoder->Set("xCoordRight", (tVoid*)&(intersectionPoints.second.x));
+            pCoder->Set("yCoordRight", (tVoid*)&(intersectionPoints.second.y));
+            pCoder->Set("intersecIndicator", (tVoid*)&(intersecIndicator));
+            m_pCoderDescPoints->Unlock(pCoder);
+
+            //transmit media sample over output pin
+            // ADAPT: m_oIntersectionPointLeft
+            RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+            RETURN_IF_FAILED(m_oIntersectionPoints.Transmit(pMediaSampleOutput));
+
+            //std::ofstream file("/home/odroid/Desktop/Ausgabe/ausgabe4.txt");
+            //file << lineBoundaries[0] << endl << lineBoundaries[1] << endl << lineBoundaries[2] << endl << lineBoundaries[3] << endl;
+            //file.close();
+*/
         }
         else
             RETURN_NOERROR;
