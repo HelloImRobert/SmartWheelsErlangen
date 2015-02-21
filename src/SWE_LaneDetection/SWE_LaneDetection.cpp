@@ -363,7 +363,8 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     Mat greyScaleImage;
     cvtColor(image, greyScaleImage, CV_RGB2GRAY, 1);
 
-    //imwrite("/home/odroid/Desktop/kreuzung.jpg" , image );
+    double useless;
+    imwrite("/home/odroid/Desktop/kreuzung.jpg" , image );
 
     // apply the filter for Detection of Lane Markers
     Mat blurredImage;
