@@ -286,6 +286,7 @@ void SWE_Odometry::calcSingleOdometry(tTimeStamp timeIntervall)
 void SWE_Odometry::odometryOutput()
 {
 
+
     m_odometryData.distance_x = m_distanceX_sum;
 
     m_odometryData.distance_y = m_distanceY_sum;
