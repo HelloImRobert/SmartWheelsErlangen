@@ -225,6 +225,8 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
 
             if(!m_useManualSetP)
                 m_setPoint = value;
+            else
+                m_setPoint = m_property_manualSetPoint;
 
         }
         else if (pSource == &m_oInputFeedForward)

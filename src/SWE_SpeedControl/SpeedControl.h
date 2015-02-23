@@ -1,7 +1,8 @@
-#include "stdafx.h"
-
 #ifndef _SPEEDCONTROL_H_
 #define _SPEEDCONTROL_H_
+
+#include "stdafx.h"
+#include "math.h"
 
 #define OID_ADTF_SWE_SPEEDCONTROL "adtf.aadc.swe.SpeedControl"
 

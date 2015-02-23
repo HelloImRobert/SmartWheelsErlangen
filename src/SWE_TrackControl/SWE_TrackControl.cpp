@@ -10,7 +10,7 @@
 #define STATUS_NORMAL 0  //= normal status
 #define STATUS_ENDOFTURN 1  //= ended turn maneuver
 #define STATUS_ATSTOPLINE 2 //= stopped at stopline
-#define DEBUG_OUTPUT true //DEBUG
+#define DEBUG_OUTPUT false //DEBUG
 #define CLOSE_STOPLINE 1200 //when approaching stopline this close, be careful to use camera steering
 
 
@@ -217,6 +217,9 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
             m_pCoderDescInputMeasured->Unlock(pCoder);
 
 
+            if( m_input_trackingPoint.x < (450))
+                m_input_intersectionIndicator = 0;
+
             // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
 
             ReactToInput(-1); //no command
@@ -341,7 +344,7 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngleCircle( const cv::Point2d& tracking
     trackingPoint_ra.y = trackingPoint.y;
 
     // calculate steering angle
-    if( intersectionIndicator != 0 )
+    if(( intersectionIndicator != 0 ) || ( trackingPoint_ra.x < (450 + m_wheelbase)) )
     {
         tFloat32 alpha = (tFloat32)std::atan2( (tFloat32)trackingPoint_ra.y, (tFloat32)trackingPoint_ra.x );
         tFloat32 distance = (tFloat32)cv::norm( trackingPoint_ra );
@@ -641,6 +644,16 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
                 m_status_noSteering = false;
                 m_outputStatus= STATUS_ATSTOPLINE; //tell the AI we're stopped at a stopline
                 m_outputSteeringAngle = 0;
+
+                if(m_property_stopAtVirtualSL) //always stop at stopline
+                    m_outputGear = 0;
+                else
+                {
+                    if(m_oManeuverObject.GetStoplineType()) //when real stopline
+                        m_outputGear = 0;//... stop there
+                    else
+                        m_outputGear = 3; //when virtual go as fast as allowed
+                }
 
                 if(m_property_useTestMode)
                     GotoTURN_LEFT();

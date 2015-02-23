@@ -327,20 +327,22 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoder);
 
+            tInt32 intValue = round( value );
+
             if(m_testRun == 0)
             {
-                if ( value < -2 ) // prevent stupid values
+                if ( intValue < -2 ) // prevent stupid values
                 {
-                    value = -2;
+                    intValue = -2;
                 }
-                else if ( value > 3)
+                else if ( intValue > 3)
                 {
-                    value = 3;
+                    intValue = 3;
                 }
 
-                if (m_gear != (tInt32)value) //keep from spamming the pwm output
+                if (m_gear != intValue) //keep from spamming the pwm output
                 {
-                    m_gear = (tInt32)value;
+                    m_gear = intValue;
 
                     //DEBUG
                     //LOG_ERROR(cString("SC: SpeedControl: gear set to " + cString::FromInt32(m_gear)));
