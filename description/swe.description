@@ -178,8 +178,16 @@
 		<struct alignment="1" name="tPoints" version="1">
 			<element alignment="1" arraysize="10" byteorder="LE" bytepos="0" name="PointArray" type="tPoint2d" />
 		</struct>
-        <struct alignment="1" name="tInt8SignalValue" version="1">
+		<struct alignment="1" name="tInt8SignalValue" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="int8Value" type="tInt8" />
+		</struct>
+		<struct alignment="1" name="tOdomerty" version="1">
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" max="4294967295" min="0" name="ui32ArduinoTimestamp" type="tUInt32" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="4" name="distance_x" type="tFloat32" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="8" name="distance_y" type="tFloat32" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="12" name="angle_heading" type="tFloat32" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="16" name="velocity" type="tFloat32" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="20" name="distance_sum" type="tFloat32" />
 		</struct>
 	</structs>
 	<streams />

@@ -48,6 +48,7 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
             cObjectPtr<IMediaDescriptionManager> pDescManager;
             RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
 
+
             // ----------------- create input pins ------------------
 
             tChar const * strDescSignalValue = pDescManager->GetMediaDescription("tSignalValue");
@@ -67,9 +68,9 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 
             // ------------------ create output pins ---------------------
             //TODO: create applicable media description
-            tChar const * strDescOdometry = pDescManager->GetMediaDescription("tSignalValue");
+            tChar const * strDescOdometry = pDescManager->GetMediaDescription("tOdometry");
             RETURN_IF_POINTER_NULL(strDescOdometry);
-            cObjectPtr<IMediaType> pTypeOdometry = new cMediaType(0, 0, 0, "tSignalValue", strDescMiddlePoint,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+            cObjectPtr<IMediaType> pTypeOdometry = new cMediaType(0, 0, 0, "tOdometry", strDescOdometry,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
             RETURN_IF_FAILED(pTypeOdometry->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescOdometryOut));
 
 
@@ -225,11 +226,11 @@ tResult SWE_Odometry::sendData()
     // ADAPT: m_pCoderDescPointLeft
     //cObjectPtr<IMediaCoder> pCoder;
     RETURN_IF_FAILED(m_pCoderDescOdometryOut->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("f32Value", (tVoid*)&(m_odometryData.distance_x));
-    pCoder->Set("f32Value", (tVoid*)&(m_odometryData.distance_y));
-    pCoder->Set("f32Value", (tVoid*)&(m_odometryData.angle_heading));
-    pCoder->Set("f32Value", (tVoid*)&(m_odometryData.velocity));
-    pCoder->Set("f32Value", (tVoid*)&(m_odometryData.distance_sum));
+    pCoder->Set("distance_x", (tVoid*)&(m_odometryData.distance_x));
+    pCoder->Set("distance_y", (tVoid*)&(m_odometryData.distance_y));
+    pCoder->Set("angle_heading", (tVoid*)&(m_odometryData.angle_heading));
+    pCoder->Set("velocity", (tVoid*)&(m_odometryData.velocity));
+    pCoder->Set("distance_sum", (tVoid*)&(m_odometryData.distance_sum));
     m_pCoderDescOdometryOut->Unlock(pCoder);
 
     //transmit media sample over output pin
