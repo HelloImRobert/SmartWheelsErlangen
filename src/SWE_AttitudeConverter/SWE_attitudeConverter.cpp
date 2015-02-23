@@ -173,10 +173,9 @@ tResult SWE_AttitudeConverter::Shutdown(tInitStage eStage, __exception)
 tResult SWE_AttitudeConverter::calulateEulerAngles(tFloat32 &yaw_out, tFloat32 &pitch_out, tFloat32 &roll_out){
 
 
-                    pitch_out = atan2(2*qY*qZ + 2*qW*qX, qW*qW - qX*qX - qY*qY + qZ*qZ);
-                    yaw_out = asin(2*qW*qY - 2*qX*qZ);
+                    yaw_out= atan2(2*qY*qZ + 2*qW*qX, qW*qW - qX*qX - qY*qY + qZ*qZ);
+                    pitch_out = asin(2*qW*qY - 2*qX*qZ);
                     roll_out = atan2(2*qX*qY + 2*qW*qZ, qW*qW + qX*qX - qY*qY - qZ*qZ);
-
 
                     /*
                     roll_out = atan2(2*qY*qW - 2*qX*qZ, 1 - 2*qY*qY - 2*qZ*qZ);

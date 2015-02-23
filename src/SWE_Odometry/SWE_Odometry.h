@@ -61,7 +61,7 @@ class SWE_Odometry : public adtf::cFilter
         /*! output pin for the odometry data */
 		cOutputPin m_oOutputOdometry;
         /*! output pin for the vehicle speed */
-        cOutputPin m_oOutputVelocity;
+      //  cOutputPin m_oOutputVelocity;
 
     public:
         SWE_Odometry(const tChar* __info);
@@ -77,14 +77,16 @@ class SWE_Odometry : public adtf::cFilter
 		
 	/*! Coder Descriptor for the pins*/
 	    cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;
+        cObjectPtr<IMediaTypeDescription> m_pCoderDescOdometryOut;
 
 	/*! struct containing the odometry output data */
 	typedef struct
 	{
-		tFloat32	 angle;			// angle in radians
-		tFloat32	 distance; 		// distance in mm
-		tFloat32   	 heading;		// heading in radians
-        tFloat32     distanceSum;   // sum of driven distance
+        tFloat32	 distance_x;			// distance x in mm
+        tFloat32	 distance_y; 		// distance y in mm
+        tFloat32   	 angle_heading;		// heading in radians
+        tFloat32     velocity;          //in mm/s
+        tFloat32     distance_sum;   // sum of driven distance
 	}odometryData;
 
 	/*! Private member variables */
@@ -100,6 +102,7 @@ class SWE_Odometry : public adtf::cFilter
 	tTimeStamp m_currTimeStamp;
 	tTimeStamp m_oldTimeStamp;
 	tTimeStamp m_lastPinEvent;
+    tTimeStamp m_lastTriggerTime;
 
 	tFloat32 m_distanceX_sum;
 	tFloat32 m_distanceY_sum;
@@ -111,7 +114,7 @@ class SWE_Odometry : public adtf::cFilter
 	/* SWE METHODS */
 
 	/*! Helper method to send Media Sample */
-    tResult sendData(odometryData odometryData);
+    tResult sendData();
 
     /*! calculate and send velocity */
     tResult updateVelocity();

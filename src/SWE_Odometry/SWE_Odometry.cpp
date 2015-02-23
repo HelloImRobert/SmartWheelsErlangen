@@ -15,6 +15,7 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info)
 	m_currTimeStamp = 0;
 	m_oldTimeStamp = GetTime();
 	m_lastPinEvent = GetTime();
+    m_lastTriggerTime = GetTime();
 
 	m_distanceX_sum = 0;
 	m_distanceY_sum = 0;
@@ -22,9 +23,11 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info)
 
 	//odometryData m_odometryData;
 	
-	m_odometryData.angle = 0.0;
-	m_odometryData.distance = 0.0;
-	m_odometryData.heading = 0.0;
+    m_odometryData.distance_x = 0.0;
+    m_odometryData.distance_y = 0.0;
+    m_odometryData.angle_heading = 0.0;
+    m_odometryData.velocity = 0.0;
+    m_odometryData.distance_sum = 0.0;
 
     SetPropertyFloat("Velocity Filter Strength",0.5);
 
@@ -70,9 +73,6 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 
 			RETURN_IF_FAILED(m_oOutputOdometry.Create("Odometry_Output", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
 			RETURN_IF_FAILED(RegisterPin(&m_oOutputOdometry));
-
-            RETURN_IF_FAILED(m_oOutputVelocity.Create("Velocity_Output", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
-            RETURN_IF_FAILED(RegisterPin(&m_oOutputVelocity));
 
 
             m_filterStrength = (tFloat32)GetPropertyFloat("Velocity Filter Strength", 0.5);
@@ -201,14 +201,36 @@ tResult SWE_Odometry::updateVelocity()
 }
 
 
-tResult SWE_Odometry::sendData(odometryData odometryData)
+tResult SWE_Odometry::sendData()
 {
-    //Ausgabe als Media Sample
-    cObjectPtr<IMediaSample> pNewSample;
-    RETURN_IF_FAILED( AllocMediaSample((tVoid**) &pNewSample) );
-    RETURN_IF_POINTER_NULL( pNewSample );
-    RETURN_IF_FAILED( pNewSample->Update( m_lastPinEvent, &odometryData, sizeof(odometryData), IMediaSample::MSF_None) );
-    m_oOutputOdometry.Transmit( pNewSample );
+    //create new media sample
+    cObjectPtr<IMediaCoder> pCoder;
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescOdometryOut->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+    RETURN_IF_FAILED(m_pCoderDescOdometryOut->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("f32Value", (tVoid*)&(m_odometryData.distance_x));
+    pCoder->Set("f32Value", (tVoid*)&(m_odometryData.distance_y));
+    pCoder->Set("f32Value", (tVoid*)&(m_odometryData.angle_heading));
+    pCoder->Set("f32Value", (tVoid*)&(m_odometryData.velocity));
+    pCoder->Set("f32Value", (tVoid*)&(m_odometryData.distance_sum));
+    m_pCoderDescOdometryOut->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    // ADAPT: m_oIntersectionPointLeft
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(m_lastTriggerTime));
+    RETURN_IF_FAILED(m_oOutputOdometry.Transmit(pMediaSampleOutput));
 
     RETURN_NOERROR;
 }
@@ -257,23 +279,22 @@ void SWE_Odometry::calcSingleOdometry(tTimeStamp timeIntervall)
 
 void SWE_Odometry::odometryOutput()
 {
-	//prepare data
-	if ( m_distanceX_sum <= 0.0 ) m_distanceX_sum = 0.000000000001 ;
-	
-	m_odometryData.angle = atan( m_distanceY_sum / m_distanceX_sum );
 
-	m_odometryData.distance = sqrt( (m_distanceY_sum * m_distanceY_sum) + (m_distanceX_sum * m_distanceX_sum) );
-	
-	m_odometryData.heading = m_heading_sum;
+    m_odometryData.distance_x = m_distanceX_sum;
 
-    m_odometryData.distanceSum = m_distanceAllSum;
+    m_odometryData.distance_y = m_distanceY_sum;
 	
-    m_distanceAllSum = 0;
+    m_odometryData.angle_heading = m_heading_sum;
+
+    m_odometryData.velocity = m_velocityFiltered;
+
+    m_odometryData.distance_sum = m_distanceAllSum;
+	
 	m_distanceX_sum = 0;
 	m_distanceY_sum = 0;
 	m_heading_sum = 0;
 
 	//output data
 
-	sendData(m_odometryData);
+    sendData();
 }
