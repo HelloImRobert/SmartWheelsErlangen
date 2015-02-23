@@ -38,6 +38,13 @@ ADTF_FILTER_PLUGIN("SWE_DistanceMeasurement", OID_ADTF_SWE_DISTANCEMEASUREMENT, 
 SWE_DistanceMeasurement::SWE_DistanceMeasurement(const tChar* __info) : cFilter(__info)
 {
     SetPropertyFloat("Filter Strength", 0.7);
+    _mean.uss_front_left = 0;
+    _mean.uss_front_right = 0;
+    _mean.uss_rear_right = 0;
+    _mean.uss_rear_left = 0;
+
+
+
 }
 
 SWE_DistanceMeasurement::~SWE_DistanceMeasurement()
@@ -157,7 +164,7 @@ tResult SWE_DistanceMeasurement::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
 
                 //get values from media sample
                 pCoderInput->Get("f32Value", (tVoid*)&signalValue);
-                pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&_timeOfLastSample);
+                signalValue = CM_MM * signalValue;
                 m_pCoderDescSignal->Unlock(pCoderInput);
             }
             else
@@ -167,57 +174,59 @@ tResult SWE_DistanceMeasurement::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
             //USS
             if (pSource == &m_pin_input_uss_front_left)
             {
-                _mean.uss_front_left = CM_MM * weightedMean(signalValue,_mean.uss_front_left);
+                _mean.uss_front_left = weightedMean(signalValue,_mean.uss_front_left);
             }
             else if (pSource == &m_pin_input_uss_front_right)
             {
-                _mean.uss_front_right = CM_MM * weightedMean(signalValue,_mean.uss_front_right);
+                _mean.uss_front_right = weightedMean(signalValue,_mean.uss_front_right);
             }
             else if (pSource == &m_pin_input_uss_rear_right)
             {
-                _mean.uss_rear_right = CM_MM * weightedMean(signalValue,_mean.uss_rear_right);
+                _mean.uss_rear_right = weightedMean(signalValue,_mean.uss_rear_right);
             }
             else if (pSource == &m_pin_input_uss_rear_left)
             {
-                _mean.uss_rear_left = CM_MM * weightedMean(signalValue,_mean.uss_rear_left);
+                _mean.uss_rear_left = weightedMean(signalValue,_mean.uss_rear_left);
             }
 
             //IR
             else if (pSource == &m_pin_input_ir_front_left_long)
             {
-                _mean.ir_front_left_long = CM_MM * weightedMean(signalValue,_mean.ir_front_left_long);
+                _mean.ir_front_left_long = weightedMean(signalValue,_mean.ir_front_left_long);
             }
             else if (pSource == &m_pin_input_ir_front_left_short)
             {
-                _mean.ir_front_left_short = CM_MM * weightedMean(signalValue,_mean.ir_front_left_short);
+                _mean.ir_front_left_short = weightedMean(signalValue,_mean.ir_front_left_short);
             }
             else if (pSource == &m_pin_input_ir_front_center_long)
             {
-                _mean.ir_front_center_long = CM_MM * weightedMean(signalValue,_mean.ir_front_center_long);
+                _mean.ir_front_center_long = weightedMean(signalValue,_mean.ir_front_center_long);
             }
             else if (pSource == &m_pin_input_ir_front_center_short)
             {
-                _mean.ir_front_center_short = CM_MM * weightedMean(signalValue,_mean.ir_front_center_short);
+                _mean.ir_front_center_short = weightedMean(signalValue,_mean.ir_front_center_short);
             }
             else if (pSource == &m_pin_input_ir_front_right_long)
             {
-                _mean.ir_front_right_long = CM_MM * weightedMean(signalValue,_mean.ir_front_right_long);
+                _mean.ir_front_right_long = weightedMean(signalValue,_mean.ir_front_right_long);
             }
             else if (pSource == &m_pin_input_ir_front_right_short)
             {
-                _mean.ir_front_right_short = CM_MM * weightedMean(signalValue,_mean.ir_front_right_short);
+                _mean.ir_front_right_short = weightedMean(signalValue,_mean.ir_front_right_short);
+                //LOG_ERROR(cString("DM: IR_F_R_latest = " + cString::FromFloat64(signalValue)  ));
+                //LOG_ERROR(cString("DM: IR_F_R_mean = " + cString::FromFloat64(_mean.ir_front_right_short)  ));
             }
             else if (pSource == &m_pin_input_ir_rear_center_short)
             {
-                _mean.ir_rear_center_short = CM_MM * weightedMean(signalValue,_mean.ir_rear_center_short);
+                _mean.ir_rear_center_short = weightedMean(signalValue,_mean.ir_rear_center_short);
             }
             else if (pSource == &m_pin_input_ir_rear_left_short)
             {
-                _mean.ir_rear_left_short = CM_MM * weightedMean(signalValue,_mean.ir_rear_left_short);
+                _mean.ir_rear_left_short = weightedMean(signalValue,_mean.ir_rear_left_short);
             }
             else if (pSource == &m_pin_input_ir_rear_right_short)
             {
-                _mean.ir_rear_right_short = CM_MM * weightedMean(signalValue,_mean.ir_rear_right_short);
+                _mean.ir_rear_right_short = weightedMean(signalValue,_mean.ir_rear_right_short);
             }
 
             // Transform and fusion Sensor Data into Vehicle COS and send Data
@@ -293,7 +302,8 @@ tResult SWE_DistanceMeasurement::sendData()
 
 tFloat32 SWE_DistanceMeasurement::weightedMean(tFloat32 latest, tFloat32 old)
 {
-       return _filter_strength*old + (1 - _filter_strength)* latest;
+    tFloat32 mean = (_filter_strength * old) + ( (1.0 - _filter_strength) * latest );
+    return mean;
 }
 
 
@@ -306,11 +316,9 @@ tResult SWE_DistanceMeasurement::transfrom()
 {
 
     tFloat32 fusionBuffer;
-    int i = 0;
-
 
     // Transform USS
-    // FRONT LEFT
+    // FRONT LEFT 0
     if(_mean.uss_front_left <= 200)
     {
         _transformed.uss_front_left.x = INVALIDE_LOW;
@@ -327,10 +335,9 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.uss_front_left.y = INVALIDE_HIGH;
     }
     
-    _detected_array[i] = _transformed.uss_front_left;
-    ++i;
+    _detected_array[0] = _transformed.uss_front_left;
 
-    // FRONT RIGHT
+    // FRONT RIGHT 1
     if(_mean.uss_front_right <= 200)
     {
         _transformed.uss_front_right.x = INVALIDE_LOW;
@@ -348,10 +355,10 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.uss_front_right.y = INVALIDE_HIGH;
     }
     
-    _detected_array[i] = _transformed.uss_front_right;
-    ++i;
+    _detected_array[1] = _transformed.uss_front_right;
 
-    // REAR LEFT
+
+    // REAR LEFT 2
     if(_mean.uss_rear_left <= 200)
     {
         _transformed.uss_rear_left.x = INVALIDE_LOW;
@@ -369,10 +376,10 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.uss_rear_left.y = INVALIDE_HIGH;
     }
     
-    _detected_array[i] = _transformed.uss_rear_left;
-    ++i;
+    _detected_array[2] = _transformed.uss_rear_left;
 
-    // REAR RIGHT
+
+    // REAR RIGHT 3
     if(_mean.uss_rear_right <= 200)
     {
         _transformed.uss_rear_right.x = INVALIDE_LOW;
@@ -390,11 +397,11 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.uss_rear_right.y = INVALIDE_HIGH;
     }
     
-    _detected_array[i] = _transformed.uss_rear_right;
-    ++i;
+    _detected_array[3] = _transformed.uss_rear_right;
+
 
     // Transform IR
-    // FRONT LEFT
+    // FRONT LEFT 4
     if(_mean.ir_front_left_short <= 50)
     {
         _transformed.ir_front_left.x = INVALIDE_LOW;
@@ -428,11 +435,11 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.ir_front_left.y = INVALIDE_HIGH;
     }
     
-    _detected_array[i] = _transformed.ir_front_left;
-    ++i;
+    _detected_array[4] = _transformed.ir_front_left;
 
 
-    // FRONT RIGHT
+
+    // FRONT RIGHT 5
     if(_mean.ir_front_right_short <= 50)
     {
         _transformed.ir_front_right.x = INVALIDE_LOW;
@@ -464,11 +471,11 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.ir_front_right.y = INVALIDE_HIGH;
     }
     
-    _detected_array[i] = _transformed.ir_front_right;
-    ++i;
+    _detected_array[5] = _transformed.ir_front_right;
+    //LOG_ERROR(cString("DM: IR_F_R_mean = " + cString::FromFloat64(_detected_array[5].y)  ));
 
 
-    // FRONT CENTER
+    // FRONT CENTER 6
     if(_mean.ir_front_center_short <= 50)
     {
         _transformed.ir_front_center.x = INVALIDE_LOW;
@@ -477,7 +484,7 @@ tResult SWE_DistanceMeasurement::transfrom()
     else if(_mean.ir_front_center_short > 50 && _mean.ir_front_center_short <= 150)
     {
         _transformed.ir_front_center.x = _mean.ir_front_center_short + POS_IR_FRONT_CENTER;
-        _transformed.ir_front_right.y = 0.0;
+        _transformed.ir_front_center.y = 0.0;
 
     }
     else if(_mean.ir_front_center_short > 150 && _mean.ir_front_center_short < 400 && _mean.ir_front_center_long > 150 && _mean.ir_front_center_long < 400)
@@ -487,7 +494,7 @@ tResult SWE_DistanceMeasurement::transfrom()
 
         //transform
         _transformed.ir_front_center.x = -fusionBuffer + POS_IR_FRONT_CENTER;
-        _transformed.ir_front_right.y = 0.0;
+        _transformed.ir_front_center.y = 0.0;
     }
     else if(_mean.ir_front_center_short > 150 && _mean.ir_front_center_long >= 400 && _mean.ir_front_center_long < 600)
     {
@@ -501,11 +508,10 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.ir_front_center.y = INVALIDE_HIGH;
     }
     
-    _detected_array[i] = _transformed.ir_front_center;
-    ++i;
+    _detected_array[6] = _transformed.ir_front_center;
 
 
-    // REAR CENTER
+    // REAR CENTER 7
     if(_mean.ir_rear_center_short <= 50)
     {
         _transformed.ir_rear_center.x = INVALIDE_LOW;
@@ -522,11 +528,10 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.ir_rear_center.y = INVALIDE_HIGH;
     }
     
-    _detected_array[i] = _transformed.ir_rear_center;
-    ++i;
+    _detected_array[7] = _transformed.ir_rear_center;
 
 
-    // REAR LEFT
+    // REAR LEFT 8
     if(_mean.ir_rear_left_short <= 50)
     {
         _transformed.ir_rear_left.x = INVALIDE_LOW;
@@ -544,11 +549,10 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.ir_rear_left.y = INVALIDE_HIGH;
     }
     
-    _detected_array[i] = _transformed.ir_rear_left;
-    ++i;
+    _detected_array[8] = _transformed.ir_rear_left;
 
 
-    // REAR RIGHT
+    // REAR RIGHT 9
     if(_mean.ir_rear_right_short <= 50)
     {
         _transformed.ir_rear_right.x = INVALIDE_LOW;
@@ -565,8 +569,7 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.ir_rear_left.y = INVALIDE_HIGH;
     }
     
-    _detected_array[i] = _transformed.ir_rear_right;
-    ++i;
+    _detected_array[9] = _transformed.ir_rear_right;
 
 
     //for test issues:

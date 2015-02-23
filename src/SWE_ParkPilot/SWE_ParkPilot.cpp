@@ -304,9 +304,9 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
             //FOR TEST START
             sendSteeringAngle( STEER_NEUTRAL );
-            LOG_ERROR(cString("PP: Send Speed" ));
-            tFloat32 test = 1;
-            sendSpeed( test );
+            //LOG_ERROR(cString("PP: Send Speed" ));
+            //tFloat32 test = 1;
+            //sendSpeed( test );
             //FOR TEST ENDE
 
             // if we have received a park trigger: take a look at the IR data
@@ -316,17 +316,45 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             pCoder->Get("tPointArray", (tVoid*)&(objectData));
             m_pCoderDescObjectData->Unlock(pCoder);
 
-            m_IRFrontRightCur = (-1) * (objectData[5].y - POS_IR_SIDE_RIGHT);
-            m_IRRearRightCur = (-1) * (objectData[7].y - POS_IR_SIDE_RIGHT);
-            m_IRFrontLeftCur = objectData[4].y - POS_IR_SIDE_LEFT;
+            if( (objectData[5].y != INVALID_LOW) && (objectData[5].y != INVALID_HIGH) )
+            {
+                m_IRFrontRightCur = (-1) * (objectData[5].y - POS_IR_SIDE_RIGHT);
+            }
+            else
+            {
+                m_IRFrontRightCur = objectData[5].y;
+            }
+
+
+            if( (objectData[7].y != INVALID_LOW) && (objectData[7].y != INVALID_HIGH) )
+            {
+                m_IRRearRightCur = (-1) * (objectData[7].y - POS_IR_SIDE_RIGHT);
+            }
+            else
+            {
+                m_IRRearRightCur = objectData[7].y;
+            }
+
+            if( (objectData[4].y != INVALID_LOW) && (objectData[4].y != INVALID_HIGH) )
+            {
+                m_IRFrontLeftCur = objectData[4].y - POS_IR_SIDE_LEFT;
+            }
+            else
+            {
+                m_IRFrontLeftCur = objectData[4].y;
+            }
+
+
+            //DEBUG
+            //LOG_ERROR(cString("PP: IR Front Right = " + cString::FromFloat64(m_IRFrontRightCur)  ));
 
             // Check whether we have reached the first car; if yes, activate the search
-            // Check whether 10 samples are < TH_SHORT; if yes, active search
+            // Check whether 50 samples are < TH_SHORT; if yes, active search
             if(m_searchActive == false)
             {
                 tFloat32 nextElem;
 
-                if(m_initTest_vect.size() < 10)
+                if(m_initTest_vect.size() < 50)
                 {
                     m_initTest_vect.push_back(nextElem);
                     m_initTest_vect.back() = m_IRFrontRightCur;
@@ -336,20 +364,24 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                     m_initTest_vect.erase( m_initTest_vect.begin() );
                     m_initTest_vect.push_back(nextElem);
                     m_initTest_vect.back() = m_IRFrontRightCur;
+
+                    for(uint i = 0; i < m_initTest_vect.size(); ++i)
+                    {
+                        if(m_initTest_vect.at(i) > TH_SHORT)
+                        {
+                            m_searchActive = false;
+                            LOG_ERROR(cString("PP: Search Canceled" ));
+                            break;
+                        }
+                        else
+                        {
+                            m_searchActive = true;
+                            LOG_ERROR(cString("PP: Search Active" ));
+                        }
+                    }
+
                 }
 
-
-                for(uint i = 0; i < m_initTest_vect.size(); ++i)
-                {
-                    if(m_initTest_vect.at(i) > TH_SHORT)
-                    {
-                        m_searchActive = false;
-                    }
-                    else
-                    {
-                        m_searchActive = true;
-                    }
-                }
             }
 
         }
