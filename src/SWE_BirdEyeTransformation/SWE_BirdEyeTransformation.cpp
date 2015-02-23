@@ -10,7 +10,7 @@ ADTF_FILTER_PLUGIN("SWE_BirdEyeTrafo", OID_ADTF_BIRDEYETRANSFORMATION_FILTER , c
 
 cSWE_BirdEyeTransformation::cSWE_BirdEyeTransformation(const tChar* __info):cFilter(__info)
 {
-    SetPropertyStr( CORRESPING_POINTS_XML , "/home/odroid/AADC/calibration_files/points.xml");
+    SetPropertyStr( CORRESPING_POINTS_XML , "/home/odroid/AADC/calibration_files/SWE_cameraCalibrationPoints.XML");
     SetPropertyBool( CORRESPING_POINTS_XML NSSUBPROP_ISCHANGEABLE, tTrue);
 }
 
@@ -32,6 +32,20 @@ tResult cSWE_BirdEyeTransformation::Init(tInitStage eStage, __exception)
         // register a Video Output
         RETURN_IF_FAILED(_oColorVideoOutputPin.Create("Color_Video_Output", IPin::PD_Output, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&_oColorVideoOutputPin));
+
+        // create trigger pin
+
+        cObjectPtr<IMediaDescriptionManager> pDescManager;
+        RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
+
+        tChar const * strDescTrigger = pDescManager->GetMediaDescription("tBoolSignalValue");
+        RETURN_IF_POINTER_NULL(strDescTrigger);
+        cObjectPtr<IMediaType> pTypeTrigger = new cMediaType(0, 0, 0, "tBoolSignalValue", strDescTrigger,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+        RETURN_IF_FAILED(pTypeTrigger->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&_pCodeTrigger));
+
+        RETURN_IF_FAILED(_oOutputTrigger.Create("Trigger", pTypeTrigger, static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&_oOutputTrigger));
+
     }
     else if (eStage == StageNormal)
     {
@@ -162,23 +176,50 @@ tResult cSWE_BirdEyeTransformation::OnPinEvent(IPin* pSource,
 
 tResult cSWE_BirdEyeTransformation::ProcessInput(IMediaSample* pMediaSample)
 {
-    // transform the input to a opencv Mat
+    // ----------- transform the input to a opencv Mat ----------
     tUInt8* pData = NULL;
     pMediaSample->Lock((const tVoid**) &pData);
     Mat image( _oVideoInputPin.GetFormat()->nHeight , _oVideoInputPin.GetFormat()->nWidth , CV_8UC3 , pData );
     pMediaSample->Unlock(pData);
 
-    // apply an inverse Perspective mapping
+    // ---------- send trigger signal -----------
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    tBool state = 1;
+
+    _pCodeTrigger->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    RETURN_IF_FAILED(_pCodeTrigger->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("bValue", (tVoid*)&(state));
+    _pCodeTrigger->Unlock(pCoder);
+
+    //transmit media sample over output pin --> the timestamp is used for both output pins
+    tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
+
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(tmStreamTime));
+    //RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(_oOutputTrigger.Transmit(pMediaSampleOutput));
+
+
+    // ---------------- apply an inverse Perspective mapping ----------------
     Mat warpedImage;
     cv::warpPerspective(image, warpedImage, _projectionMatrix, image.size());
 
-    // transmit a video of the current result to the video outputpin
+    // ----------- transmit a video of the current result to the video outputpin ------------
     if (_oColorVideoOutputPin.IsConnected())
     {
         cObjectPtr<IMediaSample> pNewRGBSample;
         if (IS_OK(AllocMediaSample(&pNewRGBSample)))
-        {
-            tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
+        {          
             pNewRGBSample->Update(tmStreamTime, warpedImage.data, _sColorBitMapOutputFormat.nSize , 0);
             _oColorVideoOutputPin.Transmit(pNewRGBSample);
         }

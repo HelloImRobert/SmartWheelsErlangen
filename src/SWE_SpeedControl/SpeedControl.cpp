@@ -29,7 +29,7 @@ SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0)
 
     SetPropertyFloat("PWM scaler", 1.0); //all pwm values are multiplied by this value
 
-    SetPropertyInt("Stop Time in ms", 500); //time the stands still once it stops
+    SetPropertyInt("Stop Time in ms", 500); //minimum time the car stands still once it stops
 
 }
 

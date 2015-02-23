@@ -6,7 +6,7 @@
 
 #include "math.h"
 /*!
-* Simple odometry based on bicycle model. The relative position and heading are updated whenever a new data sample arrives. Output of the accumulated position change in position and heading every x ms (accumulated since last output).
+* Simple odometry based on bicycle model. The relative position and heading are updated whenever a new data sample arrives. Output of the accumulated position change in position and heading every time a trigger signal arrives (accumulated since last trigger).
 
 
 ->velocity continuously sends the current (estimated) car speed
@@ -48,12 +48,16 @@ class SWE_Odometry : public adtf::cFilter
 
         /*! input pin for the steering angle */
 		cInputPin m_oInputSteeringAngle;
-        /*! input pin for the speed of the left wheel */
+        /*! input pin for the left wheel optical sensor*/
         cInputPin m_oInputWheelLeft;
-        /*! input pin for the speed of the right wheel */
+        /*! input pin for the right wheel optical sensor*/
         cInputPin m_oInputWheelRight;
         /*! input pin that tells the odometry which direction the wheels are turning */
  //       cInputPin m_oInputDirection;
+        /*! input pin for the heading gyro signal (might be called "roll" at the gyro output filter)*/
+        // cInputPin m_oGyro;
+        /*! input pin for the trigger signal */
+        cInputPin m_oInputTrigger;
         /*! output pin for the odometry data */
 		cOutputPin m_oOutputOdometry;
         /*! output pin for the vehicle speed */

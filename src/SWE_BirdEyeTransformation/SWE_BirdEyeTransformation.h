@@ -17,6 +17,7 @@ class cSWE_BirdEyeTransformation : public adtf::cFilter
 
             cVideoPin		_oVideoInputPin;               /**< the input pin for the video*/
             cVideoPin       _oColorVideoOutputPin;              /**< outputpin for the debug video */
+            cOutputPin      _oOutputTrigger;                    /*! trigger event to synchronize the calculation of odometry etc. */
 
         protected:
 
@@ -41,6 +42,9 @@ class cSWE_BirdEyeTransformation : public adtf::cFilter
             // Parameters for the algorithm
             std::string _pathExternalCameraParams;         /**< Path to the xml with the points of the inverse perspective transformation*/
             FileStorage _inversePerspectiveFileStorage;    /**< Stream to deserialize the XML with the points*/
+
+            // descriptor
+            cObjectPtr<IMediaTypeDescription>  _pCodeTrigger;
         };
 
         //*************************************************************************************************
