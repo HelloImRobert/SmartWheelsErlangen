@@ -29,7 +29,8 @@ ADTF_FILTER_PLUGIN("SWE_DistanceMeasurement", OID_ADTF_SWE_DISTANCEMEASUREMENT, 
 #define POS_USS_REAR			-110    	//x-Value
 #define POS_USS_REAR_LEFT 		56			//y-Value
 #define POS_USS_REAR_RIGHT 		-56			//y-Value
-#define INVALIDE_VALUE 			0.0
+#define INVALIDE_LOW 			0.0
+#define INVLAIDE_HIGH           9999.0;
 #define USS_SINUS 				0.258819
 #define USS_COSINUS 			0.965926
 #define CM_MM                   10          //Umrechnung cm in mm
@@ -312,8 +313,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // FRONT LEFT
     if(_mean.uss_front_left <= 200)
     {
-        _transformed.uss_front_left.x = INVALIDE_VALUE;
-        _transformed.uss_front_left.y = INVALIDE_VALUE;
+        _transformed.uss_front_left.x = INVALIDE_LOW;
+        _transformed.uss_front_left.y = INVALIDE_LOW;
     }
     else if(_mean.uss_front_left > 200 && _mean.uss_front_left < 1500)
     {
@@ -322,8 +323,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.uss_front_left >= 1500)
     {
-        _transformed.uss_front_left.x = INVALIDE_VALUE;
-        _transformed.uss_front_left.y = INVALIDE_VALUE;
+        _transformed.uss_front_left.x = INVALIDE_HIGH;
+        _transformed.uss_front_left.y = INVALIDE_HIGH;
     }
     
     _detected_array[i] = _transformed.uss_front_left;
@@ -332,8 +333,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // FRONT RIGHT
     if(_mean.uss_front_right <= 200)
     {
-        _transformed.uss_front_right.x = INVALIDE_VALUE;
-        _transformed.uss_front_right.y = INVALIDE_VALUE;
+        _transformed.uss_front_right.x = INVALIDE_LOW;
+        _transformed.uss_front_right.y = INVALIDE_LOW;
     }
     else if(_mean.uss_front_right > 200 && _mean.uss_front_right < 1500)
     {
@@ -343,8 +344,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.uss_front_right >= 1500)
     {
-        _transformed.uss_front_right.x = INVALIDE_VALUE;
-        _transformed.uss_front_right.y = INVALIDE_VALUE;
+        _transformed.uss_front_right.x = INVALIDE_HIGH;
+        _transformed.uss_front_right.y = INVALIDE_HIGH;
     }
     
     _detected_array[i] = _transformed.uss_front_right;
@@ -353,8 +354,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // REAR LEFT
     if(_mean.uss_rear_left <= 200)
     {
-        _transformed.uss_rear_left.x = INVALIDE_VALUE;
-        _transformed.uss_rear_left.y = INVALIDE_VALUE;
+        _transformed.uss_rear_left.x = INVALIDE_LOW;
+        _transformed.uss_rear_left.y = INVALIDE_LOW;
     }
     else if(_mean.uss_rear_left > 200 && _mean.uss_rear_left < 1500)
     {
@@ -364,8 +365,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.uss_rear_left >= 1500)
     {
-        _transformed.uss_rear_left.x = INVALIDE_VALUE;
-        _transformed.uss_rear_left.y = INVALIDE_VALUE;
+        _transformed.uss_rear_left.x = INVALIDE_HIGH;
+        _transformed.uss_rear_left.y = INVALIDE_HIGH;
     }
     
     _detected_array[i] = _transformed.uss_rear_left;
@@ -374,8 +375,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // REAR RIGHT
     if(_mean.uss_rear_right <= 200)
     {
-        _transformed.uss_rear_right.x = INVALIDE_VALUE;
-        _transformed.uss_rear_right.y = INVALIDE_VALUE;
+        _transformed.uss_rear_right.x = INVALIDE_LOW;
+        _transformed.uss_rear_right.y = INVALIDE_LOW;
     }
     else if(_mean.uss_rear_right > 200 && _mean.uss_rear_right < 1500)
     {
@@ -385,8 +386,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.uss_rear_right >= 1500)
     {
-        _transformed.uss_rear_right.x = INVALIDE_VALUE;
-        _transformed.uss_rear_right.y = INVALIDE_VALUE;
+        _transformed.uss_rear_right.x = INVALIDE_HIGH;
+        _transformed.uss_rear_right.y = INVALIDE_HIGH;
     }
     
     _detected_array[i] = _transformed.uss_rear_right;
@@ -396,8 +397,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // FRONT LEFT
     if(_mean.ir_front_left_short <= 50)
     {
-        _transformed.ir_front_left.x = INVALIDE_VALUE;
-        _transformed.ir_front_left.y = INVALIDE_VALUE;
+        _transformed.ir_front_left.x = INVALIDE_LOW;
+        _transformed.ir_front_left.y = INVALIDE_LOW;
     }
     else if(_mean.ir_front_left_short > 50 && _mean.ir_front_left_short <= 150)
     {
@@ -423,8 +424,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_front_left_short > 150 && _mean.ir_front_left_long >= 600)
     {
-        _transformed.ir_front_left.x = INVALIDE_VALUE;
-        _transformed.ir_front_left.y = INVALIDE_VALUE;
+        _transformed.ir_front_left.x = INVALIDE_HIGH;
+        _transformed.ir_front_left.y = INVALIDE_HIGH;
     }
     
     _detected_array[i] = _transformed.ir_front_left;
@@ -434,8 +435,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // FRONT RIGHT
     if(_mean.ir_front_right_short <= 50)
     {
-        _transformed.ir_front_right.x = INVALIDE_VALUE;
-        _transformed.ir_front_right.y = INVALIDE_VALUE;
+        _transformed.ir_front_right.x = INVALIDE_LOW;
+        _transformed.ir_front_right.y = INVALIDE_LOW;
     }
     else if(_mean.ir_front_right_short > 50 && _mean.ir_front_right_short <= 150)
     {
@@ -459,8 +460,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_front_right_short > 150 && _mean.ir_front_right_long >= 600)
     {
-        _transformed.ir_front_right.x = INVALIDE_VALUE;
-        _transformed.ir_front_right.y = INVALIDE_VALUE;
+        _transformed.ir_front_right.x = INVALIDE_HIGH;
+        _transformed.ir_front_right.y = INVALIDE_HIGH;
     }
     
     _detected_array[i] = _transformed.ir_front_right;
@@ -470,8 +471,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // FRONT CENTER
     if(_mean.ir_front_center_short <= 50)
     {
-        _transformed.ir_front_center.x = INVALIDE_VALUE;
-        _transformed.ir_front_center.y = INVALIDE_VALUE;
+        _transformed.ir_front_center.x = INVALIDE_LOW;
+        _transformed.ir_front_center.y = INVALIDE_LOW;
     }
     else if(_mean.ir_front_center_short > 50 && _mean.ir_front_center_short <= 150)
     {
@@ -496,8 +497,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_front_center_short > 150 && _mean.ir_front_center_long >= 600)
     {
-        _transformed.ir_front_center.x = INVALIDE_VALUE;
-        _transformed.ir_front_center.y = INVALIDE_VALUE;
+        _transformed.ir_front_center.x = INVALIDE_HIGH;
+        _transformed.ir_front_center.y = INVALIDE_HIGH;
     }
     
     _detected_array[i] = _transformed.ir_front_center;
@@ -507,8 +508,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // REAR CENTER
     if(_mean.ir_rear_center_short <= 50)
     {
-        _transformed.ir_rear_center.x = INVALIDE_VALUE;
-        _transformed.ir_rear_center.y = INVALIDE_VALUE;
+        _transformed.ir_rear_center.x = INVALIDE_LOW;
+        _transformed.ir_rear_center.y = INVALIDE_LOW;
     }
     else if(_mean.ir_rear_center_short > 50 && _mean.ir_rear_center_short < 150)
     {
@@ -517,8 +518,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_rear_center_short >= 150)
     {
-        _transformed.ir_rear_center.x = INVALIDE_VALUE;
-        _transformed.ir_rear_center.y = INVALIDE_VALUE;
+        _transformed.ir_rear_center.x = INVALIDE_HIGH;
+        _transformed.ir_rear_center.y = INVALIDE_HIGH;
     }
     
     _detected_array[i] = _transformed.ir_rear_center;
@@ -528,8 +529,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // REAR LEFT
     if(_mean.ir_rear_left_short <= 50)
     {
-        _transformed.ir_rear_left.x = INVALIDE_VALUE;
-        _transformed.ir_rear_left.y = INVALIDE_VALUE;
+        _transformed.ir_rear_left.x = INVALIDE_LOW;
+        _transformed.ir_rear_left.y = INVALIDE_LOW;
     }
     else if(_mean.ir_rear_left_short > 50 && _mean.ir_rear_left_short < 150)
     {
@@ -539,8 +540,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_rear_left_short >= 150)
     {
-        _transformed.ir_rear_left.x = INVALIDE_VALUE;
-        _transformed.ir_rear_left.y = INVALIDE_VALUE;
+        _transformed.ir_rear_left.x = INVALIDE_HIGH;
+        _transformed.ir_rear_left.y = INVALIDE_HIGH;
     }
     
     _detected_array[i] = _transformed.ir_rear_left;
@@ -550,8 +551,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     // REAR RIGHT
     if(_mean.ir_rear_right_short <= 50)
     {
-        _transformed.ir_rear_right.x = INVALIDE_VALUE;
-        _transformed.ir_rear_right.y = INVALIDE_VALUE;
+        _transformed.ir_rear_right.x = INVALIDE_LOW;
+        _transformed.ir_rear_right.y = INVALIDE_LOW;
     }
     else if(_mean.ir_rear_right_short > 50 && _mean.ir_rear_right_short < 150)
     {
@@ -560,8 +561,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_rear_right_short >= 150)
     {
-        _transformed.ir_rear_left.x = INVALIDE_VALUE;
-        _transformed.ir_rear_left.y = INVALIDE_VALUE;
+        _transformed.ir_rear_left.x = INVALIDE_HIGH;
+        _transformed.ir_rear_left.y = INVALIDE_HIGH;
     }
     
     _detected_array[i] = _transformed.ir_rear_right;
