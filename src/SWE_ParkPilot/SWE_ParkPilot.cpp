@@ -56,30 +56,22 @@ cSWE_ParkPilot::~cSWE_ParkPilot()
 
 tResult cSWE_ParkPilot::CreateInputPins(__exception)
 {
-    RETURN_IF_FAILED(m_inputParkTrigger.Create("Park Trigger", new cMediaType(0, 0, 0, "tInt"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_inputParkTrigger.Create("Park Trigger", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_inputParkTrigger));
+
     RETURN_NOERROR;
 }
 
 tResult cSWE_ParkPilot::CreateOutputPins(__exception)
 {
-//    cObjectPtr<IMediaDescriptionManager> pDescManager;
-//    RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
 
+    cObjectPtr<IMediaDescriptionManager> pDescManager;
+    RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
 
+    RETURN_IF_FAILED(m_outputVelocity.Create("Speed Signal", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_outputVelocity));
 
-//    // Left Intersection Point
-//    // TO ADAPT for new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
-//    tChar const * strDescPointLeft = pDescManager->GetMediaDescription("tPoint2d");
-//    RETURN_IF_POINTER_NULL(strDescPointLeft);
-//    cObjectPtr<IMediaType> pTypePointLeft = new cMediaType(0, 0, 0, "tPoint2d", strDescPointLeft,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
-//    RETURN_IF_FAILED(pTypePointLeft->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescPointLeft));
-
-//    RETURN_IF_FAILED(m_oIntersectionPointLeft.Create("left_Intersection_Point", pTypePointLeft, static_cast<IPinEventSink*> (this)));
-//    RETURN_IF_FAILED(RegisterPin(&m_oIntersectionPointLeft));
-
-
-      RETURN_NOERROR;
+    RETURN_NOERROR;
 }
 
 tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
@@ -171,6 +163,8 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             }
 
             // Check whether we have reached the first car; if yes, activate the search
+
+            //TODO: fuer eine kurze mindestlaenge
             if(m_IRFrontRightCur > TH_SHORT && m_searchActive == false)
             {
                 RETURN_NOERROR;
@@ -209,6 +203,7 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
 {
     tFloat32 distTravelled = 0;
     tFloat32 distStartPark = 0;
+
     //...now search for possible lot beginning and save the distance at this point
     if( m_IRFrontRightCur >= TH_LONG_ALONGSIDE )
     {
@@ -233,7 +228,7 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
             distTravelled = m_distCur - m_distEntry;
 
             // check if space is already sufficient
-            if( distTravelled > ALONGSIDE_SIZE )
+            if( distTravelled >= ALONGSIDE_SIZE )
             {
                 m_minDistReached = true;
             }
@@ -243,22 +238,24 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
             }
         }
     }
-    else if( m_IRRearRightCur < TH_SHORT && m_entrySaved == true )
+    else if( m_IRRearRightCur <= TH_SHORT && m_entrySaved == true )
     {
+        // groesse muss hier nicht gespeichert werden, da m_minDistReached vorherzugeschlagen haette
+        // dient nur dazu die Suche nach einer neuen Parkluecke zu initalisieren
         m_entrySaved = false;
         RETURN_NOERROR;
     }
 
     // minimum distance is reached....
     // .....and we reached easy parking situation
-    if( m_minDistReached == true && distTravelled > (ALONGSIDE_SIZE + EASY_ALONGSIDE) )
+    if( m_minDistReached == true && distTravelled >= (ALONGSIDE_SIZE + EASY_ALONGSIDE) )
     {
         //easy
         distStartPark = m_distCur;
         parkRoutineAlongside(distTravelled, distStartPark);
     }
     // ....and we take as much space as we can get
-    else if( m_minDistReached == true && m_IRFrontRightCur < TH_SHORT )
+    else if( m_minDistReached == true && m_IRFrontRightCur <= TH_SHORT )
     {
         //normal
         distStartPark = m_distCur;
@@ -329,6 +326,43 @@ tResult cSWE_ParkPilot::parkRoutineCross(tFloat32 lotSize, tFloat32 distStartPar
 {
     RETURN_NOERROR;
 }
+
+
+
+
+
+
+tResult cSWE_ParkPilot::sendSpeed(tInt8 speed)
+{
+
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSample;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescSpeedOut->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSample->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    RETURN_IF_FAILED(m_pCoderDescSpeedOut->WriteLock(pMediaSample, &pCoder));
+    pCoder->Set("tInt8SignalValue", (tVoid*)&(speed));
+    m_pCoderDescSpeedOut->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    //RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_outputVelocity.Transmit(pMediaSample));
+
+    RETURN_NOERROR;
+
+}
+
+
+
+
 
 
 
