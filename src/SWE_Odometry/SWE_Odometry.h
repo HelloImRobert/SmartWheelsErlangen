@@ -1,7 +1,7 @@
 #ifndef _SWE_ODOMETRY_H_
 #define _SWE_ODOMETRY_H_
 
-#define OID_ADTF_SWE_ODOMETRY "adtf.aadc.SWE_odometry"
+#define OID_ADTF_SWE_ODOMETRY "adtf.aadc.swe.odometry"
 
 
 #include "math.h"
@@ -44,7 +44,7 @@ Y         |        -Y
 */
 class SWE_Odometry : public adtf::cFilter
 {
-    ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_ODOMETRY, "SWE_Odometry", OBJCAT_DataFilter, "SWE_Odometry filter", 1, 0, 0, "Beta Version");
+    ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_ODOMETRY, "SWE_Odometry", OBJCAT_DataFilter, "SWE_Odometry filter", 1, 0, 0, "pre alpha version");
 
         /*! input pin for the steering angle */
 		cInputPin m_oInputSteeringAngle;

@@ -173,9 +173,10 @@ tResult SWE_AttitudeConverter::Shutdown(tInitStage eStage, __exception)
 tResult SWE_AttitudeConverter::calulateEulerAngles(tFloat32 &yaw_out, tFloat32 &pitch_out, tFloat32 &roll_out){
 
 
-                    yaw_out= atan2(2*qY*qZ + 2*qW*qX, qW*qW - qX*qX - qY*qY + qZ*qZ);
-                    roll_out = -asin(2*qW*qY - 2*qX*qZ);
-                    pitch_out = atan2(2*qX*qY + 2*qW*qZ, qW*qW + qX*qX - qY*qY - qZ*qZ);
+                   yaw_out = atan2(2*qX*qY + 2*qW*qZ, qW*qW + qX*qX - qY*qY - qZ*qZ);
+                   pitch_out = atan2(2*qY*qZ + 2*qW*qX, qW*qW - qX*qX - qY*qY + qZ*qZ);
+                   roll_out = -asin(2*qW*qY - 2*qX*qZ);
+
 
                     /*
                     roll_out = atan2(2*qY*qW - 2*qX*qZ, 1 - 2*qY*qY - 2*qZ*qZ);
@@ -239,9 +240,9 @@ tResult SWE_AttitudeConverter::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt 
                 pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
                 m_pCoderDescSignal->Unlock(pCoderInput);
                 
-                tFloat32 roll, pitch, yaw;
+                tFloat32 yaw, pitch, roll;
 				
-				calulateEulerAngles(roll,pitch,yaw);
+                calulateEulerAngles(yaw, pitch, roll);
 				
 				TransmitAngles(pMediaSample->GetTime(),timeStamp,yaw,pitch,roll);      
 		    }		    

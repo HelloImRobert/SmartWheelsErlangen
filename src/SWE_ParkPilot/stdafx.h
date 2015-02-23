@@ -9,9 +9,9 @@ using namespace adtf;
 #include <opencv/cv.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-//using namespace cv;
+using namespace cv;
 
 //{{AFX_INSERT_LOCATION}}
 // Microsoft Visual C++ f�gt zus�tzliche Deklarationen unmittelbar vor der vorherigen Zeile ein.
 
-#endif // __STD_INCLUDES_HEADER
+#endif  //__STD_INCLUDES_HEADER
