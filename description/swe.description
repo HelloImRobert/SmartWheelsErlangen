@@ -4,7 +4,7 @@
 		<language_version>3.00</language_version>
 		<author>odroid</author>
 		<date_creation>22.12.2014</date_creation>
-		<date_change>01.03.2015</date_change>
+		<date_change>07.03.2015</date_change>
 		<description>ADTF generated</description>
 	</header>
 	<units>
@@ -175,9 +175,6 @@
 			<element alignment="1" arraysize="3" byteorder="LE" bytepos="0" name="BoundaryArray" type="Boundary" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="903" name="BoundaryCount" type="tInt8" />
 		</struct>
-		<struct alignment="1" name="tPoints" version="1">
-			<element alignment="1" arraysize="10" byteorder="LE" bytepos="0" name="PointArray" type="tPoint2d" />
-		</struct>
 		<struct alignment="1" name="tInt8SignalValue" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="int8Value" type="tInt8" />
 		</struct>
@@ -188,6 +185,9 @@
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="12" name="angle_heading" type="tFloat32" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="16" name="velocity" type="tFloat32" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="20" name="distance_sum" type="tFloat32" />
+		</struct>
+		<struct alignment="1" name="tPointArray" version="1">
+			<element alignment="1" arraysize="10" byteorder="LE" bytepos="0" name="tPoint" type="tPoint2d" />
 		</struct>
 	</structs>
 	<streams />

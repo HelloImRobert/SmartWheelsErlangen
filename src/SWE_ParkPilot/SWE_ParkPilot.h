@@ -19,9 +19,13 @@ class cSWE_ParkPilot : public adtf::cFilter
     cInputPin m_inputObjectData;
     cInputPin m_inputOdometry;
 
-    cOutputPin m_outputVelocity;
+    cOutputPin m_outputSpeed;
     cOutputPin m_outputSteering;
     cOutputPin m_outputParkState;
+
+    // FOR TEST START
+    cOutputPin m_AccelerateOutputPin;
+    // FOR TEST ENDE
 
 public:
     cSWE_ParkPilot(const tChar* __info);
@@ -105,7 +109,8 @@ private:
     tResult pullOutCrossRight();
     tResult pullOutCrossLeft();
 
-    tResult sendSpeed(tInt8 speed);
+    tResult sendSpeed(tFloat32 speed);
+    tResult sendVelocity(tFloat32 vel);
     tResult sendSteeringAngle(tFloat32 steeringAngle);
     tResult sendParkState(tInt8 parkState);
 
@@ -113,6 +118,11 @@ private:
     // Media Descriptors
     /*! Coder Descriptors for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDesc;
+
+    cObjectPtr<IMediaTypeDescription> m_pCoderParkTrigger;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescOdometry;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescObjectData;
+
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSpeedOut;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSteeringOut;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescParkStateOut;

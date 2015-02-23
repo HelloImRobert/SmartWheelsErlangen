@@ -36,8 +36,8 @@
 #define INVALID_HIGH 9999.0f
 
 /*! Steering angles */
-#define STEER_RIGHT_MAX -30.0f             // Maximaler Lenkwinkel rechts
-#define STEER_LEFT_MAX 30.0f               // Maximaler Lenkwinkel links
+#define STEER_RIGHT_MAX 30.0f             // Maximaler Lenkwinkel rechts
+#define STEER_LEFT_MAX -30.0f               // Maximaler Lenkwinkel links
 #define STEER_NEUTRAL 0.0f                 // Lenkwinkel = 0
 
 // +++ end_defines ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -98,32 +98,72 @@ cSWE_ParkPilot::~cSWE_ParkPilot()
 
 tResult cSWE_ParkPilot::CreateInputPins(__exception)
 {
-    RETURN_IF_FAILED(m_inputParkTrigger.Create("Park_Trigger", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
+    cObjectPtr<IMediaDescriptionManager> pDescManager;
+    RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
+
+
+    // PARK TRIGGER INPUT
+    tChar const * strDescParkTrigger = pDescManager->GetMediaDescription("tInt8SignalValue");
+    RETURN_IF_POINTER_NULL(strDescParkTrigger);
+    cObjectPtr<IMediaType> pTypeParkTrigger = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescParkTrigger,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeParkTrigger->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderParkTrigger));
+
+    RETURN_IF_FAILED(m_inputParkTrigger.Create("Park_Trigger", pTypeParkTrigger, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_inputParkTrigger));
 
-    RETURN_IF_FAILED(m_inputObjectData.Create("Object_Data", new cMediaType(0, 0, 0, "tPoints"), static_cast<IPinEventSink*> (this)));
+
+    // OBJECT DATA INPUT
+    tChar const * strDescObjectData = pDescManager->GetMediaDescription("tPointArray");
+    RETURN_IF_POINTER_NULL(strDescObjectData);
+    cObjectPtr<IMediaType> pTypeObjectData = new cMediaType(0, 0, 0, "tPointArray", strDescObjectData,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeObjectData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescObjectData));
+
+    RETURN_IF_FAILED(m_inputObjectData.Create("Object_Data", pTypeObjectData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_inputObjectData));
 
-    RETURN_IF_FAILED(m_inputOdometry.Create("Odometry_Data", new cMediaType(0, 0, 0, "tOdometry"), static_cast<IPinEventSink*> (this)));
+
+    // ODOMETRY INPUT
+    tChar const * strDescOdometry = pDescManager->GetMediaDescription("tOdometry");
+    RETURN_IF_POINTER_NULL(strDescOdometry);
+    cObjectPtr<IMediaType> pTypeOdometry = new cMediaType(0, 0, 0, "tOdometry", strDescOdometry,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeOdometry->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescOdometry));
+
+    RETURN_IF_FAILED(m_inputOdometry.Create("Odometry_Data", pTypeOdometry, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_inputOdometry));
+
 
     RETURN_NOERROR;
 }
 
 tResult cSWE_ParkPilot::CreateOutputPins(__exception)
 {
-
     cObjectPtr<IMediaDescriptionManager> pDescManager;
     RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
 
-    RETURN_IF_FAILED(m_outputVelocity.Create("Speed_Signal", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_outputVelocity));
 
-    RETURN_IF_FAILED(m_outputSteering.Create("Steering_Signal", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+    // SPEED OUTPUT
+    tChar const * strDescSpeed = pDescManager->GetMediaDescription("tSignalValue");
+    RETURN_IF_POINTER_NULL(strDescSpeed);
+    cObjectPtr<IMediaType> pTypeSpeed = new cMediaType(0, 0, 0, "tSignalValue", strDescSpeed,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeSpeed->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSpeedOut));
+
+    RETURN_IF_FAILED(m_outputSpeed.Create("Speed_Signal", pTypeSpeed, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_outputSpeed));
+
+
+    // STEERING OUTPUT
+    tChar const * strDescSteeringAngle = pDescManager->GetMediaDescription("tSignalValue");
+    RETURN_IF_POINTER_NULL(strDescSteeringAngle);
+    cObjectPtr<IMediaType> pTypeSteeringAngle = new cMediaType(0, 0, 0, "tSignalValue", strDescSteeringAngle,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeSteeringAngle->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSteeringOut));
+
+    RETURN_IF_FAILED(m_outputSteering.Create("Steering_Signal", pTypeSteeringAngle, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_outputSteering));
 
-    RETURN_IF_FAILED(m_outputParkState.Create("ParkState", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_outputParkState));
+
+
+//    RETURN_IF_FAILED(m_outputParkState.Create("ParkState", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
+//    RETURN_IF_FAILED(RegisterPin(&m_outputParkState));
 
     RETURN_NOERROR;
 
@@ -148,11 +188,13 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
 
     if (eStage == StageFirst)
     {
+
         CreateInputPins(__exception_ptr);
         CreateOutputPins(__exception_ptr);
     }
     else if (eStage == StageNormal)
     {
+
         m_AngleAdjustment = GetPropertyFloat("A_HeadingAngleAdjustment");
         m_DistanceAdjustment = GetPropertyFloat("A_DistanceAdjustment");
         m_securityBuffer = GetPropertyFloat("A_SecurityBuffer");
@@ -174,6 +216,40 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
 
 tResult cSWE_ParkPilot::Start(__exception)
 {
+    // initialise member variables
+    m_searchState = 0;
+    m_parkState = 0;
+    m_pulloutState = 0;
+
+    m_IRFrontRightCur = INVALID_HIGH;
+    m_IRRearRightCur = INVALID_HIGH;
+    m_IRFrontLeftCur = INVALID_HIGH;
+    m_distEntry = 0.0;
+    m_distExit = 0.0;	// maybe kill
+    m_parkTrigger = 0;
+    m_lastIRshort = 0.0;
+
+    m_distStartPark = 0.0;
+    m_centralAngle = 0.0;
+    m_counterAngle = 0.0;
+    m_distStart = 0.0;
+    m_rememberDist = 0.0;
+
+    m_searchActive = false;
+    m_minDistReached = false;
+    m_carStopped = false;
+
+    m_odometryData.distance_x = 0.0;
+    m_odometryData.distance_y = 0.0;
+    m_odometryData.angle_heading = 0.0;
+    m_odometryData.distance_sum = 0.0;
+    m_odometryData.velocity = 0.0;
+
+
+    //FOR TEST START
+    LOG_ERROR(cString("PP: Trigger set to 1" ));
+    m_parkTrigger = 1;
+    //FOR TEST ENDE
     return cFilter::Start(__exception_ptr);
 }
 
@@ -189,8 +265,10 @@ tResult cSWE_ParkPilot::Shutdown(tInitStage eStage, __exception)
 
 tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample)
 {
+
     cObjectPtr<IMediaType> pType;
     pSource->GetMediaType(&pType);
+    RETURN_IF_POINTER_NULL(pSource);
 
 
 //    if (pType != NULL)
@@ -201,34 +279,42 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
 //    }
 
-    if (nEventCode == IPinEventSink::PE_MediaSampleReceived && pMediaSample != NULL && m_pCoderDesc != NULL)
+    //if (nEventCode == IPinEventSink::PE_MediaSampleReceived && pMediaSample != NULL && m_pCoderDesc != NULL)
+    if( nEventCode == IPinEventSink::PE_MediaSampleReceived )
     {
 
         RETURN_IF_POINTER_NULL( pMediaSample);
-
         if(pSource == &m_inputParkTrigger)
         {
            // save the park trigger: alongside or cross
            cObjectPtr<IMediaCoder> pCoder;
-           RETURN_IF_FAILED(m_pCoderDesc->Lock(pMediaSample, &pCoder));
-           pCoder->Get("tInt", (tVoid*)&m_parkTrigger);
-           m_pCoderDesc->Unlock(pCoder);
+           RETURN_IF_FAILED(m_pCoderParkTrigger->Lock(pMediaSample, &pCoder));
+           pCoder->Get("tInt8SignalValue", (tVoid*)&m_parkTrigger);
+           m_pCoderParkTrigger->Unlock(pCoder);
 
         }
         else if(pSource == &m_inputObjectData)
         {
+            //LOG_ERROR(cString("Data from OBJECT" ));
             // leave if we have not received a park trigger
-            if( m_parkTrigger > 4 )
+            if( m_parkTrigger > 4 || m_parkTrigger == 0)
             {
                 RETURN_NOERROR;
             }
 
+            //FOR TEST START
+            LOG_ERROR(cString("PP: Send Speed" ));
+            tFloat32 test = 1;
+            sendSpeed( test );
+            sendSteeringAngle( STEER_LEFT_MAX );
+            //FOR TEST ENDE
+
             // if we have received a park trigger: take a look at the IR data
             cv::Point2d objectData[10];
             cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDesc->Lock(pMediaSample, &pCoder));
-            pCoder->Get("PointArray", (tVoid*)&objectData);
-            m_pCoderDesc->Unlock(pCoder);
+            RETURN_IF_FAILED(m_pCoderDescObjectData->Lock(pMediaSample, &pCoder));
+            pCoder->Get("tPointArray", (tVoid*)&(objectData));
+            m_pCoderDescObjectData->Unlock(pCoder);
 
             m_IRFrontRightCur = (-1) * (objectData[5].y - POS_IR_SIDE_RIGHT);
             m_IRRearRightCur = (-1) * (objectData[7].y - POS_IR_SIDE_RIGHT);
@@ -253,7 +339,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                 }
 
 
-                for(int i = 0; i < m_initTest_vect.size(); ++i)
+                for(uint i = 0; i < m_initTest_vect.size(); ++i)
                 {
                     if(m_initTest_vect.at(i) > TH_SHORT)
                     {
@@ -269,14 +355,15 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         }
         else if(pSource == &m_inputOdometry)
         {
+            //LOG_ERROR(cString("PP: Data from ODOMETRY" ));
             cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDesc->Lock(pMediaSample, &pCoder));
-            pCoder->Get("distance_x", (tVoid*)&m_odometryData.distance_x);
-            pCoder->Get("distance_y", (tVoid*)&m_odometryData.distance_y);
-            pCoder->Get("angle_heading", (tVoid*)&m_odometryData.angle_heading);
-            pCoder->Get("velocity", (tVoid*)&m_odometryData.velocity);
-            pCoder->Get("distance_sum", (tVoid*)&m_odometryData.distance_sum);
-            m_pCoderDesc->Unlock(pCoder);
+            RETURN_IF_FAILED(m_pCoderDescOdometry->Lock(pMediaSample, &pCoder));
+            pCoder->Get("distance_x", (tVoid*)&(m_odometryData.distance_x));
+            pCoder->Get("distance_y", (tVoid*)&(m_odometryData.distance_y));
+            pCoder->Get("angle_heading", (tVoid*)&(m_odometryData.angle_heading));
+            pCoder->Get("velocity", (tVoid*)&(m_odometryData.velocity));
+            pCoder->Get("distance_sum", (tVoid*)&(m_odometryData.distance_sum));
+            m_pCoderDescOdometry->Unlock(pCoder);
         }
     }
 
@@ -393,6 +480,7 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
             {
                 m_searchState = 104; // 0 = search ended
                 // TODO: Start blinking
+                LOG_INFO(cString("PP: LOT DETECTED" ));
                 m_parkState = 201;
             }
 
@@ -400,6 +488,7 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
             {
                 m_searchState = 104; // 0 = search ended
                 // TODO: Start blinking
+                LOG_INFO(cString("PP: LOT DETECTED" ));
                 m_parkState = 301;
             }
             break;
@@ -778,29 +867,28 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
 }
 
 
-tResult cSWE_ParkPilot::sendSpeed(tInt8 speed)
+tResult cSWE_ParkPilot::sendSpeed(tFloat32 speed)
 {
 
-    cObjectPtr<IMediaCoder> pCoder;
-
     //create new media sample
-    cObjectPtr<IMediaSample> pMediaSample;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+    cObjectPtr<IMediaCoder> pCoder;
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
 
     //allocate memory with the size given by the descriptor
     cObjectPtr<IMediaSerializer> pSerializer;
     m_pCoderDescSpeedOut->GetMediaSampleSerializer(&pSerializer);
     tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSample->AllocBuffer(nSize);
+    pMediaSampleOutput->AllocBuffer(nSize);
 
     //write date to the media sample with the coder of the descriptor
-    RETURN_IF_FAILED(m_pCoderDescSpeedOut->WriteLock(pMediaSample, &pCoder));
-    pCoder->Set("tInt8SignalValue", (tVoid*)&(speed));
+    RETURN_IF_FAILED(m_pCoderDescSpeedOut->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("f32Value", (tVoid*)&(speed));
     m_pCoderDescSpeedOut->Unlock(pCoder);
 
     //transmit media sample over output pin
-    //RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_outputVelocity.Transmit(pMediaSample));
+    RETURN_IF_FAILED(m_outputSpeed.Transmit(pMediaSampleOutput));
 
     RETURN_NOERROR;
 
@@ -809,31 +897,26 @@ tResult cSWE_ParkPilot::sendSpeed(tInt8 speed)
 
 tResult cSWE_ParkPilot::sendSteeringAngle(tFloat32 steeringAngle)
 {
-
-    cObjectPtr<IMediaCoder> pCoder;
-
     //create new media sample
-    cObjectPtr<IMediaSample> pMediaSample;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+    cObjectPtr<IMediaCoder> pCoder;
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
 
-    //allocate memory with the size given by the descriptor
     cObjectPtr<IMediaSerializer> pSerializer;
     m_pCoderDescSteeringOut->GetMediaSampleSerializer(&pSerializer);
     tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSample->AllocBuffer(nSize);
+    pMediaSampleOutput->AllocBuffer(nSize);
 
-    //write date to the media sample with the coder of the descriptor
-    RETURN_IF_FAILED(m_pCoderDescSteeringOut->WriteLock(pMediaSample, &pCoder));
-    pCoder->Set("tSignalValue", (tVoid*)&(steeringAngle));
+    RETURN_IF_FAILED(m_pCoderDescSteeringOut->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("f32Value", (tVoid*)&(steeringAngle));
     m_pCoderDescSteeringOut->Unlock(pCoder);
 
-    //transmit media sample over output pin
-    //RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_outputSteering.Transmit(pMediaSample));
+    RETURN_IF_FAILED(m_outputSteering.Transmit(pMediaSampleOutput));
 
     RETURN_NOERROR;
 
 }
+
 
 tResult cSWE_ParkPilot::sendParkState(tInt8 parkState)
 {

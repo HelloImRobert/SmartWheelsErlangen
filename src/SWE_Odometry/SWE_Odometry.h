@@ -87,13 +87,18 @@ class SWE_Odometry : public adtf::cFilter
 
         /*! output pin for the vehicle speed */
         cOutputPin m_oOutputVelocity;
+        
+        
 
     public:
         SWE_Odometry(const tChar* __info);
         virtual ~SWE_Odometry();
 	
     protected: // overwrites cFilter
-        tResult Init(tInitStage eStage, __exception = NULL);        
+        tResult Init(tInitStage eStage, __exception = NULL);     
+        tResult Start(__exception = NULL);
+        tResult Stop(__exception = NULL);
+        tResult Shutdown(tInitStage eStage, __exception = NULL);     
         tResult OnPinEvent(IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample);
 	
     private:

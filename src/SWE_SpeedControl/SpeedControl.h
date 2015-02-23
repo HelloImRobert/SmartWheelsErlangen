@@ -76,7 +76,7 @@ class SpeedControl : public adtf::cFilter
 
 
         /*! send out the pwm value
-        @param pwm_value the pwm value to be sent 0-180
+        @param pwm_value the pwm value to be sent -100 - +100
         */
         tResult SetPWM (tFloat32 pwm_value);
 

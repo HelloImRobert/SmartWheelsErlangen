@@ -101,9 +101,9 @@ tResult SWE_DistanceMeasurement::Init(tInitStage eStage, __exception)
 
         // Output pin
 
-        tChar const * strDescPoints = pDescManager->GetMediaDescription("tPoints");
+        tChar const * strDescPoints = pDescManager->GetMediaDescription("tPointArray");
         RETURN_IF_POINTER_NULL(strDescPoints);
-        cObjectPtr<IMediaType> pTypePoints = new cMediaType(0, 0, 0, "tPoints", strDescPoints,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+        cObjectPtr<IMediaType> pTypePoints = new cMediaType(0, 0, 0, "tPointArray", strDescPoints,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
         RETURN_IF_FAILED(pTypePoints->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescPointsOut));
 
         RETURN_IF_FAILED(m_pin_output_detectedPoints.Create("DetectedPoints", pTypePoints, static_cast<IPinEventSink*> (this)));
@@ -258,13 +258,13 @@ tResult SWE_DistanceMeasurement::sendData()
         {
             stringstream elementSetter;
 
-                elementSetter << "PointArray[" << i << "].xCoord";
+                elementSetter << "tPoint[" << i << "].xCoord";
                 const string& tempRef1 = elementSetter.str();
                 const tChar* tempPointer1 = tempRef1.c_str();
                 pCoder->Set(tempPointer1, (tVoid*)&(_detected_array[i].x));
                 elementSetter.str(std::string());
 
-                elementSetter << "PointArray[" << i << "].yCoord";
+                elementSetter << "tPoint[" << i << "].yCoord";
                 const string& tempRef2 = elementSetter.str();
                 const tChar* tempPointer2 = tempRef2.c_str();
                 pCoder->Set(tempPointer2, (tVoid*)&(_detected_array[i].y));

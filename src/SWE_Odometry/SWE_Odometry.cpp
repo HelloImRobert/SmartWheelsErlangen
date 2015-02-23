@@ -61,6 +61,56 @@ SWE_Odometry::~SWE_Odometry()
 {
 }
 
+tResult SWE_Odometry::Start(__exception)
+{
+    return cFilter::Start(__exception_ptr);
+    
+    	m_SlidingWindowCntLeftWheel.Reset();
+        m_SlidingWindowCntRightWheel.Reset();
+
+        m_lastwheelCounter_left = 0;
+        m_lastwheelCounter_right = 0;
+
+        m_wheelCounter_left = 0;
+        m_wheelCounter_right = 0;
+
+        m_errorPulses_left = 0;
+        m_errorPulses_right = 0;
+
+        m_wheelsync = false;
+
+        m_distanceAllSum = 0;
+        m_distanceX_sum = 0;
+        m_distanceY_sum = 0;
+        m_heading_sum = 0;
+
+        m_oldTimeStamp = GetTime();
+        m_lastPinEvent = GetTime();
+        m_lastTriggerTime = GetTime();
+
+
+        //DEBUG:
+        //m_currentDirection = 0;
+        m_currentDirection = 1;
+
+        m_velocityLeft = 0;
+        m_velocityRight = 0;
+        m_velocityFiltered = 0;
+        m_velocityUnfiltered = 0;
+
+}
+
+tResult SWE_Odometry::Stop(__exception)
+{
+    return cFilter::Stop(__exception_ptr);
+}
+
+tResult SWE_Odometry::Shutdown(tInitStage eStage, __exception)
+{
+    return cFilter::Shutdown(eStage,__exception_ptr);
+}
+
+
 tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 {
     RETURN_IF_FAILED(cFilter::Init(eStage, __exception_ptr))
@@ -154,43 +204,11 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
     }
     else if (eStage == StageNormal)
     {
-        m_SlidingWindowCntLeftWheel.Reset();
-        m_SlidingWindowCntRightWheel.Reset();
+
     }
     else if(eStage == StageGraphReady)
     {
-        m_SlidingWindowCntLeftWheel.Reset();
-        m_SlidingWindowCntRightWheel.Reset();
 
-        m_lastwheelCounter_left = 0;
-        m_lastwheelCounter_right = 0;
-
-        m_wheelCounter_left = 0;
-        m_wheelCounter_right = 0;
-
-        m_errorPulses_left = 0;
-        m_errorPulses_right = 0;
-
-        m_wheelsync = false;
-
-        m_distanceAllSum = 0;
-        m_distanceX_sum = 0;
-        m_distanceY_sum = 0;
-        m_heading_sum = 0;
-
-        m_oldTimeStamp = GetTime();
-        m_lastPinEvent = GetTime();
-        m_lastTriggerTime = GetTime();
-
-
-        //DEBUG:
-        //m_currentDirection = 0;
-        m_currentDirection = 1;
-
-        m_velocityLeft = 0;
-        m_velocityRight = 0;
-        m_velocityFiltered = 0;
-        m_velocityUnfiltered = 0;
     }
 
     RETURN_NOERROR;
@@ -501,8 +519,8 @@ tResult SWE_Odometry::SendVelocity()
 
 
     //DEBUG:
-    //pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
-    pCoder->Set("f32Value", (tVoid*)&(debugvar));
+    pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
+    //pCoder->Set("f32Value", (tVoid*)&(debugvar));
 
 
 
