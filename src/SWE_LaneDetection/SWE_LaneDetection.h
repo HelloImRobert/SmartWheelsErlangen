@@ -40,8 +40,8 @@ class cSWE_LaneDetection : public adtf::cFilter
             cVideoPin		_oVideoInputPin;               /**< the input pin for the video*/
             cVideoPin       _oInternRepresentationVideoOutputPin;              /**< outputpin for the debug video */
             cVideoPin       _oColorVideoOutputPin;              /**< outputpin for the debug video */
-            cOutputPin     m_oLines;
-            cOutputPin     m_oSplines;
+            cOutputPin     m_oSplinesPin;
+            cOutputPin     m_CrossingIndicatorPin;
 
             enum Side
             {
@@ -76,7 +76,7 @@ class cSWE_LaneDetection : public adtf::cFilter
         private:
 
             /*! Coder Descriptors for the pins*/
-            cObjectPtr<IMediaTypeDescription> m_pCoderDescLines;
+            cObjectPtr<IMediaTypeDescription> m_pCoderDescCrossingIndicator;
             cObjectPtr<IMediaTypeDescription> m_pCoderDescSplines;
 
             tResult                     ProcessInput(IMediaSample* pSample);

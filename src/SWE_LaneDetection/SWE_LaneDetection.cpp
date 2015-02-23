@@ -130,29 +130,30 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         RETURN_IF_FAILED(_oColorVideoOutputPin.Create("Color_Video_Output", IPin::PD_Output, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&_oColorVideoOutputPin));
 
-        /*
-        // Output Pin for Lines
+
+        // Output Pin for Crossings
         // TO ADAPT for new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
         cObjectPtr<IMediaDescriptionManager> pDescManager;
         RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
 
-        tChar const * strDescLines = pDescManager->GetMediaDescription("tLineBoundaries");
-        RETURN_IF_POINTER_NULL(strDescLines);
-        cObjectPtr<IMediaType> pTypeLines = new cMediaType(0, 0, 0, "tLineBoundaries", strDescLines,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
-        RETURN_IF_FAILED(pTypeLines->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescLines));
+        tChar const * strDescCrossingIndicator = pDescManager->GetMediaDescription("tCrossingIndicator");
+        RETURN_IF_POINTER_NULL(strDescCrossingIndicator);
+        cObjectPtr<IMediaType> pTypeCrossingIndicator = new cMediaType(0, 0, 0, "tCrossingIndicator", strDescCrossingIndicator,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+        RETURN_IF_FAILED(pTypeCrossingIndicator->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescCrossingIndicator));
 
-        RETURN_IF_FAILED(m_oLines.Create("Line_Boundaries", pTypeLines, static_cast<IPinEventSink*> (this)));
-        RETURN_IF_FAILED(RegisterPin(&m_oLines));
+        RETURN_IF_FAILED(m_CrossingIndicatorPin.Create("Crossing_Indicator", pTypeCrossingIndicator, static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&m_CrossingIndicatorPin));
 
         // Output pin for Splines
-        tChar const * strDescSplines = pDescManager->GetMediaDescription("tSplineBoundaries");
+
+        tChar const * strDescSplines = pDescManager->GetMediaDescription("tSplineBoundaryNew");
         RETURN_IF_POINTER_NULL(strDescSplines);
-        cObjectPtr<IMediaType> pTypeSplines = new cMediaType(0, 0, 0, "tSplineBoundaries", strDescSplines,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+        cObjectPtr<IMediaType> pTypeSplines = new cMediaType(0, 0, 0, "tSplineBoundaryNew", strDescSplines,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
         RETURN_IF_FAILED(pTypeSplines->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSplines));
 
-        RETURN_IF_FAILED(m_oSplines.Create("Spline_Boundaries", pTypeSplines, static_cast<IPinEventSink*> (this)));
-        RETURN_IF_FAILED(RegisterPin(&m_oSplines));
-        */
+        RETURN_IF_FAILED(m_oSplinesPin.Create("Spline_Boundaries", pTypeSplines, static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&m_oSplinesPin));
+
     }
     else if (eStage == StageNormal)
     {
@@ -164,7 +165,7 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         _minOuterBoundaryLength = GetPropertyFloat(MIN_OUTER_BOUNDARY_LENGTH);
         _heightThresh = GetPropertyInt(HEIGHT_THRESHOLD);
         _draw = GetPropertyBool(DRAW_IMAGES),
-        _CountStdDevs = GetPropertyInt(COUNT_OF_STDDEVS);
+                _CountStdDevs = GetPropertyInt(COUNT_OF_STDDEVS);
         _lowerAreaThreshold = GetPropertyFloat(LOWER_AREA_THRESHOLD);
         _startHeight = GetPropertyInt(START_HEIGHT);
         _principalAxisLengthRatioThreshold = GetPropertyFloat(PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD);
@@ -320,7 +321,7 @@ bool sort_xVal( const cv::Point& point1, const cv::Point& point2)
     return point1.x < point2.x;
 }
 
-    /**
+/**
      * \brief A convenience overload to project a BlobDescriptors contour and update it's orientation parameters by passing the BlobDescriptor.
      * @param blob the BlobDescriptor which should be transformed
      * @param projectionMatrix the transformation Matrix to be used
@@ -566,7 +567,7 @@ int cSWE_LaneDetection::getOuterLaneBoundaries( std::vector< BlobDescriptor >& b
     return outerLaneBoundariesIndicator;
 }
 
-    /**
+/**
      * \brief A function reducing a contour to a pointset for a spline.
      * @param contour the contour to be reduced to a spline
      * @param splineSearchWidth the width of elements considered as a levelset for the y direction
@@ -651,7 +652,7 @@ std::pair< size_t, size_t > cSWE_LaneDetection::contourToSpline(const std::vecto
      * @param middleLaneBoundary the blobs considered as forming the middle lane boundary
      */
 void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobDescriptor>& blobs, const int outerLaneBoundariesIndicator,
-                                   const std::vector< BlobDescriptor* > middleLaneBoundary)
+                                         const std::vector< BlobDescriptor* > middleLaneBoundary)
 {
     vector<Vec4i> hierarchy;
 
@@ -890,184 +891,141 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         }
     }
 
- /*******************************************************/
- /*          Here the transmit Section will begin       */
- /*******************************************************/
-
- /*
-    double leftFrontX = -1;
-    double leftFrontY = -1;
-    double leftRearX = -1;
-    double leftRearY = -1;
-    double rightFrontX = -1;
-    double rightFrontY = -1;
-    double rightRearX = -1;
-    double rightRearY = -1;
-
-
-    vector< vector<cv::Point2d> > splines;
-    splines.resize(lanes.size());
-    for (size_t i = 0; i < lanes.size(); i++)
-    {
-        float rho = lanes[i][0], theta = lanes[i][1];
-        Point pt1, pt2;
-        double a = cos(theta), b = sin(theta);
-        double x0 = a*rho, y0 = b*rho;
-        pt1.x = cvRound(x0 + 1000 * (-b));
-        pt1.y = cvRound(y0 + 1000 * (a));
-        pt2.x = cvRound(x0 - 1000 * (-b));
-        pt2.y = cvRound(y0 - 1000 * (a));
-
-        if (theta >= 0 && theta < _thetaMax)
-        {
-            line(image, pt1, pt2, Scalar(0, 255, 0), 3, CV_AA);
-        }
-        else
-        {
-            line(image, pt1, pt2, Scalar(0, 0, 255), 3, CV_AA);
-        }
-
-        vector< Point2d > vec;
-        vec.push_back( pt1 );
-        vec.push_back( pt2 );
-
-        perspectiveTransform( vec , vec , _projectionMatrix );
-
-        pt1 = vec[ 0 ];
-        pt2 = vec[ 1 ];
-//        splines[i] = vec;
-
-        // scaling factor for calculating pixel in mm
-        tFloat64 scaleFac = 0.95;
-        // distance from front axis to nearest edge of camera picture
-        tFloat64 distFrontAxisToInvImage = 220-20-65;
-        // value to correct camera not cenered in y-direction
-        tFloat64 distMidToCam = -22;
-        // picture heigth and width
-        tFloat64 picHeight = 480;
-        tFloat64 picWidth = 640;
-
-        // transform points to vehicle coo sys in front axis center
-        if (theta >= 0 && theta < _thetaMax)
-        {
-            leftFrontY = scaleFac*((-1.0)*(pt1.x - picWidth/2.0)) + distMidToCam;
-            leftFrontX = scaleFac*((-1.0)*(pt1.y - picHeight)) + distFrontAxisToInvImage;
-            leftRearY = scaleFac*((-1.0)*(pt2.x - picWidth/2.0)) + distMidToCam;
-            leftRearX = scaleFac*((-1.0)*(pt2.y - picHeight)) + distFrontAxisToInvImage;
-
-            splines[i].push_back(cv::Point2d(leftFrontX, leftFrontY));
-            splines[i].push_back(cv::Point2d(leftRearX, leftRearY));
-        }
-        else
-        {
-            rightFrontY = scaleFac*((-1.0)*(pt1.x - picWidth/2.0)) + distMidToCam;
-            rightFrontX = scaleFac*((-1.0)*(pt1.y - picHeight)) + distFrontAxisToInvImage;
-            rightRearY = scaleFac*((-1.0)*(pt2.x - picWidth/2.0)) + distMidToCam;
-            rightRearX = scaleFac*((-1.0)*(pt2.y - picHeight)) + distFrontAxisToInvImage;
-
-            splines[i].push_back(cv::Point2d(rightFrontX, rightFrontY));
-            splines[i].push_back(cv::Point2d(rightRearX, rightRearY));
-        }
-
-
-    }
-
-    // apply an inverse Perspective mapping
-    Mat warpedImage;
-    cv::warpPerspective(image, warpedImage, _projectionMatrix, greyScaleImage.size());
-
-
-
+    // OUTPUT SPLINES NEW-----------------------------------------------------------
     {
         cObjectPtr<IMediaCoder> pCoder;
 
         //create new media sample
-        cObjectPtr<IMediaSample> pMediaSample;
-        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+        cObjectPtr<IMediaSample> pMediaSampleOutput;
+        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
 
-        // OUTPUT LINES -----------------------------------------------------------
         //allocate memory with the size given by the descriptor
-        // ADAPT: m_pCoderDescPointLeft
         cObjectPtr<IMediaSerializer> pSerializer;
-        m_pCoderDescLines->GetMediaSampleSerializer(&pSerializer);
-        tInt nSize = pSerializer->GetDeserializedSize();
-        pMediaSample->AllocBuffer(nSize);
-
-        //write date to the media sample with the coder of the descriptor
-        // ADAPT: m_pCoderDescPointLeft
-        //cObjectPtr<IMediaCoder> pCoder;
-        RETURN_IF_FAILED(m_pCoderDescLines->WriteLock(pMediaSample, &pCoder));
-
-
-        pCoder->Set("leftFrontX", (tVoid*)&(leftFrontX));
-        pCoder->Set("leftFrontY", (tVoid*)&(leftFrontY));
-        pCoder->Set("leftRearX", (tVoid*)&(leftRearX));
-        pCoder->Set("leftRearY", (tVoid*)&(leftRearY));
-        pCoder->Set("rightFrontX", (tVoid*)&(rightFrontX));
-        pCoder->Set("rightFrontY", (tVoid*)&(rightFrontY));
-        pCoder->Set("rightRearX", (tVoid*)&(rightRearX));
-        pCoder->Set("rightRearY", (tVoid*)&(rightRearY));
-        m_pCoderDescLines->Unlock(pCoder);
-
-
-        //transmit media sample over output pin
-        // ADAPT: m_oIntersectionPointLeft
-        RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-        RETURN_IF_FAILED(m_oLines.Transmit(pMediaSample));
-        // OUTPUT LINES -----------------------------------------------------------
-
-        // OUTPUT SPLINES -----------------------------------------------------------
-        //allocate memory with the size given by the descriptor
-        // ADAPT: m_pCoderDescPointLeft
-        //cObjectPtr<IMediaSerializer> pSerializer;
         m_pCoderDescSplines->GetMediaSampleSerializer(&pSerializer);
-        nSize = pSerializer->GetDeserializedSize();
-        pMediaSample->AllocBuffer(nSize);
+        tInt nSize = pSerializer->GetDeserializedSize();
+        pMediaSampleOutput->AllocBuffer(nSize);
 
         //write date to the media sample with the coder of the descriptor
-        // ADAPT: m_pCoderDescPointLeft
-        //cObjectPtr<IMediaCoder> pCoder;
-        RETURN_IF_FAILED(m_pCoderDescSplines->WriteLock(pMediaSample, &pCoder));
+        RETURN_IF_FAILED(m_pCoderDescSplines->WriteLock(pMediaSampleOutput, &pCoder));
 
 
-        for(int i=0; i < splines.size(); i++)
+        cv::Point2d p1(1,-1), p2(2,-2), p3(4,-5);
+        std::vector< cv::Point2d > rightBoundary;
+        rightBoundary.push_back(p1);
+        rightBoundary.push_back(p2);
+        rightBoundary.push_back(p3);    
         {
             stringstream elementSetter;
-
-            for(int j=0; j < splines[i].size(); j++)
+            size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( rightBoundary.size() ) );
+            for(size_t j=0; j < end; j++)
             {
-                elementSetter << "BoundaryArray[" << i << "].Points[" << j << "].xCoord";
-                const string& tempRef1 = elementSetter.str();
-                const tChar* tempPointer1 = tempRef1.c_str();
-                pCoder->Set(tempPointer1, (tVoid*)&(splines[i][j].x));
+                elementSetter << "rightBoundary.Points[" << j << "].xCoord";
+                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(rightBoundary.at(j).x));
                 elementSetter.str(std::string());
 
-                elementSetter << "BoundaryArray[" << i << "].Points[" << j << "].yCoord";
-                const string& tempRef2 = elementSetter.str();
-                const tChar* tempPointer2 = tempRef2.c_str();
-                pCoder->Set(tempPointer2, (tVoid*)&(splines[i][j].y));
+                elementSetter << "rightBoundary.Points[" << j << "].yCoord";
+                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(rightBoundary.at(j).y));
                 elementSetter.str(std::string());
             }
 
-            elementSetter << "BoundaryArray[" << i << "].Count";
-            const string& tempRef3 = elementSetter.str();
-            const tChar* tempPointer3 = tempRef3.c_str();
-            int BoundaryArrayCountTemp = splines[i].size();
-            pCoder->Set(tempPointer3, (tVoid*)&(BoundaryArrayCountTemp));
+            tInt8 BoundaryArrayCountTemp = rightBoundary.size();
+            pCoder->Set("rightBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
+        }
+
+        std::vector< cv::Point2d > leftBoundary;
+        {
+            stringstream elementSetter;
+            size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( leftBoundary.size() ) );
+            for(size_t j=0; j < end; j++)
+            {
+                elementSetter << "leftBoundary.Points[" << j << "].xCoord";
+
+                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(leftBoundary.at(j).x));
+                elementSetter.str(std::string());
+
+                elementSetter << "leftBoundary.Points[" << j << "].yCoord";
+
+                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(leftBoundary.at(j).y));
+                elementSetter.str(std::string());
+            }
+
+            tInt8 BoundaryArrayCountTemp = rightBoundary.size();
+            pCoder->Set("leftBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
             elementSetter.str(std::string());
         }
-        int BoundaryCountTemp = splines.size();;
-        pCoder->Set("BoundaryCount", (tVoid*)&(BoundaryCountTemp));
-        m_pCoderDescSplines->Unlock(pCoder);
 
+
+        std::vector< cv::Point2d > middleBoundary;
+        {
+            stringstream elementSetter;
+            size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( middleBoundary.size() ) );
+            for(size_t j=0; j < end; j++)
+            {
+                elementSetter << "middleBoundary.Points[" << j << "].xCoord";
+
+                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(middleBoundary.at(j).x));
+                elementSetter.str(std::string());
+
+                elementSetter << "middleBoundary.Points[" << j << "].yCoord";
+
+                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(middleBoundary.at(j).y));
+                elementSetter.str(std::string());
+            }
+
+            tInt8 BoundaryArrayCountTemp = rightBoundary.size();
+            pCoder->Set("middleBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
+            elementSetter.str(std::string());
+        }
+
+        m_pCoderDescSplines->Unlock(pCoder);
 
         //transmit media sample over output pin
         // ADAPT: m_oIntersectionPointLeft
-        RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-        RETURN_IF_FAILED(m_oSplines.Transmit(pMediaSample));
-        // OUTPUT SPLINES -----------------------------------------------------------
+        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oSplinesPin.Transmit(pMediaSampleOutput));
     }
-    */
+    // OUTPUT SPLINES  NEW-----------------------------------------------------------
+
+    // OUTPUT CROSSING INDICATOR -----------------------------------------------------------
+    {
+
+        cObjectPtr<IMediaCoder> pCoder;
+
+        //create new media sample
+        cObjectPtr<IMediaSample> pMediaSampleCrossIndicator;
+        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleCrossIndicator));
+
+        //allocate memory with the size given by the descriptor
+        cObjectPtr<IMediaSerializer> pSerializer;
+        m_pCoderDescCrossingIndicator->GetMediaSampleSerializer(&pSerializer);
+        tInt nSize = pSerializer->GetDeserializedSize();
+        pMediaSampleCrossIndicator->AllocBuffer(nSize);
+
+        //write date to the media sample with the coder of the descriptor
+        RETURN_IF_FAILED(m_pCoderDescCrossingIndicator->WriteLock(pMediaSampleCrossIndicator, &pCoder));
+
+        // TO DELETE!!!!!!!!!!!!!!!!!!!!
+        tBool isRealStopLine = true;
+        tInt8 crossingType = 5;
+        cv::Point2d StopLinePoint1(5,6), StopLinePoint2(7,8);
+        // !!!!!!!!!!!!!!!!!!!!
+
+        pCoder->Set("isRealStopLine", (tVoid*)&(isRealStopLine));
+        pCoder->Set("crossingType", (tVoid*)&(crossingType));
+        pCoder->Set("StopLinePoint1.xCoord", (tVoid*)&(StopLinePoint1.x));
+        pCoder->Set("StopLinePoint1.yCoord", (tVoid*)&(StopLinePoint1.y));
+        pCoder->Set("StopLinePoint2.xCoord", (tVoid*)&(StopLinePoint2.x));
+        pCoder->Set("StopLinePoint2.yCoord", (tVoid*)&(StopLinePoint2.y));
+
+        m_pCoderDescCrossingIndicator->Unlock(pCoder);
+
+        //transmit media sample over output pin
+        // ADAPT: m_oIntersectionPointLeft
+        RETURN_IF_FAILED(pMediaSampleCrossIndicator->SetTime(_clock->GetStreamTime()));
+        //RETURN_IF_FAILED(m_CrossingIndicatorPin.Transmit(pMediaSampleCrossIndicator));
+        // OUTPUT CROSSING INDICATOR -----------------------------------------------------------
+    }
+
 
     // transmit a video of the current result to the video outputpin
     if (_oColorVideoOutputPin.IsConnected())
