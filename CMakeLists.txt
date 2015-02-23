@@ -15,3 +15,5 @@ add_subdirectory(src/SWE_ObjectDetection)
 add_subdirectory(src/SWE_QRshield)
 add_subdirectory(src/SWE_CooTransCamToFrontAxis)
 add_subdirectory(src/SWE_StopLineDetection)
+add_subdirectory(src/SWE_BirdEyeTransformation)
+
