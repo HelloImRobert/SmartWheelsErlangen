@@ -48,18 +48,14 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
             cObjectPtr<IMediaDescriptionManager> pDescManager;
             RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
 
+            // ----------------- create input pins ------------------
+
             tChar const * strDescSignalValue = pDescManager->GetMediaDescription("tSignalValue");
             RETURN_IF_POINTER_NULL(strDescSignalValue);        
             cObjectPtr<IMediaType> pTypeSignalValue = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue,IMediaDescription::MDF_DDL_DEFAULT_VERSION);	
             RETURN_IF_FAILED(pTypeSignalValue->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSignal)); 
 	
 
-			/*Example
-			RETURN_IF_FAILED( m_global_fences_in.Create( "Global_Fences_in",
-                                          cObjectPtr<IMediaType>( new adtf::cMediaType( MEDIA_TYPE_STRUCTURED_DATA, MEDIA_SUBTYPE_STRUCT_FLOAT32 ) ),
-                                          static_cast<IPinEventSink*>( this ) ) );
-        		RETURN_IF_FAILED( RegisterPin( &m_global_fences_in ) );
-			*/
 
             RETURN_IF_FAILED(m_oInputWheelRight.Create("Sensor_left_Wheel", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
             RETURN_IF_FAILED(RegisterPin(&m_oInputWheelRight));
@@ -69,11 +65,20 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 			RETURN_IF_FAILED(RegisterPin(&m_oInputSteeringAngle));
 
 
+            // ------------------ create output pins ---------------------
+            //TODO: create applicable media description
+            tChar const * strDescOdometry = pDescManager->GetMediaDescription("tSignalValue");
+            RETURN_IF_POINTER_NULL(strDescOdometry);
+            cObjectPtr<IMediaType> pTypeOdometry = new cMediaType(0, 0, 0, "tSignalValue", strDescMiddlePoint,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+            RETURN_IF_FAILED(pTypeOdometry->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescOdometryOut));
 
 
-			RETURN_IF_FAILED(m_oOutputOdometry.Create("Odometry_Output", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+            RETURN_IF_FAILED(m_oOutputOdometry.Create("Odometry_Output", pTypeOdometry, static_cast<IPinEventSink*> (this)));
 			RETURN_IF_FAILED(RegisterPin(&m_oOutputOdometry));
 
+
+
+            // ------------------ further init ---------------------
 
             m_filterStrength = (tFloat32)GetPropertyFloat("Velocity Filter Strength", 0.5);
 
