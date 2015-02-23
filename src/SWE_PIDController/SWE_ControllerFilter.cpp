@@ -22,14 +22,14 @@ ADTF_FILTER_PLUGIN("SWE PID Controller", OID_ADTF_SWE_PIDCONTROLLER, SWE_Control
 SWE_ControllerFilter::SWE_ControllerFilter(const tChar* __info) : cFilter(__info), m_lastMeasuredError(0), m_setPoint(0), m_feedForward(0), m_lastSampleTime(0), m_accumulatedVariable(0), m_controllerStrength(1.0)
 {
     SetPropertyFloat("Controller Kp value",0.01);
-    SetPropertyFloat("Controller Ki value",0.01);
+    SetPropertyFloat("Controller Ki value",0.015);
     SetPropertyFloat("Controller Kd value",0.01);
 
     SetPropertyFloat("max output",100);
     SetPropertyFloat("min output",-100);
 
-    SetPropertyFloat("max controller influence upper",15);
-    SetPropertyFloat("max controller influence lower",-15);
+    SetPropertyFloat("max controller influence upper",25);
+    SetPropertyFloat("max controller influence lower",-25);
 
     SetPropertyBool("Use Feed Forward", true);
     SetPropertyBool("Feed-Forward = 0 => output = 0", true); //off means off e.g. when used as second/cascaded controller controlling the motor to ensure safe stopping
@@ -85,14 +85,14 @@ tResult SWE_ControllerFilter::Init(tInitStage eStage, __exception)
         CreateOutputPins(__exception_ptr);
 
         m_Kp = (tFloat32)GetPropertyFloat("Controller Kp value",0.01);
-        m_Ki = (tFloat32)GetPropertyFloat("Controller Ki value",0.01);
+        m_Ki = (tFloat32)GetPropertyFloat("Controller Ki value",0.015);
         m_Kd = (tFloat32)GetPropertyFloat("Controller Kd value",0.01);
 
         m_maxOutput = (tFloat32)GetPropertyFloat("max output",100);
         m_minOutput = (tFloat32)GetPropertyFloat("min output",-100);
 
-        m_maxInfluence_upper = (tFloat32)GetPropertyFloat("max controller influence upper",15);
-        m_maxInfluence_lower = (tFloat32)GetPropertyFloat("max controller influence lower",-15);
+        m_maxInfluence_upper = (tFloat32)GetPropertyFloat("max controller influence upper",25);
+        m_maxInfluence_lower = (tFloat32)GetPropertyFloat("max controller influence lower",-25);
 
         m_useFF = (tBool)GetPropertyBool("Use Feed Forward", true);
         m_offMeansOff = (tBool)GetPropertyBool("Feed-Forward = 0 => output = 0", true);

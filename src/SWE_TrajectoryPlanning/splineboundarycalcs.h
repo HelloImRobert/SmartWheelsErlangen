@@ -1,7 +1,7 @@
 #ifndef SPLINEBOUNDARYCALCS
 #define SPLINEBOUNDARYCALCS
 
-#include <cmath>
+#include "math.h"
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include "Polynomial.h"

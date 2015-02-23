@@ -63,6 +63,8 @@ public:
      */
     tFloat32 GetSteeringAngle();
 
+    tFloat32 GetStoplineDistance();
+
     /**
      * @brief tells you if the stopline being approached is real or not
      * @return is stopline real?
@@ -139,6 +141,7 @@ private:
 
     tFloat32 m_startStopLineDistance;
     tFloat32 m_startDistance;
+    tFloat32 m_stoplineDistanceEst;
 
 
 

@@ -8,7 +8,7 @@ ADTF_FILTER_PLUGIN("SWE_VideoPreprocessing",OID_ADTF_SWE_VIDEOPREPROCESSING , SW
 #define CORRESPING_POINTS_XML "Path to external Camera Params xml"
 #define OUTPUT_FILE "The outputfile for the dumped video"
 #define CONVERT_VIDEO "Bool indicating if the video should be dumped"
-#define CROP_HEIGHT 320
+#define CROP_HEIGHT 250
 #define CROP_WIDTH 320
 
 SWE_VideoPreprocessing::SWE_VideoPreprocessing(const tChar* __info):cFilter(__info)
@@ -112,7 +112,7 @@ tResult SWE_VideoPreprocessing::InitPinFormats()
     _sColorBitMapOutputFormatCropped.nPixelFormat = cImage::PF_RGB_888;
     _sColorBitMapOutputFormatCropped.nPaletteSize = 0;
     _sColorBitMapOutputFormatCropped.nWidth = CROP_WIDTH;
-    _sColorBitMapOutputFormatCropped.nHeight = 480 - CROP_HEIGHT;
+    _sColorBitMapOutputFormatCropped.nHeight = CROP_HEIGHT;
     _sColorBitMapOutputFormatCropped.nBytesPerLine = _sColorBitMapOutputFormatCropped.nWidth * 3;
     _sColorBitMapOutputFormatCropped.nSize = _sColorBitMapOutputFormatCropped.nBytesPerLine * _sColorBitMapOutputFormatCropped.nHeight;
 
@@ -238,7 +238,7 @@ tResult SWE_VideoPreprocessing::ProcessInput(IMediaSample* pMediaSample)
     // ---------------- output cropped video ----------------
 
     // crop the image
-    cv::Rect myROI( 0 , CROP_HEIGHT , CROP_WIDTH , image.rows - CROP_HEIGHT );
+    cv::Rect myROI( 0 , 150, CROP_WIDTH , CROP_HEIGHT );
     cv::Mat croppedImage;
     image(myROI).copyTo(croppedImage);
 
