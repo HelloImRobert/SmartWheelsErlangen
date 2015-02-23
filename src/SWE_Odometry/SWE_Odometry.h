@@ -54,7 +54,7 @@ class SWE_Odometry : public adtf::cFilter
         cInputPin m_oInputWheelRight;
         /*! input pin that tells the odometry which direction the wheels are turning */
  //       cInputPin m_oInputDirection;
-        /*! input pin for the heading gyro signal (might be called "roll" at the gyro output filter)*/
+        /*! input pin for the heading gyro signal*/
         // cInputPin m_oGyro;
         /*! input pin for the trigger signal */
         cInputPin m_oInputTrigger;
