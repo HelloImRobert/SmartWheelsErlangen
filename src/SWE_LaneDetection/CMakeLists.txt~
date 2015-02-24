@@ -1,16 +1,15 @@
-set(FILTER_NAME SWE_StopLineDetection)
+set(FILTER_NAME SWE_LaneDetection)
 
 # include directories
-include_directories(${OpenCV_INCLUDE_DIR}) 
+include_directories(${/usr/include/opencv}) 
 
 # declare our filter
 adtf_add_filter(${FILTER_NAME}
     stdafx.h
     stdafx.cpp
 
-    SWE_StopLineDetection.h
-    SWE_StopLineDetection.cpp
-
+    SWE_LaneDetection.h
+    SWE_LaneDetection.cpp
 )
 
 # linking libs

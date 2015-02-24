@@ -1,0 +1,185 @@
+/**
+ *
+ * ADTF Template Project
+ *
+ * @file
+ * Copyright &copy; Audi Electronics Venture GmbH. All rights reserved
+ *
+ * $Author: belkera $
+ * $Date: 2011-06-30 16:51:21 +0200 (Thu, 30 Jun 2011) $
+ * $Revision: 26514 $
+ *
+ * @remarks
+ *
+ */
+#include "stdafx.h"
+#include "SWE_LaneDetection.h"
+#include <template_data.h>
+
+/// Create filter shell
+ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_TEMPLATE_FILTER, cSWE_LaneDetection);
+
+
+cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
+{
+	SetPropertyInt("KernelWidth", 3);
+	SetPropertyBool("KernelWidth" NSSUBPROP_ISCHANGEABLE, tTrue);
+	SetPropertyInt("KernelWidth" NSSUBPROP_MINIMUM  , 3);
+	SetPropertyInt("KernelWidth" NSSUBPROP_MAXIMUM  , 25);
+
+	SetPropertyInt("CountStdDevs", 2);
+	SetPropertyBool("CountStdDevs" NSSUBPROP_ISCHANGEABLE, tTrue);
+	SetPropertyInt("CountStdDevs" NSSUBPROP_MINIMUM  , 0);
+	SetPropertyInt("CountStdDevs" NSSUBPROP_MAXIMUM  , 5);
+
+	SetPropertyInt("KernelWidthPeaks", 3);
+	SetPropertyBool("KernelWidthPeaks" NSSUBPROP_ISCHANGEABLE, tTrue);
+	SetPropertyInt("KernelWidthPeaks" NSSUBPROP_MINIMUM  , 3);
+	SetPropertyInt("KernelWidthPeaks" NSSUBPROP_MAXIMUM  , 25);
+
+	SetPropertyInt("RoadWidth", 30);
+	SetPropertyBool("RoadWidth" NSSUBPROP_ISCHANGEABLE, tTrue);
+	SetPropertyInt("RoadWidth" NSSUBPROP_MINIMUM  , 0);
+	SetPropertyInt("RoadWidth" NSSUBPROP_MAXIMUM  , 9999);
+
+	SetPropertyInt("RoadWidthTolerance", 10);
+	SetPropertyBool("RoadWidthTolerance" NSSUBPROP_ISCHANGEABLE, tTrue);
+	SetPropertyInt("RoadWidthTolerance" NSSUBPROP_MINIMUM  , 0);
+	SetPropertyInt("RoadWidthTolerance" NSSUBPROP_MAXIMUM  , 9999);
+
+	SetPropertyInt("FitWidth", 15);
+	SetPropertyBool("FitWidth" NSSUBPROP_ISCHANGEABLE, tTrue);
+	SetPropertyInt("FitWidth" NSSUBPROP_MINIMUM  , 0);
+	SetPropertyInt("FitWidth" NSSUBPROP_MAXIMUM  , 9999);
+
+	SetPropertyInt("MaxCountLanes", 4);
+	SetPropertyBool("MaxCountLanes" NSSUBPROP_ISCHANGEABLE, tTrue);
+	SetPropertyInt("MaxCountLanes" NSSUBPROP_MINIMUM  , 1);
+	SetPropertyInt("MaxCountLanes" NSSUBPROP_MAXIMUM  , 20);
+
+	SetPropertyStr("CamParamsXML", "Hallo Welt.XML");
+	SetPropertyBool("CamParamsXML" NSSUBPROP_ISCHANGEABLE, tTrue);
+}
+
+cSWE_LaneDetection::~cSWE_LaneDetection()
+{
+
+}
+
+tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
+{
+    // never miss calling the parent implementation!!
+    RETURN_IF_FAILED(cFilter::Init(eStage, __exception_ptr))
+    
+    // in StageFirst you can create and register your static pins.
+    if (eStage == StageFirst)
+    {
+        // Video Input
+	RETURN_IF_FAILED(m_oVideoInputPin.Create("Video_Input", IPin::PD_Input, static_cast<IPinEventSink*>(this)));
+        RETURN_IF_FAILED(RegisterPin(&m_oVideoInputPin));
+	
+//TODO:	
+	/*
+	//GLC Output
+	cObjectPtr<IMediaType> pCmdType = NULL;
+        RETURN_IF_FAILED(AllocMediaType(&pCmdType, MEDIA_TYPE_COMMAND, MEDIA_SUBTYPE_COMMAND_GCL, __exception_ptr));
+        RETURN_IF_FAILED(m_oGLCOutput.Create("GLC_Output",pCmdType, static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&m_oGLCOutput));
+	*/
+    }
+    else if (eStage == StageNormal)
+    {
+        // In this stage you would do further initialisation and/or create your dynamic pins.
+        // Please take a look at the demo_dynamicpin example for further reference.
+	m_pathExternalCameraParams = GetPropertyStr( "CamParamsXML" ); 
+	m_KernelWidth = GetPropertyInt("KernelWidth");
+	m_CountStdDevs = GetPropertyInt("CountStdDevs");
+	m_KernelWidthPeaks = GetPropertyInt("KernelWidthPeaks");
+	m_RoadWidth = GetPropertyInt("RoadWidth");
+	m_RoadWidthTolerance = GetPropertyInt("RoadWidthTolerance");
+	m_FitWidth = GetPropertyInt("FitWidth");
+	m_MaxCountLanes = GetPropertyInt("MaxCountLanes");
+
+	cv::namedWindow("laneAssistance", WINDOW_NORMAL);
+    }
+    else if (eStage == StageGraphReady)
+    {
+        // All pin connections have been established in this stage so you can query your pins
+        // about their media types and additional meta data.
+        // Please take a look at the demo_imageproc example for further reference.
+    }
+
+    RETURN_NOERROR;
+}
+
+tResult cSWE_LaneDetection::Shutdown(tInitStage eStage, __exception)
+{
+    // In each stage clean up everything that you initiaized in the corresponding stage during Init.
+    // Pins are an exception: 
+    // - The base class takes care of static pins that are members of this class.
+    // - Dynamic pins have to be cleaned up in the ReleasePins method, please see the demo_dynamicpin
+    //   example for further reference.
+    
+    if (eStage == StageGraphReady)
+    {
+    }
+    else if (eStage == StageNormal)
+    {
+    }
+    else if (eStage == StageFirst)
+    {
+    }
+
+    // call the base class implementation
+    return cFilter::Shutdown(eStage, __exception_ptr);
+}
+
+tResult cSWE_LaneDetection::OnPinEvent(IPin* pSource,
+                                           tInt nEventCode,
+                                           tInt nParam1,
+                                           tInt nParam2,
+                                           IMediaSample* pMediaSample)
+{
+    // first check what kind of event it is
+    if (nEventCode == IPinEventSink::PE_MediaSampleReceived)
+    {
+        // so we received a media sample, so this pointer better be valid.
+        RETURN_IF_POINTER_NULL(pMediaSample);
+
+        // by comparing it to our member pin variable we can find out which pin received
+        // the sample
+        if (pSource == &m_oVideoInputPin)
+        {
+            // this will store the value for our new sample
+            tTemplateData fNewValue;
+            
+            // now lets access the data in the sample,
+            // the Lock method gives you access to the buffer of the sample.
+            // we use a scoped sample lock to ensure that the lock is released in all circumstances.
+
+            {
+                // this will aquire the read lock on the sample and declare and initialize a pointer to the data
+                __sample_read_lock(pMediaSample, tTemplateData, pData);
+                // now we can access the sample data through the pointer
+                fNewValue = *pData + 1.0;
+                // the read lock on the sample will be released when leaving this scope
+            }
+
+            // now we need a new media sample to forward the data.
+            cObjectPtr<IMediaSample> pNewSample;
+            if (IS_OK(AllocMediaSample(&pNewSample)))
+            {
+                // now set its data
+                // we reuse the timestamp from the incoming media sample. Please see the api documentation
+                // (ADTF Extreme Programmers -> The ADTF Streamtime) for further reference on how sample times are handled in ADTF
+                pNewSample->Update(pMediaSample->GetTime(), &fNewValue, sizeof(tTemplateData), 0);
+
+                // and now we can transmit it
+//TODO:
+                //m_oGLCOutput.Transmit(pNewSample);
+            }
+        }
+    }
+
+    RETURN_NOERROR;
+}

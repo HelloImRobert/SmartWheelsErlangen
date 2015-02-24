@@ -198,7 +198,7 @@ tResult cSWE_IntersecPointCalc::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt
         }
         else if (pSource == &m_oSplines)
         {
-
+LOG_INFO(cString::Format( "MBMT: test0"));
             // READ INPUT VALUES -------------------------------------------------------------------
 
             // generate Coder object
@@ -216,16 +216,19 @@ tResult cSWE_IntersecPointCalc::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt
             {
                 stringstream elementSetter;
 
-                int BoundaryArrayCountTemp;
+                tInt8 BoundaryArrayCountTemp;
                 elementSetter << "BoundaryArray[" << i << "].Count";
+
                 const string& tempRef3 = elementSetter.str();
                 const tChar* tempPointer3 = tempRef3.c_str();
                 pCoder->Get(tempPointer3, (tVoid*)&(BoundaryArrayCountTemp));
                 elementSetter.str(std::string());
 
-                splines[i].resize(BoundaryCountTemp);
 
-                for( int j = 0; j < BoundaryArrayCountTemp; j++)
+              splines[i].resize(BoundaryCountTemp);//The One who kills the system
+
+
+                for( tInt8 j = 0; j < BoundaryArrayCountTemp; j++)
                 {
                     elementSetter << "BoundaryArray[" << i << "].Points[" << j << "].xCoord";
                     const string& tempRef1 = elementSetter.str();
@@ -238,7 +241,9 @@ tResult cSWE_IntersecPointCalc::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt
                     const tChar* tempPointer2 = tempRef2.c_str();
                     pCoder->Get(tempPointer2, (tVoid*)&(splines[i][j].y));
                     elementSetter.str(std::string());
+
                 }
+
             }
 
             m_pCoderDescInputMeasured->Unlock(pCoder);

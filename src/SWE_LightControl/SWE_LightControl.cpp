@@ -27,13 +27,8 @@ cSWE_LightControl::~cSWE_LightControl()
 
 tResult cSWE_LightControl::CreateInputPins(__exception)
 {
-<<<<<<< HEAD
-    //MB Neue Pins
-       RETURN_IF_FAILED(m_oInputLightData.Create("Light Data", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
-=======
-    //MB Neue PinstInt8SignalValue
+    //MB Neue PiddnstInt8SignalValue
        RETURN_IF_FAILED(m_oInputLightData.Create("LightData", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
       RETURN_IF_FAILED(RegisterPin(&m_oInputLightData));
 
 
@@ -50,38 +45,30 @@ tResult cSWE_LightControl::CreateOutputPins(__exception)
     // TO ADAPT for new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
     tChar const * strDescLightOutput = pDescManager->GetMediaDescription("tBoolSignalValue");
     RETURN_IF_POINTER_NULL(strDescLightOutput);
+
     cObjectPtr<IMediaType> pTypeLightData = new cMediaType(0, 0, 0, "tBoolSignalValue", strDescLightOutput,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
-    RETURN_IF_FAILED(pTypeLightData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescLightOutput));
+
+    RETURN_IF_FAILED(pTypeLightData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescLightOutputFront));
 
     RETURN_IF_FAILED(m_oOutputheadlight.Create("Headlight", pTypeLightData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputheadlight));
     //--------------------------------------------------------------
   //MB Turn Left
-<<<<<<< HEAD
-    RETURN_IF_FAILED(m_oOutputturnleft.Create("Left Blink", pTypeLightData, static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oOutputturnleft));
-
-    //MB Turn right
-    RETURN_IF_FAILED(m_oOutputturnright.Create("right Blink", pTypeLightData, static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oOutputturnright));
-    //MB brake
-    RETURN_IF_FAILED(m_oOutputbrake.Create("brake Light", pTypeLightData, static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oOutputbrake));
-    //MB Reverse
-    RETURN_IF_FAILED(m_oOutputreverse.Create("Reverse Light", pTypeLightData, static_cast<IPinEventSink*> (this)));
-=======
+    RETURN_IF_FAILED(pTypeLightData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescLightOutputLeft));
     RETURN_IF_FAILED(m_oOutputturnleft.Create("LeftBlink", pTypeLightData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputturnleft));
 
     //MB Turn right
+    RETURN_IF_FAILED(pTypeLightData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescLightOutputRight));
     RETURN_IF_FAILED(m_oOutputturnright.Create("rightBlink", pTypeLightData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputturnright));
     //MB brake
+    RETURN_IF_FAILED(pTypeLightData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescLightOutputBrake));
     RETURN_IF_FAILED(m_oOutputbrake.Create("brakeLight", pTypeLightData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputbrake));
     //MB Reverse
+    RETURN_IF_FAILED(pTypeLightData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescLightOutputReverse));
     RETURN_IF_FAILED(m_oOutputreverse.Create("ReverseLight", pTypeLightData, static_cast<IPinEventSink*> (this)));
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
     RETURN_IF_FAILED(RegisterPin(&m_oOutputreverse));
 
 
@@ -182,8 +169,164 @@ tResult cSWE_LightControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
 }
 
 
+tResult cSWE_LightControl::frontan(tBool value)
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    cObjectPtr<IMediaSerializer> pSerializer;
+
+    m_pCoderDescLightOutputFront->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+    //---------------------------------------Front scheinwerfer-----------------------------------------------------------------------------------------
+    RETURN_IF_FAILED(m_pCoderDescLightOutputFront->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("bValue", (tVoid*)&(value));
+    m_pCoderDescLightOutputFront->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    // ADAPT: m_oIntersectionPointLeft
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputheadlight.Transmit(pMediaSampleOutput));
+     RETURN_NOERROR;
+}
+
+tResult cSWE_LightControl::rightan(tBool value)
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    cObjectPtr<IMediaSerializer> pSerializer;
+
+    m_pCoderDescLightOutputRight->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+    //---------------------------------------Blinken rechts-----------------------------------------------------------------------------------------
+        RETURN_IF_FAILED(m_pCoderDescLightOutputRight->WriteLock(pMediaSampleOutput, &pCoder));
+        pCoder->Set("bValue", (tVoid*)&(value));
+        m_pCoderDescLightOutputRight->Unlock(pCoder);
+
+        //transmit media sample over output pin
+        // ADAPT: m_oIntersectionPointLeft
+        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oOutputturnright.Transmit(pMediaSampleOutput));
+         RETURN_NOERROR;
+}
+tResult cSWE_LightControl::leftan(tBool value)
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    cObjectPtr<IMediaSerializer> pSerializer;
+
+    m_pCoderDescLightOutputLeft->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+
+    //---------------------------------------Blinken links-----------------------------------------------------------------------------------------
+        RETURN_IF_FAILED(m_pCoderDescLightOutputLeft->WriteLock(pMediaSampleOutput, &pCoder));
+        pCoder->Set("bValue", (tVoid*)&(value));
+        m_pCoderDescLightOutputLeft->Unlock(pCoder);
+
+        //transmit media sample over output pin
+        // ADAPT: m_oIntersectionPointLeft
+        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oOutputturnleft.Transmit(pMediaSampleOutput));
+         RETURN_NOERROR;
+}
+tResult cSWE_LightControl::brakean(tBool value)
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    cObjectPtr<IMediaSerializer> pSerializer;
+
+    m_pCoderDescLightOutputBrake->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+
+    //---------------------------------------Brems Licht-----------------------------------------------------------------------------------------
 
 
+
+        RETURN_IF_FAILED(m_pCoderDescLightOutputBrake->WriteLock(pMediaSampleOutput, &pCoder));
+        pCoder->Set("bValue", (tVoid*)&(value));
+        m_pCoderDescLightOutputBrake->Unlock(pCoder);
+
+        //transmit media sample over output pin
+        // ADAPT: m_oIntersectionPointLeft
+        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oOutputbrake.Transmit(pMediaSampleOutput));
+         RETURN_NOERROR;
+}
+tResult cSWE_LightControl::reversean(tBool value)
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    cObjectPtr<IMediaSerializer> pSerializer;
+
+    m_pCoderDescLightOutputReverse->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+
+    //---------------------------------------Reverse Licht-----------------------------------------------------------------------------------------
+        RETURN_IF_FAILED(m_pCoderDescLightOutputReverse->WriteLock(pMediaSampleOutput, &pCoder));
+        pCoder->Set("bValue", (tVoid*)&(value));
+        m_pCoderDescLightOutputReverse->Unlock(pCoder);
+
+        //transmit media sample over output pin
+        // ADAPT: m_oIntersectionPointLeft
+        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oOutputreverse.Transmit(pMediaSampleOutput));
+
+ RETURN_NOERROR;
+}
 tResult cSWE_LightControl::LichtAn(tInt8 value)
 {
     tBool head=false;
@@ -196,186 +339,69 @@ tResult cSWE_LightControl::LichtAn(tInt8 value)
     if(value>=16)
     {
         reverse=true;
-<<<<<<< HEAD
-        value=-16;
-=======
         value-=16;
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
+
+
     }
     if(value>=8)
     {
         brake=true;
-<<<<<<< HEAD
-        value=-8;
-=======
+
+
+
+
         value-=8;
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
     }
     if(value>=4)
     {
         right=true;
-<<<<<<< HEAD
-        value=-4;
-=======
+
+
         value-=4;
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
     }
     if(value>=2)
     {
+
+
+
         left=true;
-<<<<<<< HEAD
-        value=-2;
-=======
+
         value-=2;
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
     }
     if(value>=1)
     {
         head=true;
-<<<<<<< HEAD
-        value=-1;
-=======
+
+
+
         value-=1;
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
     }
 
     if(value!=0)
     {
         //Fehler in der Logik wenn wir hier ankommen
     }
-
-
+ reversean(reverse);
+ frontan(head);
+ rightan(right);
+   brakean(brake);
+      leftan(left);
     //Ausgabe als Media Sample
 
-<<<<<<< HEAD
-    LOG_INFO(cString::Format( "MB: Licht ausgabe auf Kanale"));
 
 
-    cObjectPtr<IMediaCoder> pCoder;
-
-    //create new media sample
-    cObjectPtr<IMediaSample> pMediaSampleOutput;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
-=======
-
-
-
-    cObjectPtr<IMediaCoder> pCoder;
-
-    //create new media sample
-    cObjectPtr<IMediaSample> pMediaSampleOutput;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
-
-    //allocate memory with the size given by the descriptor
-    // ADAPT: m_pCoderDescPointLeft
-    cObjectPtr<IMediaSerializer> pSerializer;
-
-    m_pCoderDescLightOutput->GetMediaSampleSerializer(&pSerializer);
-    tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSampleOutput->AllocBuffer(nSize);
-
-    //write date to the media sample with the coder of the descriptor
-    // ADAPT: m_pCoderDescPointLeft
-    //cObjectPtr<IMediaCoder> pCoder;
-    //---------------------------------------Front scheinwerfer-----------------------------------------------------------------------------------------
-    RETURN_IF_FAILED(m_pCoderDescLightOutput->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("bValue", (tVoid*)&(head));
-    m_pCoderDescLightOutput->Unlock(pCoder);
-
-    //transmit media sample over output pin
-    // ADAPT: m_oIntersectionPointLeft
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_oOutputheadlight.Transmit(pMediaSampleOutput));
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
-
-    //allocate memory with the size given by the descriptor
-    // ADAPT: m_pCoderDescPointLeft
-    cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderDescLightOutput->GetMediaSampleSerializer(&pSerializer);
-    tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSampleOutput->AllocBuffer(nSize);
-
-<<<<<<< HEAD
-    //write date to the media sample with the coder of the descriptor
-    // ADAPT: m_pCoderDescPointLeft
-    //cObjectPtr<IMediaCoder> pCoder;
-    //---------------------------------------Front scheinwerfer-----------------------------------------------------------------------------------------
-    RETURN_IF_FAILED(m_pCoderDescLightOutput->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("bValue", (tVoid*)&(head));
-=======
-//---------------------------------------Blinken rechts-----------------------------------------------------------------------------------------
-    RETURN_IF_FAILED(m_pCoderDescLightOutput->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("bValue", (tVoid*)&(right));
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
-    m_pCoderDescLightOutput->Unlock(pCoder);
-
-    //transmit media sample over output pin
-    // ADAPT: m_oIntersectionPointLeft
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-<<<<<<< HEAD
-    RETURN_IF_FAILED(m_oOutputheadlight.Transmit(pMediaSampleOutput));
-
-//---------------------------------------Blinken links-----------------------------------------------------------------------------------------
-    RETURN_IF_FAILED(m_pCoderDescLightOutput->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("bValue", (tVoid*)&(left));
-    m_pCoderDescLightOutput->Unlock(pCoder);
-
-    //transmit media sample over output pin
-    // ADAPT: m_oIntersectionPointLeft
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_oOutputturnleft.Transmit(pMediaSampleOutput));
-
-//---------------------------------------Blinken rechts-----------------------------------------------------------------------------------------
-    RETURN_IF_FAILED(m_pCoderDescLightOutput->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("bValue", (tVoid*)&(right));
-    m_pCoderDescLightOutput->Unlock(pCoder);
-
-    //transmit media sample over output pin
-    // ADAPT: m_oIntersectionPointLeft
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_oOutputturnright.Transmit(pMediaSampleOutput));
-//---------------------------------------Brems Licht-----------------------------------------------------------------------------------------
-=======
-    RETURN_IF_FAILED(m_oOutputturnright.Transmit(pMediaSampleOutput));
-
-    //---------------------------------------Blinken links-----------------------------------------------------------------------------------------
-        RETURN_IF_FAILED(m_pCoderDescLightOutput->WriteLock(pMediaSampleOutput, &pCoder));
-        pCoder->Set("bValue", (tVoid*)&(left));
-        m_pCoderDescLightOutput->Unlock(pCoder);
-
-        //transmit media sample over output pin
-        // ADAPT: m_oIntersectionPointLeft
-        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-        RETURN_IF_FAILED(m_oOutputturnleft.Transmit(pMediaSampleOutput));
-
-//---------------------------------------Brems Licht-----------------------------------------------------------------------------------------
-
-
-
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
-    RETURN_IF_FAILED(m_pCoderDescLightOutput->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("bValue", (tVoid*)&(brake));
-    m_pCoderDescLightOutput->Unlock(pCoder);
-
-    //transmit media sample over output pin
-    // ADAPT: m_oIntersectionPointLeft
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_oOutputbrake.Transmit(pMediaSampleOutput));
-//---------------------------------------Reverse Licht-----------------------------------------------------------------------------------------
-    RETURN_IF_FAILED(m_pCoderDescLightOutput->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("bValue", (tVoid*)&(reverse));
-    m_pCoderDescLightOutput->Unlock(pCoder);
-
-    //transmit media sample over output pin
-    // ADAPT: m_oIntersectionPointLeft
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_oOutputreverse.Transmit(pMediaSampleOutput));
+ RETURN_NOERROR;
 
 
 
 
 
-    RETURN_NOERROR;
+
+
+
+
+
+
 
 
 

@@ -8,8 +8,8 @@ adtf_add_filter(${FILTER_NAME}
     stdafx.h
     stdafx.cpp
 
-    SWE_StopLineDetection.h
-    SWE_StopLineDetection.cpp
+    #SWE_StopLineDetection.h
+    #SWE_StopLineDetection.cpp
 
 )
 

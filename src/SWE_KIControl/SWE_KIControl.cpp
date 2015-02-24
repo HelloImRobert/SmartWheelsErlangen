@@ -37,10 +37,10 @@ cSWE_KIControl::~cSWE_KIControl()
 
 tResult cSWE_KIControl::CreateInputPins(__exception)
 {
-    //MB Neue Pins
+    //MB NeuetInt8SignalValue Pins
 
 
-    RETURN_IF_FAILED(m_oInputObjectData.Create("ObjectData", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oInputObjectData.Create("ObjectData", new cMediaType(0, 0, 0, "tPoints"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputObjectData));
 
     RETURN_IF_FAILED(m_oInputRoadData.Create("RoadData", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
@@ -54,23 +54,16 @@ tResult cSWE_KIControl::CreateInputPins(__exception)
     RETURN_IF_FAILED(m_oInputParkData.Create("ParkData", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputParkData));
 
-<<<<<<< HEAD
-    RETURN_IF_FAILED(m_oInputTC.Create("TCData", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
-=======
     RETURN_IF_FAILED(m_oInputTC.Create("TCData", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
     RETURN_IF_FAILED(RegisterPin(&m_oInputTC));
     RETURN_NOERROR;
 }
 
 
  
-<<<<<<< HEAD
-=======
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------OutputPins Erstellen-------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
 
 
 tResult cSWE_KIControl::CreateOutputPins(__exception)
@@ -80,7 +73,7 @@ tResult cSWE_KIControl::CreateOutputPins(__exception)
 
 
 
-    // TO ADAPT tInt8SignalValuefor new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
+    // TO ADAPT tInt8SignalValuefor new Pin/Dadatype: strDescPointLeft, "tPoint2dtInt8SignalValue", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
     tChar const * strDescLightOutput = pDescManager->GetMediaDescription("tInt8SignalValue");
     RETURN_IF_POINTER_NULL(strDescLightOutput);
     cObjectPtr<IMediaType> pTypeLightData = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescLightOutput,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
@@ -89,7 +82,7 @@ tResult cSWE_KIControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(m_oOutputLightControl.Create("LightControl", pTypeLightData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputLightControl));
 
-    //--------------------------------------------------------tKITC------
+    //----------------------------------------------------tKITC----tKITC------
 
     tChar const * strDescTCOutput = pDescManager->GetMediaDescription("tKITC");
     RETURN_IF_POINTER_NULL(strDescTCOutput);
@@ -119,22 +112,13 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         //Hier XML Datei einlesen etc
         //Dummmy funktion bis xml einlesen steht
         CommandCounter=6;
-<<<<<<< HEAD
-        int dummycount=CommandCounter;
- 
-        while (dummycount>=0)
-        {
-             Commands.push_back(3);
-            dummycount--;
-        }
-=======
       Commands.push_back(1);
       Commands.push_back(2);
       Commands.push_back(3);
       Commands.push_back(1);
       Commands.push_back(2);
       Commands.push_back(3);
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
+      Commands.push_back(1);
       /*
        *Int werte in Commands:
        * 1=left
@@ -153,7 +137,12 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         hlsearch=false;
         abgebogen=false;
         roadfree=true;
+        Signtype=0;
 		parking=false;
+        points[0].x=0;
+        points[0].y=200;
+        objecte[0].x=0;
+        objecte[0].y=200;
     }
     else if(eStage == StageGraphReady)
     {
@@ -210,27 +199,23 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         {
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
-            int value=0;
-            pCoder->Get("int8Value", (tVoid*)&value); //Werte auslesen
+
+           pCoder->Get("PointArray", (tVoid*)&objecte); //Werte auslesen
             m_pCoderDescInputMeasured->Unlock(pCoder);
             //Hier die Objekte auslesen, und in eigene Vecor bauen
 
                 ObjectAvoidance();
 
-                DriverCalc();
+              // DriverCalc();
         }
         //--------------------------------------------------------------RoadData----------------------------------------------------------------------------------------
         else if(pSource == &m_oInputRoadData)
         {
-<<<<<<< HEAD
-
-=======
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
             int value=0;
             pCoder->Get("int8Value", (tVoid*)&value); //Werte auslesen
             m_pCoderDescInputMeasured->Unlock(pCoder);
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
             //Punkte liste fuellen
 
 
@@ -238,20 +223,12 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         //--------------------------------------------------------------Schilder einlesen----------------------------------------------------------------------------------------
         else if(pSource== &m_oInputSignData)
         {
-<<<<<<< HEAD
-            cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDescInputRoadSign->Lock(pMediaSample, &pCoder));
-           int value=0;
-           pCoder->Get("int8Value", (tVoid*)&value);
-           m_pCoderDescInputRoadSign->Unlock(pCoder);
-=======
           //  LOG_INFO(cString::Format( "MB:Ki empfange Qr"));
            cObjectPtr<IMediaCoder> pCoder;
            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
            int value=0;
            pCoder->Get("int8Value", (tVoid*)&value);
            m_pCoderDescInputMeasured->Unlock(pCoder);
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
 
             if(parking&&value==1)//und wenn schildtyp parken.
             {
@@ -264,11 +241,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             else if(value!=1)//wenn schildtyp nicht parken
 			{
                  Signtype=value;
-<<<<<<< HEAD
-			}
-=======
 			}          
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
             /*Hier den  ausgelesenen Wert aus dem Schilder modul rein
             Es gibt folgende Schildtypen:
 			1=Parken
@@ -316,25 +289,12 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
            */
 
         }
-		/*
-		kreuzungstypen:
-		1=geradeaus und links
-		2=geradeaus und rechts
-		3=gerade aus und beides
-		4=links und rechts
 
 
     }
     RETURN_NOERROR;
 }
 
-<<<<<<< HEAD
-		*/
-
-    }
-    RETURN_NOERROR;
-}
-=======
 
 
 //Modul fuer Juroren einbauen
@@ -360,11 +320,17 @@ void cSWE_KIControl::ObjectAvoidance()
     double distline=0;
 
     cv::Point2d pointtocheck;
-	if(objecte.size()>0)
-	{
-		int t=objecte.size();
-        for(int i=0;i<t;i++)
+
+
+        int t=10;
+        int i=0;
+        for( i=0;i<t;i++)
 		{
+           LOG_INFO(cString::Format( "MB:Ki Object wert eingelesen"));
+ ControlLight(9);
+          if(objecte[i].x!=0 && objecte[i].y!=0 && 1==0)
+          {
+
 			if(halteLinie)
 			{
 				/*pruefen ob Kreuzung frei
@@ -402,8 +368,8 @@ void cSWE_KIControl::ObjectAvoidance()
 
 
 
-                            pointtocheck.x=objecte[i].first;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].second;
+                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                            pointtocheck.y=objecte[i].y;
 
                             distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
                             if(distline>0)
@@ -427,8 +393,8 @@ void cSWE_KIControl::ObjectAvoidance()
 
 
 
-                            pointtocheck.x=objecte[i].first;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].second;
+                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                            pointtocheck.y=objecte[i].y;
 
                             distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
                             if(distline<0)
@@ -450,9 +416,8 @@ void cSWE_KIControl::ObjectAvoidance()
 
 
 
-                            pointtocheck.x=objecte[i].first;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].second;
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
+                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                            pointtocheck.y=objecte[i].y;
 
                             distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
                             if(distline>0 ||distline<0)
@@ -474,123 +439,8 @@ void cSWE_KIControl::ObjectAvoidance()
 
 
 
-<<<<<<< HEAD
-void cSWE_KIControl::ObjectAvoidance()
-{
-
-	float carwidth=450;
-	float site=carwidth/2;
-	
-	if(objecte.size()>0)
-	{
-		int t=objecte.size();
-        for(int i=0;i<t;i++)
-		{
-			if(halteLinie)
-			{
-				/*pruefen ob Kreuzung frei
-				anhand des Schildes und der Kreuzungstypen bestimmen
-				kreuzungstypen:
-				1=geradeaus und links
-				2=geradeaus und rechts
-				3=gerade aus und beides
-				4=links und rechts
-				  Es gibt folgende Schildtypen:
-			1=Parken
-			2=Vorfahrt
-			3=Nur gerade aus
-			4=geweahren
-			5=halt
-			6=Vorfahrt rechts
-				*/
-				switch(Signtype)
-				{
-					case 2:
-						SpeedControl=1;
-						roadfree=true;
-						break;
-						break;
-                    case 4||5:
-						//immmer, die Kreuzung an sich prüfen
-                        if(kreuzungstyp==1)
-						{
-							//links und gerad aus prüfen
-						}
-                        else if(kreuzungstyp==2)
-						{
-							//rechts und gerade aus prüfen
-						}
-                        else if(kreuzungstyp==3)
-						{
-							//alles Prüfen
-						}
-                        else if(kreuzungstyp==4)
-						{
-							//rechts und links prüfen
-						}
-							roadfree=false;
-						break;
-						break;
-					case 6:
-							//immmer, die Kreuzung an sich prüfen
-                        if(kreuzungstyp==1)
-						{
-							// gerad aus prüfen
-						}
-                        else if(kreuzungstyp==2||kreuzungstyp==3)
-						{
-							//rechts und gerade aus prüfen
-						}
-                        else if(kreuzungstyp==4)
-						{
-							//rechts prüfen
-						}
-							roadfree=false;
-						break;
-						break;
-				}
-			
-			}
-			else
-			{
-				/*
-				*Punkte liste durchlaufen
-				hierbei geraden zwischen den punkten ziehen angefangen am Ursprung,wenn in Gefahrenberreich
-				dies wird bestimmt durch gerade und distanz zur geraden 
-				Distanz Zum Auto berrechnen und wenn Innerhalb der Spec bremsen oder langsamer werden
-				 */
-
-			
-				//wenn objekt relevant, distanz prüfen
-				double distanz=sqrt(objecte[i].first*objecte[i].first+objecte[i].second*objecte[i].second);
-			
-
-
-			
-                if(distanz<=5)
-                {
-                        //Notbremsung
-                    SpeedControl=0;
-                    sendTC(0,0);
-                    ControlLight(9);
-
-                }
-                else if(10>=distanz>5)
-                {
-                    //langsames Hinterherfahren
-                        SpeedControl=1;
-                }
-                else
-                {
-                    //Objekte weit genug weg
-                        SpeedControl=2;
-                }
-
-
-
-=======
-                            pointtocheck.x=objecte[i].first;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].second;
+                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                            pointtocheck.y=objecte[i].y;
 
                             distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
                             if(distline>0 ||distline<0)
@@ -621,8 +471,8 @@ void cSWE_KIControl::ObjectAvoidance()
 
 
 
-                            pointtocheck.x=objecte[i].first;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].second;
+                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                            pointtocheck.y=objecte[i].y;
 
                             distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
                             if(distline<0)
@@ -644,8 +494,8 @@ void cSWE_KIControl::ObjectAvoidance()
 
 
 
-                            pointtocheck.x=objecte[i].first;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].second;
+                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                            pointtocheck.y=objecte[i].y;
 
                             distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
                             if(distline<0)
@@ -665,10 +515,12 @@ void cSWE_KIControl::ObjectAvoidance()
 			else
 			{
 
-                if(points.size()>0)
+
+                if(10>0)//Point checken ob leer-----------------------------------------------------------------------------
                 {
-                    int ti=points.size();
-                    for(int ia=0;ia<ti;ia++)
+                    int ti=1;//10 reinschreiben später
+                    int ia=0;
+                    for( ia=0;ia<ti;ia++)
                     {
                         if(ia==0)
                         {
@@ -677,23 +529,25 @@ void cSWE_KIControl::ObjectAvoidance()
                         }
                         else
                         {
-                            m_boundary.first.x=points[i-1].first;
-                            m_boundary.first.y=points[i-1].second;
+                            m_boundary.first.x=points[ia-1].x;
+                            m_boundary.first.y=points[ia-1].y;
 
                         }
-                        m_boundary.second.x=points[i].first;
-                        m_boundary.second.y=points[i].second;
+                        m_boundary.second.x=points[ia].x;
+                        m_boundary.second.y=points[ia].y;
 
-                        pointtocheck.x=objecte[i].first;//Punkt aus der Objekte liste
-                        pointtocheck.y=objecte[i].second;
-                        distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
+                        pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                        pointtocheck.y=objecte[i].y;
+                      distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
+
+
                         if(distline<0)
                             distline*=-1;
 
                         if(distline<=site)
                         {
 
-                            double distanz=sqrt(objecte[i].first*objecte[i].first+objecte[i].second*objecte[i].second);
+                            double distanz=sqrt(objecte[i].x*objecte[i].x+objecte[i].y*objecte[i].y);
 
                             if(distanz<=Notbrems)
                             {
@@ -701,31 +555,32 @@ void cSWE_KIControl::ObjectAvoidance()
                                 SpeedControl=0;
                                 sendTC(0,0);
                                 ControlLight(9);
+                                LOG_INFO(cString::Format( "MB:Ki Notbremsung"));
 
                             }
                             else if(Slowdist>=distanz && distanz>Notbrems)
                             {
                                 //langsames Hinterherfahren
+                                ControlLight(6);
                                     SpeedControl=1;
                             }
                             else
                             {
                                 //Objekte weit genug weg
+                                ControlLight(1);
                                     SpeedControl=2;
                             }
 
 
                         }
+
                     }
                 }
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
 			}
-		}
-	}
-	else
-	{
-		SpeedControl=2;
-	}
+          }
+        }
+
+    return ;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------Daten an TC senden-------------------------------------------------------------------------------------------------------------
@@ -733,7 +588,7 @@ void cSWE_KIControl::ObjectAvoidance()
 
 tResult cSWE_KIControl::sendTC(int speed, int type)
 {
-	//wenn einmal typ notbremsung, dann speed immer auf 0 und typ immer auf notbremsung setzen, bis speed wieder hochgesetzt wird.
+
    /*Hier das senden an den TC rein(Speed, Punkt und Typ)
     Typen:
     0=Notbremsung
@@ -804,18 +659,22 @@ void cSWE_KIControl::DriverCalc()
        * 7=ausparken2
        *
 
- *
+
  */
+
+//hier ist noch ein fehler
+      LOG_INFO(cString::Format( "MB:KiLicht an 2"));
     switch (Commands[CommandCounter])
     {
         //left-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 1:
-            if(Signtype<=3)
+            if(Signtype<=1)
             {
                  sendTC(SpeedControl,1);
+                 LOG_INFO(cString::Format( "MB:KiLicht an "));
                   ControlLight(1);
             }
-            else if(Signtype>3)
+            else if(Signtype>1)
             {
 
                 //an Schildtyp anpassen:
@@ -826,14 +685,11 @@ void cSWE_KIControl::DriverCalc()
                 {
 					if(!hlsearch)
 						   ControlHL();
-<<<<<<< HEAD
-=======
                     if(Signtype==5)
                     {
                         tTimeStamp m_currTimeStamp= cSystem::GetTime();
                         while((cSystem::GetTime()-m_currTimeStamp)<5);
                     }
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
 					//Hier muss Kreuzungstyp feststehen
 					if(SecondSigntype!=3 && kreuzungstyp!=2 )//alle typen bei dennen ein links abbiegen möglich ist.
 					{
@@ -884,8 +740,6 @@ void cSWE_KIControl::DriverCalc()
 						}
 					}
 
-<<<<<<< HEAD
-=======
                 }
                 else
                 {
@@ -948,7 +802,6 @@ void cSWE_KIControl::DriverCalc()
                             ControlLight(5);
                         }
                     }
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
                 }
                 else
                 {
@@ -1035,51 +888,6 @@ void cSWE_KIControl::DriverCalc()
                         }
                     }
                 }
-<<<<<<< HEAD
-                            break;
-        //straigth-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        case 3:
-                    if(Signtype<3)
-					{
-					      sendTC(SpeedControl,1);
-						   ControlLight(1);
-					}
-					else if(Signtype>=3)
-					{
-                        //pruefen ob wir schon an der HalteLinie stehen.
-                        if(halteLinie)
-                        {
-                            if(!hlsearch)
-                               ControlHL();
-
-
-
-                            if(abgebogen)
-                            {
-                                if(CommandCounter!=0)
-                                    CommandCounter--;
-                                else
-                                {
-                                    //Game Over
-                                }
-                                Signtype=0;
-                                abgebogen=false;
-                                halteLinie=false;
-                            }
-                            else
-                            {
-                                if(roadfree)
-                                {
-                                    sendTC(SpeedControl,5);
-                                    ControlLight(1);
-                                }
-                            }
-
-
-
-                        }
-                        else
-=======
                 else
                 {
                     if(abgebogen)
@@ -1095,7 +903,6 @@ void cSWE_KIControl::DriverCalc()
                     else
                     {
                         if(roadfree)
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
                         {
                             sendTC(SpeedControl,0);
                             ControlLight(1);
@@ -1207,7 +1014,7 @@ double cSWE_KIControl::getPerpendicDistance(const cv::Point2d& referencePoint)
     if (fabs(cross) < 1e-8)
     {
         //throw std::domain_error("Point is on the line!");
-        throw 2;
+        return 0;
     }
 
     double t1 = (x.x * directionVector.y - x.y * directionVector.x)/cross;

@@ -14,7 +14,8 @@ class SpeedControl : public adtf::cFilter
         cInputPin m_oInputVelocity;				// the input pin for the measured value
         cInputPin m_oInputSetPoint;				// the input pin for the set point value (gear) -2(fast reverse), -1, 0(stop), 1, 2, 3(full speed ahead)
         cOutputPin m_oOutputPWM;                // the output pin for the manipulated value
-
+        cOutputPin m_oOutputbrakelight;
+        cOutputPin m_oOutputreverse;
     public:
         SpeedControl(const tChar* __info);
         virtual ~SpeedControl();
@@ -93,6 +94,8 @@ class SpeedControl : public adtf::cFilter
         cObjectPtr<IMediaTypeDescription> m_pCoderDescSignaltSignalValue;
         cObjectPtr<IMediaTypeDescription> m_pCoderDescSignalint8;
         cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;
+        cObjectPtr<IMediaTypeDescription>  m_pCodeOutputbrakelight;
+
 	
 };
 

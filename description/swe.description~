@@ -4,7 +4,7 @@
 		<language_version>3.00</language_version>
 		<author>odroid</author>
 		<date_creation>22.12.2014</date_creation>
-		<date_change>22.02.2015</date_change>
+		<date_change>23.02.2015</date_change>
 		<description>ADTF generated</description>
 	</header>
 	<units>
@@ -95,12 +95,6 @@
 		</enum>
 	</enums>
 	<structs>
-		<struct alignment="1" name="tStopLine" version="1">
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" max="1.797693e+308" min="-1.797693e+308" name="startX" type="tFloat64" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="8" max="1.797693e+308" min="-1.797693e+308" name="startY" type="tFloat64" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="16" max="1.797693e+308" min="-1.797693e+308" name="endX" type="tFloat64" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="24" max="1.797693e+308" min="-1.797693e+308" name="endY" type="tFloat64" />
-		</struct>
 		<struct alignment="1" name="testFloatSave" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" max="1.797693e+308" min="-1.797693e+308" name="Coord1" type="tFloat64" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="8" max="1.797693e+308" min="-1.797693e+308" name="Coord2" type="tFloat64" />
@@ -118,9 +112,13 @@
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="8" name="yCoord" type="tFloat64" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="16" max="4294967295" min="0" name="ui32Point2dTimestamp" type="tUInt32" />
 		</struct>
-		<struct alignment="1" name="tBoundary" version="1">
-			<element alignment="1" arraysize="5" byteorder="LE" bytepos="0" name="Points" type="tPoint2d" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="100" name="Count" type="tInt8" />
+		<struct alignment="1" name="Boundary" version="1">
+			<element alignment="1" arraysize="15" byteorder="LE" bytepos="0" name="Points" type="tPoint2d" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="300" name="Count" type="tInt8" />
+		</struct>
+		<struct alignment="1" name="Boundaries" version="1">
+			<element alignment="1" arraysize="5" byteorder="LE" bytepos="0" name="ArrayBoundary" type="Boundary" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1505" name="Count" type="tInt8" />
 		</struct>
 		<struct alignment="1" name="ArrayRasterPoint" version="1">
 			<element alignment="1" arraysize="50" byteorder="LE" bytepos="0" name="rasterPoints" type="rasterPoint" />
@@ -154,7 +152,7 @@
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="32" name="intersecIndicator" type="tUInt32" />
 		</struct>
 		<struct alignment="1" name="testFloat" version="1">
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="Coord1" type="tBoundary" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="Coord1" type="Boundary" />
 		</struct>
 		<struct alignment="1" name="tLineBoundaries" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="leftRearX" type="tFloat64" />
@@ -169,18 +167,16 @@
 		<struct alignment="1" name="tFloat64complex" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="tFloat64complex" type="tFloat64" />
 		</struct>
-		<struct alignment="1" name="tInt8SignalValue" version="1">
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="int8Value" type="tInt8" />
-		</struct>
-<<<<<<< HEAD
-		<struct alignment="1" name="tSplineBoundaries" version="1">
-			<element alignment="1" arraysize="2" byteorder="LE" bytepos="0" name="BoundaryArray" type="tBoundary" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="202" name="BoundaryCount" type="tInt8" />
-=======
 		<struct alignment="1" name="tKITC" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="tInt8ValueSpeed" type="tInt8" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1" name="tInt8ValueCommand" type="tInt8" />
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
+		</struct>
+		<struct alignment="1" name="tSplineBoundaries" version="1">
+			<element alignment="1" arraysize="3" byteorder="LE" bytepos="0" name="BoundaryArray" type="Boundary" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="903" name="BoundaryCount" type="tInt8" />
+		</struct>
+		<struct alignment="1" name="tPoints" version="1">
+			<element alignment="1" arraysize="10" byteorder="LE" bytepos="0" name="PointArray" type="tPoint2d" />
 		</struct>
 	</structs>
 	<streams />

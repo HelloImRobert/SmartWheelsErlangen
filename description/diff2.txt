@@ -1,0 +1,17 @@
+171,180d
+157c
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="Coord1" type="Boundary" />
+.
+121,123c
+		<struct alignment="1" name="Boundary" version="1">
+			<element alignment="1" arraysize="15" byteorder="LE" bytepos="0" name="Points" type="tPoint2d" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="300" name="Count" type="tInt8" />
+		</struct>
+		<struct alignment="1" name="Boundaries" version="1">
+			<element alignment="1" arraysize="5" byteorder="LE" bytepos="0" name="ArrayBoundary" type="Boundary" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1505" name="Count" type="tInt8" />
+.
+98,103d
+7c
+		<date_change>04.02.2015</date_change>
+.

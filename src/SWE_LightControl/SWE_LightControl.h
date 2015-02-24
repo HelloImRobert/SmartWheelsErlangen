@@ -50,6 +50,12 @@ private:
 
     //MB Funktionen die benoetigt werden
     tResult LichtAn(tInt8 value);
+    tResult frontan(tBool value);
+    tResult leftan(tBool value);
+
+    tResult rightan(tBool value);
+    tResult brakean(tBool value);
+    tResult reversean(tBool value);
     //MB Objekte/Variablen die benoetigt werden
 
     //-------------------------------//
@@ -61,11 +67,11 @@ private:
     // Coder Descriptors for input pins
     cObjectPtr<IMediaTypeDescription> m_pCoderDescLightData;
     // Coder Descriptors for output pins
-    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput;
-<<<<<<< HEAD
-=======
-    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput2;
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutputFront;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutputLeft;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutputRight;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutputBrake;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutputReverse;
 
 };
 

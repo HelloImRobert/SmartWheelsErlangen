@@ -69,16 +69,16 @@ class SWE_DistanceMeasurement : public adtf::cFilter
 
     typedef struct
     {
-        std::pair <tFloat32,tFloat32>    ir_front_center;
-        std::pair <tFloat32,tFloat32>	 ir_front_right;
-        std::pair <tFloat32,tFloat32>	 ir_front_left;
-        std::pair <tFloat32,tFloat32>    ir_rear_center;
-        std::pair <tFloat32,tFloat32>	 ir_rear_right;
-        std::pair <tFloat32,tFloat32>	 ir_rear_left;
-        std::pair <tFloat32,tFloat32>    uss_front_left;
-        std::pair <tFloat32,tFloat32>    uss_front_right;
-        std::pair <tFloat32,tFloat32>    uss_rear_left;
-        std::pair <tFloat32,tFloat32>    uss_rear_right;
+        cv::Point2d    	ir_front_center;
+        cv::Point2d	 	ir_front_right;
+        cv::Point2d	 	ir_front_left;
+        cv::Point2d    	ir_rear_center;
+        cv::Point2d	 	ir_rear_right;
+        cv::Point2d	 	ir_rear_left;
+        cv::Point2d    uss_front_left;
+        cv::Point2d    uss_front_right;
+        cv::Point2d    uss_rear_left;
+        cv::Point2d    uss_rear_right;
     }XYSensorData;
 
     /*! Private member variables */
@@ -86,8 +86,10 @@ class SWE_DistanceMeasurement : public adtf::cFilter
     XYSensorData      		_transformed;
     tFloat32            	_filter_strength;
     tTimeStamp          	_timeOfLastSample;
-    std::vector<std::pair <tFloat32,tFloat32> > _detected_vect;
-    std::pair <tFloat32,tFloat32> _new_vect_entry;
+    Point2d _detected_array[10] ;
+    //std::pair <tFloat32,tFloat32> _new_vect_entry;
+    
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescPointsOut;
 
 
     /*! Helper method to send Media Sample */

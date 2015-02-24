@@ -63,8 +63,35 @@ tResult SpeedControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(pTypeSignalValue->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSignal));
 
 
-    RETURN_IF_FAILED(m_oOutputPWM.Create("PWM value", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oOutputPWM.Create("PWMvalue", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputPWM));
+
+
+    // Struct for Bremse
+    // TO ADAPT for new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
+    tChar const * strDescLightOutput = pDescManager->GetMediaDescription("tBoolSignalValue");
+    RETURN_IF_POINTER_NULL(strDescLightOutput);
+    cObjectPtr<IMediaType> pTypeLightData = new cMediaType(0, 0, 0, "tBoolSignalValue", strDescLightOutput,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeLightData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCodeOutputbrakelight));
+
+    RETURN_IF_FAILED(m_oOutputbrakelight.Create("Brakelight", pTypeLightData, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputbrakelight));
+
+    RETURN_IF_FAILED(m_oOutputreverse.Create("ReverseLight", pTypeLightData, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputreverse));
+
+
+
+
+
+
+
+
+
+
+
+
+
     RETURN_NOERROR;
 
     //---------------------------------
@@ -463,11 +490,67 @@ tFloat32 SpeedControl::getControllerValue(tFloat32 measuredSpeed)
 tResult SpeedControl::setBrakeLights(tBool state)
 {
 
+
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    cObjectPtr<IMediaSerializer> pSerializer;
+
+    m_pCodeOutputbrakelight->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+    //---------------------------------------Front scheinwerfer-----------------------------------------------------------------------------------------
+    RETURN_IF_FAILED(m_pCodeOutputbrakelight->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("bValue", (tVoid*)&(state));
+    m_pCodeOutputbrakelight->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    // ADAPT: m_oIntersectionPointLeft
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputbrakelight.Transmit(pMediaSampleOutput));
+
+
     RETURN_NOERROR;
 }
 
 tResult SpeedControl::setReverseLights(tBool state)
 {
+
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    cObjectPtr<IMediaSerializer> pSerializer;
+
+    m_pCodeOutputbrakelight->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+    //---------------------------------------Front scheinwerfer-----------------------------------------------------------------------------------------
+    RETURN_IF_FAILED(m_pCodeOutputbrakelight->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("bValue", (tVoid*)&(state));
+    m_pCodeOutputbrakelight->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    // ADAPT: m_oIntersectionPointLeft
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputreverse.Transmit(pMediaSampleOutput));
 
     RETURN_NOERROR;
 }

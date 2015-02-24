@@ -1,0 +1,7 @@
+add_subdirectory(SWE_TemplateFilter)
+add_subdirectory(SWE_LaneDetection)
+add_subdirectory(SWE_TrackControl)
+add_subdirectory(SWE_Odometry)
+add_subdirectory(SWE_SpeedControl)
+add_subdirectory(SWE_IntersecPointCalc)
+add_subdirectory(SWE_KIControl)

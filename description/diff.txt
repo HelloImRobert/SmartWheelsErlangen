@@ -1,0 +1,38 @@
+7c7
+< 		<date_change>22.02.2015</date_change>
+---
+> 		<date_change>04.02.2015</date_change>
+98,103d97
+< 		<struct alignment="1" name="tStopLine" version="1">
+< 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" max="1.797693e+308" min="-1.797693e+308" name="startX" type="tFloat64" />
+< 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="8" max="1.797693e+308" min="-1.797693e+308" name="startY" type="tFloat64" />
+< 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="16" max="1.797693e+308" min="-1.797693e+308" name="endX" type="tFloat64" />
+< 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="24" max="1.797693e+308" min="-1.797693e+308" name="endY" type="tFloat64" />
+< 		</struct>
+121,123c115,121
+< 		<struct alignment="1" name="tBoundary" version="1">
+< 			<element alignment="1" arraysize="5" byteorder="LE" bytepos="0" name="Points" type="tPoint2d" />
+< 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="100" name="Count" type="tInt8" />
+---
+> 		<struct alignment="1" name="Boundary" version="1">
+> 			<element alignment="1" arraysize="15" byteorder="LE" bytepos="0" name="Points" type="tPoint2d" />
+> 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="300" name="Count" type="tInt8" />
+> 		</struct>
+> 		<struct alignment="1" name="Boundaries" version="1">
+> 			<element alignment="1" arraysize="5" byteorder="LE" bytepos="0" name="ArrayBoundary" type="Boundary" />
+> 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1505" name="Count" type="tInt8" />
+157c155
+< 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="Coord1" type="tBoundary" />
+---
+> 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="Coord1" type="Boundary" />
+171,180d168
+< 		</struct>
+< 		<struct alignment="1" name="tInt8SignalValue" version="1">
+< 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="int8Value" type="tInt8" />
+< 		</struct>
+< 		<struct alignment="1" name="tSplineBoundaries" version="1">
+< 			<element alignment="1" arraysize="2" byteorder="LE" bytepos="0" name="BoundaryArray" type="tBoundary" />
+< 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="202" name="BoundaryCount" type="tInt8" />
+< 		<struct alignment="1" name="tKITC" version="1">
+< 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="tInt8ValueSpeed" type="tInt8" />
+< 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1" name="tInt8ValueCommand" type="tInt8" />

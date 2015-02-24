@@ -53,19 +53,12 @@ private:
     tResult CreateInputPins(__exception = NULL);
     /*! creates all the output Pins*/
     tResult CreateOutputPins(__exception = NULL);
-<<<<<<< HEAD
-
-	vector<int> Commands;
-
-    vector<pair<tFloat32,tFloat32> > objecte;
-    vector<double> points;
-=======
 double getPerpendicDistance(const cv::Point2d& referencePoint);
 	vector<int> Commands;
 
-    vector<pair<tFloat32,tFloat32> > objecte;
-    vector<pair<tFloat32,tFloat32> > points;
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
+    cv::Point2d objecte[10];
+     cv::Point2d points[10];
+
     int CommandCounter;
     int Signtype;
 	int SecondSigntype;
@@ -84,15 +77,7 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
     tResult sendTC(int speed, int type);
     void Parkroutine();
     void ControlHL();
-<<<<<<< HEAD
-    void ControlLight(int lights);
-    //MB Objekte/Variablen die benoetigt werden
-    cObjectPtr<IMediaTypeDescription> m_pCoderDescDriverDATA;
-    cObjectPtr<IMediaTypeDescription> m_pCoderDescInputRoadSign;
-    //-------------------------------//
-=======
     tResult ControlLight(int lights);
->>>>>>> c0c2c65b60afe550fc26415f8ce3b68640ba4011
 
     std::pair<cv::Point2d, cv::Point2d> m_boundary;
 
