@@ -58,14 +58,13 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
         		RETURN_IF_FAILED( RegisterPin( &m_global_fences_in ) );
 			*/
 
-			RETURN_IF_FAILED(m_oInputVelocityLeft.Create("Velocity_left_Wheel", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
-			RETURN_IF_FAILED(RegisterPin(&m_oInputVelocityLeft));
-			RETURN_IF_FAILED(m_oInputVelocityRight.Create("Velocity_right_Wheel", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
-			RETURN_IF_FAILED(RegisterPin(&m_oInputVelocityRight));
+            RETURN_IF_FAILED(m_oInputWheelRight.Create("Sensor_left_Wheel", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+            RETURN_IF_FAILED(RegisterPin(&m_oInputWheelRight));
+            RETURN_IF_FAILED(m_oInputWheelLeft.Create("Sensor_right_Wheel", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+            RETURN_IF_FAILED(RegisterPin(&m_oInputWheelLeft));
 			RETURN_IF_FAILED(m_oInputSteeringAngle.Create("SteeringAngle", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
 			RETURN_IF_FAILED(RegisterPin(&m_oInputSteeringAngle));
-			RETURN_IF_FAILED(m_oInputTrigger.Create("Trigger", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
-			RETURN_IF_FAILED(RegisterPin(&m_oInputTrigger));
+
 
 
 
@@ -130,7 +129,7 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 			m_steeringAngle = m_buffer;
 
 		}
-		else if (pSource == &m_oInputVelocityLeft)
+        else if (pSource == &m_oInputWheelLeft)
 		{	
 
 			m_lastPinEvent = GetTime();				
@@ -154,7 +153,7 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             //if (m_bDebugModeEnabled) LOG_INFO(cString::Format("Sensorfilter received: ID %x Value %f",ID,value));
 
         }
-		else if (pSource == &m_oInputVelocityRight)
+        else if (pSource == &m_oInputWheelRight)
 		{
 			m_lastPinEvent = GetTime();
 
@@ -176,16 +175,6 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 		
             //if (m_bDebugModeEnabled) LOG_INFO(cString::Format("Sensorfilter received: ID %x Value %f",ID,value));
         }
-		else if (pSource == &m_oInputTrigger)
-		{
-			timeIntervall = GetTime() - m_lastPinEvent;
-			m_lastPinEvent = GetTime();			
-
-			calcSingleOdometry( timeIntervall );
-
-			odometryOutput();
-
-		}
 	}
 	RETURN_NOERROR;
 }

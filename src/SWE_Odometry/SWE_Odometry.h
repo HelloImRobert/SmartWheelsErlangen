@@ -6,21 +6,34 @@
 
 #include "math.h"
 /*!
-* Simple odometry based on bicycle model. The relative position and heading are updated whenever a new data sample arrives. Output of the accumulated position change in distance, angle and heading on trigger event (accumulated since last trigger).
+* Simple odometry based on bicycle model. The relative position and heading are updated whenever a new data sample arrives. Output of the accumulated position change in position and heading every x ms (accumulated since last output).
 
-->trigger triggers the output of a new new accumulated position and heading change on the odometry output pin
+
 ->velocity continuously sends the current (estimated) car speed
 
 ----- Coordinate System -----
 
-vector: *``` -> new car position = *
+new car position = *
 old car position (last trigger) = o
 
           ^ X
-*         |
-  `  alpha|
-     `    |
-        ` |
+          |
+     *    |
+          |
+          |
+<---------o--------->
+Y         |        -Y
+          |
+          |
+          |
+          V -X
+
+new heading:
+          ^ X
+  +  alpha|
+    '     |
+      '   |
+        ' |
 <---------o--------->
 Y         |        -Y
           |
@@ -33,17 +46,17 @@ class SWE_Odometry : public adtf::cFilter
 {
     ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_ODOMETRY, "SWE_Odometry", OBJCAT_DataFilter, "SWE_Odometry filter", 1, 0, 0, "Beta Version");
 
-		/*!input pin for the steering angle */
+        /*! input pin for the steering angle */
 		cInputPin m_oInputSteeringAngle;
-        /*!input pin for the speed of the left wheel !!the raw rpm value from the sensors has to be sent through a proper calibration filter first!! */
-		cInputPin m_oInputVelocityLeft;
-        /*!input pin for the speed of the right wheel */
-		cInputPin m_oInputVelocityRight;
-        /*!input pin for the triger*/
-		cInputPin m_oInputTrigger;
-		/*!output pin for the odometry data */
+        /*! input pin for the speed of the left wheel */
+        cInputPin m_oInputWheelLeft;
+        /*! input pin for the speed of the right wheel */
+        cInputPin m_oInputWheelRight;
+        /*! input pin that tells the odometry which direction the wheels are turning */
+ //       cInputPin m_oInputDirection;
+        /*! output pin for the odometry data */
 		cOutputPin m_oOutputOdometry;
-        /*!output pin for the vehicle speed */
+        /*! output pin for the vehicle speed */
         cOutputPin m_oOutputVelocity;
 
     public:

@@ -29,7 +29,7 @@ SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0)
 
     SetPropertyFloat("PWM scaler", 1.0); //all pwm values are multiplied by this value
 
-    SetPropertyInt("Stop Time in ms", 333); //time the stands still once it stops
+    SetPropertyInt("Stop Time in ms", 500); //time the stands still once it stops
 
 }
 
@@ -140,7 +140,7 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     m_pwmScaler = (tFloat32)GetPropertyFloat("PWM scaler", 1.0);
 
-    m_stopTime =  (tInt32)GetPropertyInt("Stop Time in ms", 333) * 1000; //in us
+    m_stopTime =  (tInt32)GetPropertyInt("Stop Time in ms", 500) * 1000; //in us
 
     RETURN_NOERROR;
 }

@@ -30,7 +30,7 @@ ADTF_FILTER_PLUGIN("SWE_DistanceMeasurement", OID_ADTF_SWE_DISTANCEMEASUREMENT, 
 #define POS_USS_REAR_LEFT 		56			//y-Value
 #define POS_USS_REAR_RIGHT 		-56			//y-Value
 #define INVALIDE_LOW 			0.0
-#define INVLAIDE_HIGH           9999.0;
+#define INVALIDE_HIGH           9999.0
 #define USS_SINUS 				0.258819
 #define USS_COSINUS 			0.965926
 #define CM_MM                   10          //Umrechnung cm in mm
