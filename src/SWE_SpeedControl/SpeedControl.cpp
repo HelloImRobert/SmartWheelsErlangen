@@ -57,6 +57,7 @@ tResult SpeedControl::CreateOutputPins(__exception)
     cObjectPtr<IMediaDescriptionManager> pDescManager;
     RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
     
+    // PWM output
     tChar const * strDescSignalValue = pDescManager->GetMediaDescription("tSignalValue");
     RETURN_IF_POINTER_NULL(strDescSignalValue);
     cObjectPtr<IMediaType> pTypeSignalValue = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
