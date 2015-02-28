@@ -17,4 +17,5 @@ add_subdirectory(src/SWE_CooTransCamToFrontAxis)
 add_subdirectory(src/SWE_StopLineDetection)
 add_subdirectory(src/SWE_BirdEyeTransformation)
 add_subdirectory(src/SWE_ParkPilot)
+add_subdirectory(src/SWE_AttitudeConverter)
 
