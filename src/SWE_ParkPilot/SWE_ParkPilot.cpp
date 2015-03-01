@@ -60,7 +60,7 @@ tResult cSWE_ParkPilot::CreateInputPins(__exception)
     RETURN_IF_FAILED(m_inputParkTrigger.Create("Park Trigger", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_inputParkTrigger));
 
-    RETURN_IF_FAILED(m_inputOdometry.Create("Odometry", new cMediaType(0, 0, 0, "tFloat32"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_inputOdometry.Create("Odometry", new cMediaType(0, 0, 0, "tOdometry"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_inputOdometry));
 
     RETURN_NOERROR;
@@ -196,11 +196,11 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         {
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDesc->Lock(pMediaSample, &pCoder));
-            pCoder->Get("tFloat32", (tVoid*)&m_odometryData.distance_x);
-            pCoder->Get("tFloat32", (tVoid*)&m_odometryData.distance_y);
-            pCoder->Get("tFloat32", (tVoid*)&m_odometryData.angle_heading);
-            pCoder->Get("tFloat32", (tVoid*)&m_odometryData.velocity);
-            pCoder->Get("tFloat32", (tVoid*)&m_odometryData.distance_sum);
+            pCoder->Get("distance_x", (tVoid*)&m_odometryData.distance_x);
+            pCoder->Get("distance_y", (tVoid*)&m_odometryData.distance_y);
+            pCoder->Get("angle_heading", (tVoid*)&m_odometryData.angle_heading);
+            pCoder->Get("velocity", (tVoid*)&m_odometryData.velocity);
+            pCoder->Get("distance_sum", (tVoid*)&m_odometryData.distance_sum);
             m_pCoderDesc->Unlock(pCoder);
         }
 
