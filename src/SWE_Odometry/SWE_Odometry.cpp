@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "SWE_Odometry.h"
 
-#define WHEELBASE 400
+#define WHEELBASE 360
 
 ADTF_FILTER_PLUGIN("SWE_Odometry", OID_ADTF_SWE_ODOMETRY, SWE_Odometry)
 

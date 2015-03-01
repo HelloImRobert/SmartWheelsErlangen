@@ -2,7 +2,7 @@
 #ifndef _SPEEDCONTROL_H_
 #define _SPEEDCONTROL_H_
 
-#define OID_ADTF_SWE_SPEEDCONTROL "adtf.aadc.SWE_SpeedControl"
+#define OID_ADTF_SWE_SPEEDCONTROL "adtf.aadc.swe.SpeedControl"
 
 /*!
 * motor speed controller
@@ -11,9 +11,10 @@ class SpeedControl : public adtf::cFilter
 {
     ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_SPEEDCONTROL, "SWE motor speed control", OBJCAT_DataFilter, "Speed Control", 1, 0,0, "beta version");
 
-        cInputPin m_oInputVelocity;				// the input pin for the measured value
+        cInputPin m_oInputVelocity;				// the input pin for the measured velocity
         cInputPin m_oInputSetPoint;				// the input pin for the set point value (gear) -2(fast reverse), -1, 0(stop), 1, 2, 3(full speed ahead)
-        cOutputPin m_oOutputPWM;                // the output pin for the manipulated value
+        cOutputPin m_oOutputPWM;                // output pin: PWM signal to the motor
+        cOutputPin m_oCarStopped;               // output pin: car has stopped
         cOutputPin m_oOutputbrakelight;
         cOutputPin m_oOutputreverse;
         cOutputPin m_oOutputDirection;
