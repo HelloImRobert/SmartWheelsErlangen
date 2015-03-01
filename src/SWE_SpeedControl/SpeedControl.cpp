@@ -40,10 +40,10 @@ SpeedControl::~SpeedControl()
 tResult SpeedControl::CreateInputPins(__exception)
 {	
 
-    RETURN_IF_FAILED(m_oInputVelocity.Create("car velocity", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oInputVelocity.Create("car velocity odometry", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputVelocity));
 
-    RETURN_IF_FAILED(m_oInputSetPoint.Create("set point gear_speed", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oInputSetPoint.Create("set speed", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputSetPoint));
     RETURN_NOERROR;
 }
@@ -78,6 +78,9 @@ tResult SpeedControl::CreateOutputPins(__exception)
 
     RETURN_IF_FAILED(m_oOutputDirection.Create("Direction", pTypeLightData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputDirection));
+
+    RETURN_IF_FAILED(m_oOutputCarStopped.Create("Car Stopped Flag", pTypeLightData, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputCarStopped));
 
     RETURN_NOERROR;
 }
@@ -229,6 +232,10 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
     RETURN_NOERROR;
 }
 
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++ determine current driving state +++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 tResult SpeedControl::UpdateState()
 {
     m_currentState = 0;
@@ -263,6 +270,11 @@ tResult SpeedControl::UpdateState()
     RETURN_NOERROR;
 }
 
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// ++++++++++++++++++++++++++++++++++++++++++++++++++ Here the magic happens +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 tFloat32 SpeedControl::GetControllerValue()
 {
     tFloat32 outputData = 0;
@@ -276,17 +288,18 @@ tFloat32 SpeedControl::GetControllerValue()
          ||  (( m_last_pwm >= m_pwm_0 ) && ( m_lastState < 0 ) && ( m_currentState == 0 )) ) //has car just stopped (willingly)?
     {
         SetPWM(m_pwm_0);
-        m_no_wait = false;  //wait until standing completly still (=> to make sure that the direction sent to the odometry is only sent when standing completely still....)
+        m_no_wait = false;  //wait until standing completly still (=> to make sure that the new direction sent to the odometry is only sent when standing completely still....)
         m_timerStart = GetTime();
     }
-    else if (( !m_no_wait ) && (( GetTime() - m_timerStart ) >= m_stopTime ))
+    else if (( !m_no_wait ) && (( GetTime() - m_timerStart ) >= m_stopTime )) //if stopping time passed...
     {
-        m_no_wait = true;
+        m_no_wait = true; //... allow new acceleration values...
+        SetCarStopped(true); // ... and tell other filters that the car has just stopped
     }
 
     if (m_no_wait)
     {
-        //-------------------- rules for acceleration and braking -------------------------
+        //-------------------- rules for acceleration and braking + lights -------------------------
 
         if (m_currentState == 3)
         {
@@ -568,7 +581,6 @@ tResult SpeedControl::SetDirection(tBool state)
         RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
 
         //allocate memory with the size given by the descriptor
-        // ADAPT: m_pCoderDescPointLeft
         cObjectPtr<IMediaSerializer> pSerializer;
 
         m_pCodeOutputbrakelight->GetMediaSampleSerializer(&pSerializer);
@@ -576,13 +588,11 @@ tResult SpeedControl::SetDirection(tBool state)
         pMediaSampleOutput->AllocBuffer(nSize);
 
         //write date to the media sample with the coder of the descriptor
-        // ADAPT: m_pCoderDescPointLeft
         RETURN_IF_FAILED(m_pCodeOutputbrakelight->WriteLock(pMediaSampleOutput, &pCoder));
         pCoder->Set("bValue", (tVoid*)&(state));
         m_pCodeOutputbrakelight->Unlock(pCoder);
 
         //transmit media sample over output pin
-        // ADAPT: m_oIntersectionPointLeft
         RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
         RETURN_IF_FAILED(m_oOutputDirection.Transmit(pMediaSampleOutput));
     }
@@ -591,6 +601,36 @@ tResult SpeedControl::SetDirection(tBool state)
 
     RETURN_NOERROR;
 }
+
+tResult SpeedControl::SetCarStopped(tBool state)
+{
+
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptort
+    cObjectPtr<IMediaSerializer> pSerializer;
+
+    m_pCodeOutputbrakelight->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    RETURN_IF_FAILED(m_pCodeOutputbrakelight->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("bValue", (tVoid*)&(state));
+    m_pCodeOutputbrakelight->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputCarStopped.Transmit(pMediaSampleOutput));
+
+
+    RETURN_NOERROR;
+}
+
 
 tResult SpeedControl::SetPWM(tFloat32 pwm_value)
 {

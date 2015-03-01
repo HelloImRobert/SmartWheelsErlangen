@@ -6,10 +6,22 @@
 
 #include "math.h"
 /*!
-* Simple odometry based on bicycle model. The relative position and heading are updated whenever a new data sample arrives. Output of the accumulated position change in position and heading every time a trigger signal arrives (accumulated since last trigger).
+* Simple odometry based on bicycle model. Uses mainly gyro and wheel sensors. The relative position and heading are internally updated whenever a new data sample arrives.
+* Output of the accumulated position change in position and heading every time a trigger signal arrives (accumulated since last trigger).
+* All data sent out has the timestamp of the trigger signal.
 
+-> odometry data contains the odometry data. Further explanation at the struct definition further down in this file.
+-> velocity continuously sends the current (estimated) car speed, this pin is especially smoothed for the speed controller
 
-->velocity continuously sends the current (estimated) car speed
+odometry data structure:
+
+        tFloat32	 distance_x;		// relative x coordinates in mm (since last sample)
+        tFloat32	 distance_y; 		// relative y coordinates in mm
+        tFloat32   	 angle_heading;		// realtive heading in radians
+        tFloat32     velocity;          // current velocity in mm/s
+        tFloat32     distance_sum;      // sum of distance driven
+
+        + ui32ArduinoTimestamp          // timestamp of the trigger signal triggering the output
 
 ----- Coordinate System -----
 
@@ -30,7 +42,7 @@ Y         |        -Y
 
 new heading:
           ^ X
-  +  alpha|
+  +  angle|
     '     |
       '   |
         ' |
@@ -46,22 +58,29 @@ class SWE_Odometry : public adtf::cFilter
 {
     ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_ODOMETRY, "SWE_Odometry", OBJCAT_DataFilter, "SWE_Odometry filter", 1, 0, 0, "pre alpha version");
 
-        /*! input pin for the steering angle */
-		cInputPin m_oInputSteeringAngle;
-        /*! input pin for the left wheel optical sensor*/
-        cInputPin m_oInputWheelLeft;
-        /*! input pin for the right wheel optical sensor*/
-        cInputPin m_oInputWheelRight;
-        /*! input pin that tells the odometry which direction the wheels are turning */
- //       cInputPin m_oInputDirection;
-        /*! input pin for the heading gyro signal (might be called "roll" at the gyro output filter)*/
-        // cInputPin m_oGyro;
+        /*! input pin for the steering angle -- in RAD */
+        cInputPin m_oInputSteeringAngle; //TODO: not clear what type of angle we get
+
+        /*! input pin for the left wheel optical sensor -- ticks*/
+        cInputPin m_oInputWheelLeft; //TODO
+
+        /*! input pin for the right wheel optical sensor -- ticks*/
+        cInputPin m_oInputWheelRight; //TODO
+
+        /*! input pin that tells the odometry which direction the wheels are turning -- true = forwards*/
+        cInputPin m_oInputDirection; //TODO -
+
+        /*! input pin for the heading/yaw gyro signal -- in RAD */
+        cInputPin m_oInputYaw;//TODO
+
         /*! input pin for the trigger signal */
-        cInputPin m_oInputTrigger;
+        cInputPin m_oInputTrigger;//TODO
+
         /*! output pin for the odometry data */
 		cOutputPin m_oOutputOdometry;
+
         /*! output pin for the vehicle speed */
-      //  cOutputPin m_oOutputVelocity;
+        cOutputPin m_oOutputVelocity;//TODO
 
     public:
         SWE_Odometry(const tChar* __info);
@@ -76,56 +95,52 @@ class SWE_Odometry : public adtf::cFilter
 	tTimeStamp GetTime();
 		
 	/*! Coder Descriptor for the pins*/
-	    cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;
-        cObjectPtr<IMediaTypeDescription> m_pCoderDescOdometryOut;
-
-	/*! struct containing the odometry output data */
-	typedef struct
-	{
-        tFloat32	 distance_x;			// distance x in mm
-        tFloat32	 distance_y; 		// distance y in mm
-        tFloat32   	 angle_heading;		// heading in radians
-        tFloat32     velocity;          //in mm/s
-        tFloat32     distance_sum;   // sum of driven distance
-	}odometryData;
+        cObjectPtr<IMediaTypeDescription>  m_pCoderDescSignal;
+        cObjectPtr<IMediaTypeDescription>  m_pCoderDescOdometryOut;
+        cObjectPtr<IMediaTypeDescription>  m_pCoderBool;
+        cObjectPtr<IMediaTypeDescription>  m_pCoderGyro;
 
 	/*! Private member variables */
+    /*! input variables -- always make working copies within funcitons to ensure consistency when working with those*/
 	tFloat32 m_steeringAngle;
-	tFloat32 m_slippageAngle;
-	tFloat32 m_velocityLeft;
-	tFloat32 m_velocityRight;
+    tFloat32 m_Yaw;
 	tFloat32 m_buffer;
 
-    tFloat32 m_velocityFiltered;
-    tFloat32 m_filterStrength;
-	
-	tTimeStamp m_currTimeStamp;
-	tTimeStamp m_oldTimeStamp;
-	tTimeStamp m_lastPinEvent;
+    tBool m_currentDirection;
+    tBool m_boolBuffer;
+
+    tTimeStamp m_currTimeStamp;
+    tTimeStamp m_oldTimeStamp;
+    tTimeStamp m_lastPinEvent;
     tTimeStamp m_lastTriggerTime;
 
+	
+    /*! other variables */
+    tFloat32 m_slippageAngle;
+    tFloat32 m_velocityLeft;
+    tFloat32 m_velocityRight;
+    tFloat32 m_velocityFiltered;
+    tFloat32 m_filterStrength;
 	tFloat32 m_distanceX_sum;
 	tFloat32 m_distanceY_sum;
 	tFloat32 m_heading_sum;
     tFloat32 m_distanceAllSum;
 
-	odometryData m_odometryData;
 
-	/* SWE METHODS */
 
-	/*! Helper method to send Media Sample */
-    tResult sendData();
+    /*! METHODS */
+
+    /*! calc and send odometry */
+    tResult CalcSingleOdometry(tTimeStamp timeIntervall); // a single integration step //TODO
+    tResult SendOdometry(tTimeStamp timestamp); //TODO
+
+    /*! helpers */
+    tFloat32 GetAngleDiff(tFloat32 angle_old, tFloat32 angle_new); //TODO
+    tInt32   GetAbsoluteDistance();
 
     /*! calculate and send velocity */
-    tResult updateVelocity();
-
-
-	/*! Odometry single step */
-	void calcSingleOdometry(tTimeStamp timeIntervall);
-
-
-	/*! Odometry output, reset*/
-	void odometryOutput();
+    tResult CalcVelocity(); //TODO
+    tResult SendVelocity(); //TODO
 };
 
 

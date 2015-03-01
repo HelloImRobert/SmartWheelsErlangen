@@ -6,6 +6,14 @@
 
 /*!
 * motor speed controller
+* - The controller has a set of "gears" 3,....0,...-2 that define the speed and the direction the car has to go. 3 full speed, 2, 1 crawl, 0 stop, -1, -2 fast reverse.
+* - It uses active braking. The strength of this braking depends on the kind of transition (e.g. braking to a full stop or just a "normal" change of speed).
+* - It also signals the use of brake lights and reverse gear lights according to the situation.
+* As of now it is prety much an open loop controller that only uses the car's
+* velocity for speed transiton (to find out if the target gear/speed has been reached (more or less, very inpercise)). Any transition to or through 0 (full stop) e.g. when changing directions
+* results in short minimum stop time defined in the parameters. This is to make sure that the car has really stopped before any change in direction might happen.
+* - The controller then signals the stop to any filters that need this information (as the odometry is not that good at slow speeds).
+* - The controller also signals the current direction of travel to the odometry as the installed sensors on the car cannot measure this by themselves (hence also the enforced full stop).
 */
 class SpeedControl : public adtf::cFilter
 {
@@ -14,7 +22,7 @@ class SpeedControl : public adtf::cFilter
         cInputPin m_oInputVelocity;				// the input pin for the measured velocity
         cInputPin m_oInputSetPoint;				// the input pin for the set point value (gear) -2(fast reverse), -1, 0(stop), 1, 2, 3(full speed ahead)
         cOutputPin m_oOutputPWM;                // output pin: PWM signal to the motor
-        cOutputPin m_oCarStopped;               // output pin: car has stopped
+        cOutputPin m_oOutputCarStopped;         // output pin: car has stopped
         cOutputPin m_oOutputbrakelight;
         cOutputPin m_oOutputreverse;
         cOutputPin m_oOutputDirection;
@@ -60,6 +68,12 @@ class SpeedControl : public adtf::cFilter
         @param state going forwards yes or no
         */
         tResult SetDirection (tBool state);
+
+        /*! tell the parkpilot that we've stopped
+        @param state unimportant payload
+        */
+        tResult SetCarStopped (tBool state);
+
 
         /*! send out the pwm value
         @param pwm_value the pwm value to be sent 0-180
