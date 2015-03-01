@@ -43,10 +43,11 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         m_entry = false;
         m_entrySaved = false;
         m_minDistReached = false;
-        m_odometryData.angle = 0.0;
-        m_odometryData.distance = 0.0;
-        m_odometryData.distanceSum = 0.0;
-        m_odometryData.heading = 0.0;
+        m_odometryData.distance_x = 0.0;
+        m_odometryData.distance_y = 0.0;
+        m_odometryData.angle_heading = 0.0;
+        m_odometryData.distance_sum = 0.0;
+        m_odometryData.velocity = 0.0;
 
 }
 
@@ -58,6 +59,9 @@ tResult cSWE_ParkPilot::CreateInputPins(__exception)
 {
     RETURN_IF_FAILED(m_inputParkTrigger.Create("Park Trigger", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_inputParkTrigger));
+
+    RETURN_IF_FAILED(m_inputOdometry.Create("Odometry", new cMediaType(0, 0, 0, "tFloat32"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_inputOdometry));
 
     RETURN_NOERROR;
 }
@@ -188,6 +192,17 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             }
 
         }
+        else if(pSource == &m_inputOdometry)
+        {
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDesc->Lock(pMediaSample, &pCoder));
+            pCoder->Get("tFloat32", (tVoid*)&m_odometryData.distance_x);
+            pCoder->Get("tFloat32", (tVoid*)&m_odometryData.distance_y);
+            pCoder->Get("tFloat32", (tVoid*)&m_odometryData.angle_heading);
+            pCoder->Get("tFloat32", (tVoid*)&m_odometryData.velocity);
+            pCoder->Get("tFloat32", (tVoid*)&m_odometryData.distance_sum);
+            m_pCoderDesc->Unlock(pCoder);
+        }
 
 
 
@@ -219,7 +234,7 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
         if(m_entry == true)
         {
             // save data at entry point
-            m_distEntry = m_odometryData.distance;
+            m_distEntry = m_odometryData.distance_sum;
             m_entrySaved = true;
         }
 

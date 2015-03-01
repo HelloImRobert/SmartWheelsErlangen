@@ -17,6 +17,7 @@ class cSWE_ParkPilot : public adtf::cFilter
     // PINS
     cInputPin m_inputParkTrigger;
     cInputPin m_ObjectData;
+    cInputPin m_inputOdometry;
 
     cOutputPin m_outputVelocity;
 
