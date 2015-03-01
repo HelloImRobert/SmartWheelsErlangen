@@ -14,10 +14,11 @@ class cSWE_ParkPilot : public adtf::cFilter
 {
     ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_PARKPILOT, "SWE ParkPilot", OBJCAT_DataFilter, "ParkPilot", 1, 0,0, "pre alpha version");
 
+    // PINS
     cInputPin m_inputParkTrigger;
     cInputPin m_ObjectData;
 
-    //cOutputPin m_oOutputManipulated;
+    cOutputPin m_outputVelocity;
 
 public:
     cSWE_ParkPilot(const tChar* __info);
@@ -43,7 +44,7 @@ private:
     tFloat32    m_distEntry;
     tFloat32    m_lastIRshort;
 
-    tInt        m_parkTrigger;
+    tInt8       m_parkTrigger;
 
     tBool       m_searchActive;
     tBool       m_entry;
@@ -54,10 +55,11 @@ private:
     /*! struct containing the odometry input data */
     typedef struct
     {
-        tFloat32	 angle;			// angle in radians
-        tFloat32	 distance; 		// distance in mm
-        tFloat32   	 heading;		// heading in radians
-        tFloat32     distanceSum;   // sum of driven distance
+        tFloat32	 distance_x;			// x dist in mm
+        tFloat32	 distance_y;            // y dist in mm
+        tFloat32   	 angle_heading;         // heading in radians
+        tFloat32     velocity;              // velocity
+        tFloat32     distance_sum;          // sum of driven distance
     }odometryData;
 
     odometryData m_odometryData;
@@ -76,11 +78,13 @@ private:
     tResult parkRoutineAlongside(tFloat32 lotSize, tFloat32 distStartPark);
     tResult parkRoutineCross(tFloat32 lotSize, tFloat32 distStartPark);
 
+    tResult sendSpeed(tInt8 speed);
+
 
     // Media Descriptors
     /*! Coder Descriptors for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDesc;
-    cObjectPtr<IMediaTypeDescription> m_pCoderDescPointsIn;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescSpeedOut;
 };
 
 #endif // _SWE_PARKPILOT_H_
