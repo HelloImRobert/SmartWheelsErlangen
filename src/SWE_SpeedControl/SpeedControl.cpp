@@ -43,7 +43,7 @@ tResult SpeedControl::CreateInputPins(__exception)
     RETURN_IF_FAILED(m_oInputVelocity.Create("car velocity", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputVelocity));
 
-    RETURN_IF_FAILED(m_oInputSetPoint.Create("set point (gear/speed)", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oInputSetPoint.Create("set point gear_speed", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputSetPoint));
     RETURN_NOERROR;
 }

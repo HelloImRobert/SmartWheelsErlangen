@@ -81,10 +81,10 @@ tResult cSWE_ParkPilot::CreateOutputPins(__exception)
     cObjectPtr<IMediaDescriptionManager> pDescManager;
     RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
 
-    RETURN_IF_FAILED(m_outputVelocity.Create("Speed Signal", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_outputVelocity.Create("Speed_Signal", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_outputVelocity));
 
-    RETURN_IF_FAILED(m_outputSteering.Create("Steering Signal", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_outputSteering.Create("Steering_Signal", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_outputSteering));
 
     RETURN_NOERROR;
