@@ -47,6 +47,9 @@ ADTF_FILTER_PLUGIN("SWE ParkPilot", OID_ADTF_SWE_PARKPILOT, cSWE_ParkPilot)
 
 cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
 {
+        m_searchState = 0;
+        m_parkState = 0;
+
         m_IRFrontRightCur = INVALIDE_HIGH;
         m_IRRearRightCur = INVALIDE_HIGH;
         m_IRFrontRightOld = INVALIDE_HIGH;
@@ -54,6 +57,9 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         m_distEntry = 0.0;
         m_parkTrigger = 0;
         m_lastIRshort = 0.0;
+
+        m_distStartPark = 0.0;
+        m_overshoot = 0.0;
 
         m_searchActive = false;
         m_entry = false;
@@ -198,35 +204,17 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             m_IRFrontRightCur = (-1) * (objectData[1].y - POS_IR_SIDE_RIGHT);
             m_IRRearRightCur = (-1) * (objectData[4].y - POS_IR_SIDE_RIGHT);
 
-            // save latest "short" value
-            if( m_IRFrontRightCur < TH_SHORT )
-            {
-                m_lastIRshort = m_IRFrontRightCur;
-            }
-
             // Check whether we have reached the first car; if yes, activate the search
 
             //TODO: fuer eine kurze mindestlaenge
-            if(m_IRFrontRightCur > TH_SHORT && m_searchActive == false)
+            if(m_IRFrontRightCur > TH_SHORT && m_searchState == 0 )
             {
                 RETURN_NOERROR;
             }
             else
             {
-                m_searchActive = true;
-
-                if(m_parkTrigger == PARK_ALONGSIDE)
-                {
-                    searchRoutineAlongside();
-                }
-                else if(m_parkTrigger == PARK_CROSS)
-                {
-                    searchRoutineCross();
-                }
-                else
-                {
-                    RETURN_NOERROR;
-                }
+                m_searchState = 1;
+                RETURN_NOERROR;
             }
 
         }
@@ -241,86 +229,131 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             pCoder->Get("distance_sum", (tVoid*)&m_odometryData.distance_sum);
             m_pCoderDesc->Unlock(pCoder);
         }
-
-
-
     }
+
+    if( m_parkTrigger == PARK_ALONGSIDE && m_searchState > 0 && m_searchState < 4 )
+    {
+        searchRoutineAlongside();
+    }
+    else if( m_parkTrigger == PARK_CROSS && m_searchState > 0 && m_searchState < 4 )
+    {
+        searchRoutineCross();
+    }
+    else if( m_parkTrigger == PARK_ALONGSIDE && m_searchState == 4 && m_parkState > 0 && m_parkState <= 100 )
+    {
+        parkRoutineAlongsideNormal();
+    }
+    else if( m_parkTrigger == PARK_ALONGSIDE && m_searchState == 4 && m_parkState > 100 )
+    {
+        parkRoutineAlongsideEasy();
+    }
+
     RETURN_NOERROR;
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++ ALONGSIDE ROUTINE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 tResult cSWE_ParkPilot::searchRoutineAlongside()
 {
     tFloat32 distTravelled = 0;
-    tFloat32 distStartPark = 0;
 
-    //...now search for possible lot beginning and save the distance at this point
-    if( m_IRFrontRightCur >= TH_LONG_ALONGSIDE )
+    switch( m_searchState )
     {
-        if(m_entrySaved == false)
-        {
-            m_entry = true;
-        }
-        else
-        {
-            m_entry = false;
-        }
+        case 1: // search for possible beginning
+            if( m_IRFrontRightCur >= TH_LONG_ALONGSIDE )
+            {
+                m_distEntry = m_odometryData.distance_sum;
+                m_searchState = 2;
+            }
+            break;
 
-        if(m_entry == true)
-        {
-            // save data at entry point
-            m_distEntry = m_odometryData.distance_sum;
-            m_entrySaved = true;
-        }
 
-        if(m_entrySaved == true)
-        {
+        case 2: // check the size
             distTravelled = m_odometryData.distance_sum - m_distEntry;
 
-            // check if space is already sufficient
+            // too small, return to state 1
+            if( m_IRFrontRightCur <= TH_SHORT && distTravelled < ALONGSIDE_SIZE )
+            {
+                m_searchState = 1;
+            }
+
+            // min size reached, proceed with state 3
             if( distTravelled >= ALONGSIDE_SIZE )
             {
-                m_minDistReached = true;
+                m_searchState = 3;
             }
-            else
+            break;
+
+        case 3: // min size reached, try to get as much space as possible
+            distTravelled = m_odometryData.distance_sum - m_distEntry;
+            m_distStartPark = m_odometryData.distance_sum;
+
+            if( distTravelled >= ALONGSIDE_SIZE + EASY_ALONGSIDE )
             {
-                m_minDistReached = false;
+                m_searchState = 4;
+                m_parkState = 101;
             }
-        }
-    }
-    else if( m_IRRearRightCur <= TH_SHORT && m_entrySaved == true )
-    {
-        // groesse muss hier nicht gespeichert werden, da m_minDistReached vorherzugeschlagen haette
-        // dient nur dazu die Suche nach einer neuen Parkluecke zu initalisieren
-        m_entrySaved = false;
-        RETURN_NOERROR;
-    }
-// park style
-    // minimum distance is reached....
-    // .....and we reached easy parking situation
-    if( m_minDistReached == true && distTravelled >= (ALONGSIDE_SIZE + EASY_ALONGSIDE) )
-    {
-        //easy
-        distStartPark = m_odometryData.distance_sum;
-        parkRoutineAlongsideEasy(distStartPark);
-    }
-    // ....and we take as much space as we can get
-    else if( m_minDistReached == true && m_IRFrontRightCur <= TH_SHORT )
-    {
-        //normal
-        distStartPark = m_odometryData.distance_sum;
-        parkRoutineAlongsideNormal(distStartPark);
+
+            if( m_IRFrontRightCur <= TH_SHORT )
+            {
+                m_searchState = 4;
+                m_parkState = 1;
+            }
+            break;
+
+        default:
+            break;
     }
 
     RETURN_NOERROR;
+
 }
 
-
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ALONGSIDE EASY +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-tResult cSWE_ParkPilot::parkRoutineAlongsideEasy(tFloat32 distStartPark)
+tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
+{
+    tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
+    tFloat32 distToGo = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( centralAngle ) );
+    tFloat32 headingAtStart = 0.0;
+
+    switch(m_parkState)
+    {
+        case 101: // drive forward until park position reached and break
+            if( m_odometryData.distance_sum - m_distStartPark >= distToGo )
+            {
+                sendSteeringAngle( STEER_NEUTRAL );
+                sendSpeed( 0 );
+                m_parkState = 102;
+            }
+            break;
+
+        case 102: // check how much overshoot we had after breaking
+            if( m_carStopped == true )
+            {
+                m_overshoot = m_odometryData.distance_sum - m_distStartPark - distToGo;
+                m_parkState = 103;
+                sendSpeed( -1 );
+            }
+            break;
+
+        case 103: // drive backwards until overshoot is killed and steer max right
+            if( m_odometryData.distance_sum + m_overshoot >= 0)
+            {
+                m_parkState = 104;
+                sendSteeringAngle(STEER_RIGHT_MAX);
+            }
+            break;
+
+        default:
+            break;
+
+    }
+    RETURN_NOERROR;
+}
+
+/*
+tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
 {
 
     tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
@@ -378,10 +411,16 @@ tResult cSWE_ParkPilot::parkRoutineAlongsideEasy(tFloat32 distStartPark)
     m_minDistReached = false;
     RETURN_NOERROR;
 }
-
+*/
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ALONGSIDE NORMAL +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-tResult cSWE_ParkPilot::parkRoutineAlongsideNormal(tFloat32 distStartPark)
+tResult cSWE_ParkPilot::parkRoutineAlongsideNormal()
+{
+    RETURN_NOERROR;
+}
+
+/*
+tResult cSWE_ParkPilot::parkRoutineAlongsideNormal()
 {
 
     tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) ) + ( ANGLE_ADJUSTMENT * DEG_TO_RAD );
@@ -465,7 +504,7 @@ tResult cSWE_ParkPilot::parkRoutineAlongsideNormal(tFloat32 distStartPark)
     RETURN_NOERROR;
 }
 
-
+*/
 
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

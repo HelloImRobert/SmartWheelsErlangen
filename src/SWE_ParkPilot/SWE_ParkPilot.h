@@ -45,6 +45,9 @@ private:
     tFloat32    m_distEntry;
     tFloat32    m_lastIRshort;
 
+    tFloat32    m_distStartPark;
+    tFloat32    m_overshoot;
+
     tInt8       m_parkTrigger;
 
     tBool       m_searchActive;
@@ -52,6 +55,9 @@ private:
     tBool       m_entrySaved;
     tBool       m_minDistReached;
     tBool       m_carStopped;
+
+    tInt16      m_searchState;
+    tInt16      m_parkState;
 
 
     /*! struct containing the odometry input data */
@@ -77,8 +83,8 @@ private:
     tResult searchRoutineAlongside();
     tResult searchRoutineCross();
 
-    tResult parkRoutineAlongsideEasy(tFloat32 distStartPark);
-    tResult parkRoutineAlongsideNormal(tFloat32 distStartPark);
+    tResult parkRoutineAlongsideEasy();
+    tResult parkRoutineAlongsideNormal();
     tResult parkRoutineCross(tFloat32 lotSize, tFloat32 distStartPark);
 
     tResult sendSpeed(tInt8 speed);
