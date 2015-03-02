@@ -68,19 +68,19 @@ class SWE_Odometry : public adtf::cFilter
         cInputPin m_oInputWheelRight; //TODO
 
         /*! input pin that tells the odometry which direction the wheels are turning -- true = forwards*/
-        cInputPin m_oInputDirection; //TODO -
+        cInputPin m_oInputDirection;
 
         /*! input pin for the heading/yaw gyro signal -- in RAD */
         cInputPin m_oInputYaw;//TODO
 
         /*! input pin for the trigger signal */
-        cInputPin m_oInputTrigger;//TODO
+        cInputPin m_oInputTrigger;
 
         /*! output pin for the odometry data */
 		cOutputPin m_oOutputOdometry;
 
         /*! output pin for the vehicle speed */
-        cOutputPin m_oOutputVelocity;//TODO
+        cOutputPin m_oOutputVelocity;
 
     public:
         SWE_Odometry(const tChar* __info);
@@ -101,18 +101,25 @@ class SWE_Odometry : public adtf::cFilter
         cObjectPtr<IMediaTypeDescription>  m_pCoderGyro;
 
 	/*! Private member variables */
-    /*! input variables -- always make working copies within funcitons to ensure consistency when working with those*/
+    /*! input variables*/
 	tFloat32 m_steeringAngle;
     tFloat32 m_Yaw;
 	tFloat32 m_buffer;
+    tFloat32 m_wheelCounter_left;
+    tFloat32 m_wheelCounter_right;
 
-    tBool m_currentDirection;
+    tInt32 m_currentDirection;
     tBool m_boolBuffer;
 
     tTimeStamp m_currTimeStamp;
     tTimeStamp m_oldTimeStamp;
     tTimeStamp m_lastPinEvent;
     tTimeStamp m_lastTriggerTime;
+    tTimeStamp m_lastLeftWheelTime;
+    tTimeStamp m_lastRightWheelTime;
+
+    tFloat32 m_lastwheelCounter_left;
+    tFloat32 m_lastwheelCounter_right;
 
 	
     /*! other variables */
@@ -120,11 +127,15 @@ class SWE_Odometry : public adtf::cFilter
     tFloat32 m_velocityLeft;
     tFloat32 m_velocityRight;
     tFloat32 m_velocityFiltered;
-    tFloat32 m_filterStrength;
 	tFloat32 m_distanceX_sum;
 	tFloat32 m_distanceY_sum;
 	tFloat32 m_heading_sum;
     tFloat32 m_distanceAllSum;
+
+    tFloat32 m_filterStrength;
+    tFloat32 m_wheelCircumfence;
+
+
 
 
 
@@ -136,11 +147,16 @@ class SWE_Odometry : public adtf::cFilter
 
     /*! helpers */
     tFloat32 GetAngleDiff(tFloat32 angle_old, tFloat32 angle_new); //TODO
-    tInt32   GetAbsoluteDistance();
+    tFloat32 CalcDistance(tInt32 direction, tFloat32 ticks); //TODO
 
     /*! calculate and send velocity */
     tResult CalcVelocity(); //TODO
-    tResult SendVelocity(); //TODO
+    tResult  FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity);
+    tResult  SendVelocity(); //TODO
+
+
+
+    tFloat32 FilterTicks(tTimeStamp last_tick, tTimeStamp curr_tick, tFloat32 last_Count, tFloat32 curr_count);//TODO  prevent double hits due to jittery sensors
 };
 
 
