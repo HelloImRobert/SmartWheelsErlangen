@@ -1,31 +1,37 @@
-#include <cmath>
-#include "stdafx.h"
 #include "SWE_ParkPilot.h"
 
-#include <iostream>
-#include <fstream>
-
 // +++ begin_defines +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#define POS_IR_SIDE_RIGHT -150.0    //y-Value of IR sensors
+/*! Sensor positions */
+#define POS_IR_SIDE_RIGHT -150.0
+#define POS_IR_FRONT_SIDE 450.0
+
+/*! Thresholds */
 #define TH_SHORT 140.0
 #define TH_LONG_ALONGSIDE 590.0
 #define TH_LONG_CROSS 590.0
 
+/*! Park styles */
 #define PARK_ALONGSIDE 1            // park style
 #define PARK_CROSS 2                // park style
 
-#define ALONGSIDE_SIZE 900          // minimum size of parking lot
-#define CROSS_SIZE 500              // minimum size of parking lot
-#define EASY_ALONGSIDE 100          // buffer for easy S-curve maneuver
+/*! Lot sizes */
+#define ALONGSIDE_SIZE 765          // minimum size of parking lot
+#define CROSS_SIZE 500              // ??minimum size of parking lot
+#define EASY_ALONGSIDE 40          // buffer for easy S-curve maneuver
 
+/*! Helpers to calculate central angle */
+#define CALC_QUOTIENT -799         // oquotient for central angle calculation
+#define CALC_CARHALF 150
+#define CALC_RADIUS 400
+
+/*! Invalide sensor values */
 #define INVALIDE_LOW 0.0
 #define INVALIDE_HIGH 9999.0
 
+/*! Steering angles */
 #define STEER_RIGHT_MAX -30.0             // Maximaler Lenkwinkel rechts
 #define STEER_LEFT_MAX 30.0               // Maximaler Lenkwinkel links
 #define STEER_NEUTRAL 0.0                   // Lenkwinkel = 0
-
-#define POS_IR_FRONT_SIDE 450.0     // x-Pos of front IR sensor
 
 
 // +++ end_defines ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -236,9 +242,9 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
     RETURN_NOERROR;
 }
 
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// ++++++++++++++++++++++++++++++++++++++++ ALONGSIDE ROUTINE +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// ++++++++++++++++++++++++++++++++++++++++ ALONGSIDE ROUTINE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 tResult cSWE_ParkPilot::searchRoutineAlongside()
 {
@@ -293,25 +299,26 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
     {
         //easy
         distStartPark = m_odometryData.distance_sum;
-        parkRoutineAlongside(distTravelled, distStartPark);
+        parkRoutineAlongsideEasy(distStartPark);
     }
     // ....and we take as much space as we can get
     else if( m_minDistReached == true && m_IRFrontRightCur <= TH_SHORT )
     {
         //normal
         distStartPark = m_odometryData.distance_sum;
-        parkRoutineAlongside(distTravelled, distStartPark);
+        parkRoutineAlongsideNormal(distStartPark);
     }
 
     RETURN_NOERROR;
 }
 
 
-tResult cSWE_ParkPilot::parkRoutineAlongside(tFloat32 lotSize, tFloat32 distStartPark)
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ALONGSIDE EASY +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+tResult cSWE_ParkPilot::parkRoutineAlongsideEasy(tFloat32 distStartPark)
 {
 
-    tFloat32 centralAngle = atan( 1 + ( (150 + m_lastIRshort) / (-949) ) );
-    tFloat32 distToGo = POS_IR_FRONT_SIDE + ( 800 * sin( centralAngle ) );
+    tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
+    tFloat32 distToGo = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( centralAngle ) );
     tFloat32 actualDistGone = 0.0;
     tFloat32 overshoot = 0.0;
     tFloat32 headingAtStart = 0.0;
@@ -329,46 +336,93 @@ tResult cSWE_ParkPilot::parkRoutineAlongside(tFloat32 lotSize, tFloat32 distStar
         overshoot = actualDistGone - distToGo;
     }
 
+    // Blink right
 
-    //easy maneuver
-    if( lotSize > (ALONGSIDE_SIZE + EASY_ALONGSIDE) )
+    // Go backwards....
+    sendSpeed( -1 );
+
+    //...until "distToGo" is reached again
+    // maximum steering angle right (als servo signal rausgeben!! +-30)
+    if( actualDistGone - m_odometryData.distance_sum >= overshoot )
     {
-
-        // Blink right
-
-        // Go backwards....
-        sendSpeed( -1 );
-
-        //...until "distToGo" is reached again
-        // maximum steering angle right (als servo signal rausgeben!! +-30)
-        if( actualDistGone - m_odometryData.distance_sum >= overshoot )
-        {
-            headingAtStart = m_odometryData.angle_heading;
-            sendSteeringAngle(STEER_RIGHT_MAX);
-        }
-
-        // backwards until heading = headingAtStart + centralAngle....
-        //....maximum steering angle left
-        if( m_odometryData.angle_heading - headingAtStart >= centralAngle )
-        {
-            sendSteeringAngle(STEER_LEFT_MAX);
-        }
-
-        // backwards until headingAtStart is reached again
-        if( m_odometryData.angle_heading == headingAtStart )
-        {
-            sendSpeed( 0 );
-            // Stop blinking
-        }
-
-
-
+        headingAtStart = m_odometryData.angle_heading;
+        sendSteeringAngle(STEER_RIGHT_MAX);
     }
-    //normal maneuver
-    else
+
+    // backwards until heading = headingAtStart + centralAngle....
+    //....maximum steering angle left
+    if( m_odometryData.angle_heading - headingAtStart >= centralAngle )
     {
-
+        sendSteeringAngle(STEER_LEFT_MAX);
     }
+
+    // backwards until headingAtStart is reached again
+    if( m_odometryData.angle_heading == headingAtStart )
+    {
+        sendSpeed( 0 );
+        // Stop blinking
+    }
+
+
+
+    // at the end....
+    m_entry = false;
+    m_entrySaved = false;
+    m_minDistReached = false;
+    RETURN_NOERROR;
+}
+
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ALONGSIDE NORMAL +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+tResult cSWE_ParkPilot::parkRoutineAlongsideNormal(tFloat32 distStartPark)
+{
+
+    tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) ) + ANGLE_ADJUSTMENT;
+    tFloat32 distToGo = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( centralAngle ) ) - DIST_ADJUSTMENT;
+    tFloat32 actualDistGone = 0.0;
+    tFloat32 overshoot = 0.0;
+    tFloat32 headingAtStart = 0.0;
+
+
+    if( m_odometryData.distance_sum - distStartPark >= distToGo)
+    {
+        //VOLLBREMSUNG
+        sendSpeed( 0 );
+    }
+
+    if( m_carStopped == true )
+    {
+        actualDistGone = m_odometryData.distance_sum - distStartPark;
+        overshoot = actualDistGone - distToGo;
+    }
+
+    // Blink right
+
+    // Go backwards....
+    sendSpeed( -1 );
+
+    //...until "distToGo" is reached again
+    // maximum steering angle right (als servo signal rausgeben!! +-30)
+    if( actualDistGone - m_odometryData.distance_sum >= overshoot )
+    {
+        headingAtStart = m_odometryData.angle_heading;
+        sendSteeringAngle(STEER_RIGHT_MAX);
+    }
+
+    // backwards until heading = headingAtStart + centralAngle....
+    //....maximum steering angle left
+    if( m_odometryData.angle_heading - headingAtStart >= centralAngle )
+    {
+        sendSteeringAngle(STEER_LEFT_MAX);
+    }
+
+    // backwards until headingAtStart is reached again
+    if( m_odometryData.angle_heading == headingAtStart )
+    {
+        sendSpeed( 0 );
+        // Stop blinking
+    }
+
 
 
     // at the end....
@@ -381,9 +435,9 @@ tResult cSWE_ParkPilot::parkRoutineAlongside(tFloat32 lotSize, tFloat32 distStar
 
 
 
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// ++++++++++++++++++++++++++++++++++++++++ CROSS ROUTINE +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// ++++++++++++++++++++++++++++++++++++++++ CROSS ROUTINE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 

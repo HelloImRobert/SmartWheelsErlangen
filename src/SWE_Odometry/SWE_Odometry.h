@@ -3,7 +3,7 @@
 
 #define OID_ADTF_SWE_ODOMETRY "adtf.aadc.swe.odometry"
 
-
+#include "stdafx.h"
 #include "math.h"
 /*!
 * Simple odometry based on bicycle model. Uses mainly gyro and wheel sensors. The relative position and heading are internally updated whenever a new data sample arrives.
@@ -56,7 +56,7 @@ Y         |        -Y
 */
 class SWE_Odometry : public adtf::cFilter
 {
-    ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_ODOMETRY, "SWE_Odometry", OBJCAT_DataFilter, "SWE_Odometry filter", 1, 0, 0, "pre alpha version");
+    ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_ODOMETRY, "SWE_Odometry", OBJCAT_DataFilter, "Odometry", 1, 0, 0, "pre alpha version");
 
         /*! input pin for the steering angle -- in RAD */
         cInputPin m_oInputSteeringAngle; //TODO: not clear what type of angle we get

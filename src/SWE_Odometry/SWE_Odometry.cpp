@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "SWE_Odometry.h"
 
 #define WHEELBASE 359

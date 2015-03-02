@@ -77,7 +77,8 @@ private:
     tResult searchRoutineAlongside();
     tResult searchRoutineCross();
 
-    tResult parkRoutineAlongside(tFloat32 lotSize, tFloat32 distStartPark);
+    tResult parkRoutineAlongsideEasy(tFloat32 distStartPark);
+    tResult parkRoutineAlongsideNormal(tFloat32 distStartPark);
     tResult parkRoutineCross(tFloat32 lotSize, tFloat32 distStartPark);
 
     tResult sendSpeed(tInt8 speed);
