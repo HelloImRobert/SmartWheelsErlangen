@@ -1,19 +1,23 @@
 #include "SWE_Odometry.h"
+#include "SWE_cSlidingWindow.h"
 
-#define WHEELBASE 359.0
-#define WHEELTICK_PER_TURN 16.0
+#define WHEELBASE 359.0f
+#define WHEELTICK_PER_TURN 16.0f
 
 
 ADTF_FILTER_PLUGIN("SWE_Odometry", OID_ADTF_SWE_ODOMETRY, SWE_Odometry)
 
 
-SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info) //TODO
+SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info) , m_SlidingWindowCntLeftWheel(41), m_SlidingWindowCntRightWheel(41) //TODO
 {
     m_steeringAngle = 0;
     m_slippageAngle = 0;
     m_velocityLeft = 0;
     m_velocityRight = 0;
     m_velocityFiltered = 0;
+    m_velocityUnfiltered = 0;
+    m_velocityRight_last = 0;
+    m_velocityLeft_last = 0;
 
     m_currTimeStamp = 0;
     m_oldTimeStamp = GetTime();
@@ -33,9 +37,12 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info) //TODO
     m_wheelCounter_left = 0;
     m_wheelCounter_right = 0;
 
+    m_currentDirection = 1;
+
 
     SetPropertyFloat("Velocity Filter Strength",0.5);
     SetPropertyFloat("Wheel circumfence in mm",329);
+    SetPropertyInt("time and tick resolution of the velocity calculation 2-20",10);
 
 }
 
@@ -109,6 +116,7 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 
         m_filterStrength = (tFloat32)GetPropertyFloat("Velocity Filter Strength", 0.5);
         m_wheelCircumfence = (tFloat32)GetPropertyFloat("Wheel circumfence in mm",329);
+        m_velocityResolution = (tFloat32)GetPropertyInt("time and tick resolution of the velocity calculation 2-20",10);
 
         //prevent stupid filter values
         if(m_filterStrength >= 1.0)
@@ -118,6 +126,15 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
         else if (m_filterStrength < 0.0)
         {
             m_filterStrength = 0.0;
+        }
+
+        if(m_velocityResolution > 20)
+        {
+            m_velocityResolution = 20;
+        }
+        else if (m_velocityResolution < 2)
+        {
+            m_velocityResolution = 2;
         }
 
 
@@ -184,22 +201,18 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
 
             timeIntervall = m_currTimeStamp - m_oldTimeStamp;
-
-
             m_wheelCounter_left = FilterTicks(m_lastLeftWheelTime, m_currTimeStamp, m_lastwheelCounter_left, m_buffer);
+            m_SlidingWindowCntLeftWheel.addNewValue(m_wheelCounter_left, m_currTimeStamp, m_velocityResolution);
 
 
-            if (m_wheelCounter_left > m_lastwheelCounter_left)
-            {
-                m_distanceAllSum = m_distanceAllSum + (CalcDistance(m_currentDirection, (m_wheelCounter_left - m_lastwheelCounter_left)) / 2.0);
-                CalcVelocity();
-                m_oldTimeStamp = m_currTimeStamp;
-            }
-            else
-            {
-                CalcVelocity();
-            }
+            //LOG_INFO(cString::Format("Odometry 1 received: Wheelcounter_left %f", m_wheelCounter_left));
 
+
+            m_distanceAllSum = m_distanceAllSum + (CalcDistance(m_currentDirection, (m_wheelCounter_left - m_lastwheelCounter_left)) / 2.0);
+            CalcVelocity();
+
+
+            //LOG_INFO(cString::Format("Odometry 2: m_distanceAllSum %f", m_distanceAllSum));
 
             CalcSingleOdometry( timeIntervall );
             SendVelocity();
@@ -310,6 +323,7 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             timeIntervall = m_lastTriggerTime - m_oldTimeStamp;
             CalcSingleOdometry(timeIntervall);
             SendOdometry(m_lastTriggerTime);
+            //LOG_INFO(cString::Format("Odometry: Triggered!"));
 
             // reset for next trigger interval
             m_distanceX_sum = 0;
@@ -327,38 +341,16 @@ tTimeStamp SWE_Odometry::GetTime()
 
 tResult SWE_Odometry::CalcVelocity()//TODO
 {
-    tFloat32 test_velocity = 0;
-    tFloat32 distance_per_tick;
 
-    distance_per_tick = (1.0 / WHEELTICK_PER_TURN)* m_wheelCircumfence;
-
-    if((m_wheelCounter_left - m_lastwheelCounter_left) >= 1)
-    {
-        m_velocityLeft = ((m_wheelCounter_left - m_lastwheelCounter_left * distance_per_tick * m_currentDirection) / (m_currTimeStamp -  m_lastLeftWheelTime));
-    }
+    if (m_SlidingWindowCntLeftWheel.getEndValue()!=0)
+        m_velocityLeft = CalcMms(m_SlidingWindowCntLeftWheel.getEndValue(),m_SlidingWindowCntLeftWheel.getBeginValue(),m_SlidingWindowCntLeftWheel.getEndTime(),m_SlidingWindowCntLeftWheel.getBeginTime(), m_currentDirection);
     else
-    {
-        test_velocity = ((m_currentDirection) * distance_per_tick / (m_currTimeStamp -  m_lastLeftWheelTime));
+        m_velocityLeft = 0;
 
-        if (((test_velocity < (m_velocityLeft)) && m_currentDirection > 0) || ((test_velocity > (m_velocityLeft)) && m_currentDirection < 0))
-        {
-            m_velocityLeft = test_velocity;
-        }
-    }
 
-    if((m_wheelCounter_right - m_lastwheelCounter_right) >= 1)
-    {
-        m_velocityRight = ((m_wheelCounter_right - m_lastwheelCounter_right) * m_currentDirection * distance_per_tick) / (m_currTimeStamp -  m_lastLeftWheelTime);
-    }
-    {
-        test_velocity = ((m_currentDirection * distance_per_tick) / (m_currTimeStamp -  m_lastRightWheelTime));
 
-        if (((test_velocity < (m_velocityRight)) && m_currentDirection > 0) || ((test_velocity > (m_velocityRight)) && m_currentDirection < 0))
-        {
-            m_velocityRight = test_velocity;
-        }
-    }
 
+    m_velocityUnfiltered = ((m_velocityLeft + m_velocityRight) / 2.0);
     m_velocityFiltered = FilterVelocity(m_filterStrength, m_velocityFiltered, ((m_velocityLeft + m_velocityRight) / 2.0) );
 
     RETURN_NOERROR;
@@ -374,7 +366,6 @@ tResult  SWE_Odometry::FilterVelocity(tFloat32 filter_strength, tFloat32 old_vel
 
 tFloat32 SWE_Odometry::FilterTicks (tTimeStamp last_tick, tTimeStamp curr_tick, tFloat32 last_Count, tFloat32 curr_count) //TODO placeholder
 {
-
     return curr_count;
 }
 
@@ -490,4 +481,21 @@ tResult SWE_Odometry::CalcSingleOdometry(tTimeStamp timeIntervall) //TODO
     RETURN_NOERROR;
 }
 
+tFloat32 SWE_Odometry::CalcMms( tFloat32 counterValue, tFloat32 lastCounterValue,tTimeStamp currentTimestamp, tTimeStamp lastTimestamp, tFloat32 direction )
+{
+  long deltaTime = long(currentTimestamp - lastTimestamp);            //millliseconds
+  unsigned long deltaCounter = long(counterValue) - long(lastCounterValue);
+  tFloat32 deltaRounds = tFloat32(deltaCounter)/WHEELTICK_PER_TURN;  //one round = 16 counts
+  tFloat32 mms;
+  if (deltaTime!=0)
+            {
+            mms = tFloat32(deltaRounds/deltaTime * 1.0E3 * m_wheelCircumfence * direction);        //rounds/time(usec) * usec
+            //LOG_INFO(adtf_util::cString::Format("counter %d...%d , rpm = %f ",counterValue,lastCounterValue,rpm));
+            }
+  else {
+        mms = 0;
+        //LOG_INFO("rpm = NULL ");
+        }
 
+  return mms;
+}

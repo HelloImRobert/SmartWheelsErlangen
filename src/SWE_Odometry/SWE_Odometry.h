@@ -5,6 +5,7 @@
 
 #include "stdafx.h"
 #include "math.h"
+#include "SWE_cSlidingWindow.h"
 /*!
 * Simple odometry based on bicycle model. Uses mainly gyro and wheel sensors. The relative position and heading are internally updated whenever a new data sample arrives.
 * Output of the accumulated position change in position and heading every time a trigger signal arrives (accumulated since last trigger).
@@ -125,15 +126,24 @@ class SWE_Odometry : public adtf::cFilter
     /*! other variables */
     tFloat32 m_slippageAngle;
     tFloat32 m_velocityLeft;
+    tFloat32 m_velocityLeft_last;
     tFloat32 m_velocityRight;
+    tFloat32 m_velocityRight_last;
+    tFloat32 m_velocityUnfiltered;
     tFloat32 m_velocityFiltered;
 	tFloat32 m_distanceX_sum;
 	tFloat32 m_distanceY_sum;
 	tFloat32 m_heading_sum;
     tFloat32 m_distanceAllSum;
+    tInt32   m_velocityResolution; //resolution of the velocity calculation 10 ~ max 10% error, 5 ~ max 20% error etc.
 
     tFloat32 m_filterStrength;
     tFloat32 m_wheelCircumfence;
+
+    /*! sliding window filter for the left wheel*/
+    SWE_cSlidingWindow m_SlidingWindowCntLeftWheel;
+    /*! sliding window filter for the right wheel*/
+    SWE_cSlidingWindow m_SlidingWindowCntRightWheel;
 
 
 
@@ -157,6 +167,16 @@ class SWE_Odometry : public adtf::cFilter
 
 
     tFloat32 FilterTicks(tTimeStamp last_tick, tTimeStamp curr_tick, tFloat32 last_Count, tFloat32 curr_count);//TODO  prevent double hits due to jittery sensors
+
+
+    /*!calculates the speed in mm/s of the wheel with the given parameters
+            @param counterValue        the actual value of the counter
+            @param lastCounterValue    the last value of the counter which must be a certain interval ago (defined with the size of the sliding window)
+            @param currentTimestamp    the actual timestamp
+            @param lastTimestamp       the timestamp of the lastCounterValue
+            @param direction           the direction of travel
+            */
+    tFloat32 CalcMms(tFloat32 counterValue, tFloat32 lastCounterValue, tTimeStamp currentTimestamp, tTimeStamp lastTimestamp, tFloat32 direction);
 };
 
 

@@ -631,7 +631,6 @@ tResult SpeedControl::SetCarStopped(tBool state)
     RETURN_NOERROR;
 }
 
-
 tResult SpeedControl::SetPWM(tFloat32 pwm_value)
 {
     if (pwm_value != m_last_pwm)
