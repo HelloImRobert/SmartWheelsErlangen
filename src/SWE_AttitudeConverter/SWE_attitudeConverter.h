@@ -20,7 +20,8 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR I
 
 using namespace adtf;
 /*!
-* This is filter converts the attitude from the quaternions system to the euler angles
+* Fixed version by SmartWheels-Erlangen (Robert de Temple) -> no singularities on yaw, no mixup of angles.
+* This is filter converts the attitude from the quaternions system to the euler angles.
 */
 class SWE_AttitudeConverter : public adtf::cFilter
 {

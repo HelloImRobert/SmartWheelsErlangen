@@ -19,7 +19,6 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR I
 #include "stdafx.h"
 #include "SWE_attitudeConverter.h"
 
-#define MY_PI 3.141592653589793238
 
 ADTF_FILTER_PLUGIN("SWE Attitude Converter", OID_ADTF_SWE_ATTITUDECONV, SWE_AttitudeConverter)
 

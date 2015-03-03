@@ -11,8 +11,8 @@ adtf_add_filter(${FILTER_NAME}
     SWE_Odometry.h
     SWE_Odometry.cpp
 
-    SWE_cSlidingWindow.h
-    SWE_cSlidingWindow.cpp
+    SWE_cSmartSlidingWindow.h
+    SWE_cSmartSlidingWindow.cpp
 )
 
 # linking libs

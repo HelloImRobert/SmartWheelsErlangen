@@ -5,14 +5,16 @@
 
 #include "stdafx.h"
 #include "math.h"
-#include "SWE_cSlidingWindow.h"
+#include "SWE_cSmartSlidingWindow.h"
 /*!
-* Simple odometry based on bicycle model. Uses mainly gyro and wheel sensors. The relative position and heading are internally updated whenever a new data sample arrives.
+* SmartWheels-Erlangen (Robert de Temple)
+* Odometry based on bicycle model. Uses mainly gyro and wheel sensors.
+* The relative position and heading are internally updated whenever a new data sample arrives.
 * Output of the accumulated position change in position and heading every time a trigger signal arrives (accumulated since last trigger).
 * All data sent out has the timestamp of the trigger signal.
 
--> odometry data contains the odometry data. Further explanation at the struct definition further down in this file.
--> velocity continuously sends the current (estimated) car speed, this pin is especially smoothed for the speed controller
+-> odometry data contains the odometry data.
+-> velocity continuously sends the current (estimated) car speed, its value is smoothed for the speed controller.
 
 odometry data structure:
 
@@ -20,7 +22,7 @@ odometry data structure:
         tFloat32	 distance_y; 		// relative y coordinates in mm
         tFloat32   	 angle_heading;		// realtive heading in radians
         tFloat32     velocity;          // current velocity in mm/s
-        tFloat32     distance_sum;      // sum of distance driven
+        tFloat32     distance_sum;      // sum of distance driven, this data counts forwards and backwards depending on direction and is the accumulation of travel as measured  by wheelsensor ticks. All other odometry data is based on estimated speed, therefore there is some difference between both values.
 
         + ui32ArduinoTimestamp          // timestamp of the trigger signal triggering the output
 
@@ -63,10 +65,10 @@ class SWE_Odometry : public adtf::cFilter
         cInputPin m_oInputSteeringAngle; //TODO: not clear what type of angle we get
 
         /*! input pin for the left wheel optical sensor -- ticks*/
-        cInputPin m_oInputWheelLeft; //TODO
+        cInputPin m_oInputWheelLeft;
 
         /*! input pin for the right wheel optical sensor -- ticks*/
-        cInputPin m_oInputWheelRight; //TODO
+        cInputPin m_oInputWheelRight;
 
         /*! input pin that tells the odometry which direction the wheels are turning -- true = forwards*/
         cInputPin m_oInputDirection;
@@ -141,12 +143,12 @@ class SWE_Odometry : public adtf::cFilter
     tFloat32 m_wheelCircumfence;
 
     /*! sliding window filter for the left wheel*/
-    SWE_cSlidingWindow m_SlidingWindowCntLeftWheel;
+    SWE_cSmartSlidingWindow m_SlidingWindowCntLeftWheel;
     /*! sliding window filter for the right wheel*/
-    SWE_cSlidingWindow m_SlidingWindowCntRightWheel;
+    SWE_cSmartSlidingWindow m_SlidingWindowCntRightWheel;
 
-
-
+    /*! Lock */
+    cCriticalSection m_mutex;
 
 
     /*! METHODS */
@@ -164,19 +166,7 @@ class SWE_Odometry : public adtf::cFilter
     tResult  FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity);
     tResult  SendVelocity(); //TODO
 
-
-
     tFloat32 FilterTicks(tTimeStamp last_tick, tTimeStamp curr_tick, tFloat32 last_Count, tFloat32 curr_count);//TODO  prevent double hits due to jittery sensors
-
-
-    /*!calculates the speed in mm/s of the wheel with the given parameters
-            @param counterValue        the actual value of the counter
-            @param lastCounterValue    the last value of the counter which must be a certain interval ago (defined with the size of the sliding window)
-            @param currentTimestamp    the actual timestamp
-            @param lastTimestamp       the timestamp of the lastCounterValue
-            @param direction           the direction of travel
-            */
-    tFloat32 CalcMms(tFloat32 counterValue, tFloat32 lastCounterValue, tTimeStamp currentTimestamp, tTimeStamp lastTimestamp, tFloat32 direction);
 };
 
 
