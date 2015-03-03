@@ -1,7 +1,7 @@
 set(FILTER_NAME SWE_LaneDetection)
 
 # include directories
-include_directories(${/usr/include/opencv}) 
+include_directories(${OpenCV_INCLUDE_DIR}) 
 
 # declare our filter
 adtf_add_filter(${FILTER_NAME}

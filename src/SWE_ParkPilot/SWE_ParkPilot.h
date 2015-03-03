@@ -46,7 +46,10 @@ private:
     tFloat32    m_lastIRshort;
 
     tFloat32    m_distStartPark;
+    tFloat32    m_headingAtStart;
     tFloat32    m_overshoot;
+    tFloat32    m_AngleAdjustment;
+    tFloat32    m_DistanceAdjustment;
 
     tInt8       m_parkTrigger;
 

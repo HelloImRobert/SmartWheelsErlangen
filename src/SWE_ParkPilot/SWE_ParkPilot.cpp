@@ -2,42 +2,42 @@
 
 // +++ begin_defines +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*! Sensor positions */
-#define POS_IR_SIDE_RIGHT -150.0
-#define POS_IR_FRONT_SIDE 450.0
+#define POS_IR_SIDE_RIGHT -150.0f
+#define POS_IR_FRONT_SIDE 450.0f
 
 /*! Thresholds */
-#define TH_SHORT 140.0
-#define TH_LONG_ALONGSIDE 590.0
-#define TH_LONG_CROSS 590.0
+#define TH_SHORT 140.0f
+#define TH_LONG_ALONGSIDE 590.0f
+#define TH_LONG_CROSS 590.0f
 
 /*! Park styles */
 #define PARK_ALONGSIDE 1
 #define PARK_CROSS 2
 
 /*! Lot sizes */
-#define ALONGSIDE_SIZE 765         // minimum size of parking lot
-#define CROSS_SIZE 500             // ??minimum size of parking lot
-#define EASY_ALONGSIDE 40          // buffer for easy S-curve maneuver
+#define ALONGSIDE_SIZE 765.0f         // minimum size of parking lot
+#define CROSS_SIZE 500.0f             // ?? minimum size of parking lot ??
+#define EASY_ALONGSIDE 40.0f          // buffer for easy S-curve maneuver
 
 /*! Helpers to calculate central angle */
-#define CALC_QUOTIENT -799
-#define CALC_CARHALF 150
-#define CALC_RADIUS 400
-#define DEG_TO_RAD 0.017453292
+#define CALC_QUOTIENT -799.0f
+#define CALC_CARHALF 150.0f
+#define CALC_RADIUS 400.0f
+#define DEG_TO_RAD 0.017453292f
 
 /*! Invalide sensor values */
-#define INVALIDE_LOW 0.0
-#define INVALIDE_HIGH 9999.0
+#define INVALIDE_LOW 0.0f
+#define INVALIDE_HIGH 9999.0f
 
 /*! Steering angles */
-#define STEER_RIGHT_MAX -30.0             // Maximaler Lenkwinkel rechts
-#define STEER_LEFT_MAX 30.0               // Maximaler Lenkwinkel links
-#define STEER_NEUTRAL 0.0                 // Lenkwinkel = 0
+#define STEER_RIGHT_MAX -30.0f             // Maximaler Lenkwinkel rechts
+#define STEER_LEFT_MAX 30.0f               // Maximaler Lenkwinkel links
+#define STEER_NEUTRAL 0.0f                 // Lenkwinkel = 0
 
 /*! Adjustment for normal parking maneuver */
 // TODO: in filter properties schreiben
-#define ANGLE_ADJUSTMENT 3                  // in degree !
-#define DIST_ADJUSTMENT 30
+#define ANGLE_ADJUSTMENT 3.0f                  // in degree !
+#define DIST_ADJUSTMENT 30.0f
 #define COUNT_MANEUVERS 4
 
 // +++ end_defines ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -47,6 +47,7 @@ ADTF_FILTER_PLUGIN("SWE ParkPilot", OID_ADTF_SWE_PARKPILOT, cSWE_ParkPilot)
 
 cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
 {
+        // initialise member variables
         m_searchState = 0;
         m_parkState = 0;
 
@@ -72,6 +73,10 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         m_odometryData.angle_heading = 0.0;
         m_odometryData.distance_sum = 0.0;
         m_odometryData.velocity = 0.0;
+
+        // set filter properties
+        SetPropertyFloat("AngleAdjustment",3.0);
+        SetPropertyFloat("DistanceAdjustment",40.0);
 
 }
 
@@ -133,7 +138,8 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
     }
     else if (eStage == StageNormal)
     {
-
+        m_AngleAdjustment = GetPropertyFloat("AngleAdjustment");
+        m_DistanceAdjustment = GetPropertyFloat("DistanceAdjustment");
     }
     else if(eStage == StageGraphReady)
     {
@@ -292,12 +298,14 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
             if( distTravelled >= ALONGSIDE_SIZE + EASY_ALONGSIDE )
             {
                 m_searchState = 4;
+                // Start blinking
                 m_parkState = 101;
             }
 
             if( m_IRFrontRightCur <= TH_SHORT )
             {
                 m_searchState = 4;
+                // Start blinking
                 m_parkState = 1;
             }
             break;
@@ -315,20 +323,20 @@ tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
 {
     tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
     tFloat32 distToGo = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( centralAngle ) );
-    tFloat32 headingAtStart = 0.0;
 
     switch(m_parkState)
     {
-        case 101: // drive forward until park position reached and break
+        case 101: // drive forward until position for starting the park maneuver is reached and break
             if( m_odometryData.distance_sum - m_distStartPark >= distToGo )
             {
                 sendSteeringAngle( STEER_NEUTRAL );
                 sendSpeed( 0 );
+                m_headingAtStart = m_odometryData.angle_heading;
                 m_parkState = 102;
             }
             break;
 
-        case 102: // check how much overshoot we had after breaking
+        case 102: // check how much overshoot we had after breaking and drive backwards...
             if( m_carStopped == true )
             {
                 m_overshoot = m_odometryData.distance_sum - m_distStartPark - distToGo;
@@ -337,13 +345,29 @@ tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
             }
             break;
 
-        case 103: // drive backwards until overshoot is killed and steer max right
+        case 103: // ...drive backwards until overshoot is killed and steer max right...
             if( m_odometryData.distance_sum + m_overshoot >= 0)
             {
                 m_parkState = 104;
                 sendSteeringAngle(STEER_RIGHT_MAX);
             }
             break;
+
+        case 104: // ... steer max right until central angle is reaced and steer max left...
+            if( m_odometryData.angle_heading >= (m_headingAtStart + centralAngle) )
+            {
+                m_parkState = 105;
+                sendSteeringAngle(STEER_LEFT_MAX);
+            }
+            break;
+
+        case 105: // ... steer max left until m_headingAtStart is reached again
+            if( m_odometryData.angle_heading <= m_headingAtStart )
+            {
+                m_parkState = 106;
+                sendSpeed( 0 );
+                //Stop blinking
+            }
 
         default:
             break;
@@ -352,70 +376,64 @@ tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
     RETURN_NOERROR;
 }
 
-/*
-tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
-{
-
-    tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
-    tFloat32 distToGo = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( centralAngle ) );
-    tFloat32 actualDistGone = 0.0;
-    tFloat32 overshoot = 0.0;
-    tFloat32 headingAtStart = 0.0;
-
-
-    if( m_odometryData.distance_sum - distStartPark >= distToGo)
-    {
-        //VOLLBREMSUNG
-        sendSpeed( 0 );
-    }
-
-    if( m_carStopped == true )
-    {
-        actualDistGone = m_odometryData.distance_sum - distStartPark;
-        overshoot = actualDistGone - distToGo;
-
-        // Blink right
-
-        // Go backwards....
-        sendSpeed( -1 );
-    }
-
-
-    //...until "distToGo" is reached again
-    // maximum steering angle right (als servo signal rausgeben!! +-30)
-    if( (actualDistGone - m_odometryData.distance_sum) >= overshoot )
-    {
-        headingAtStart = m_odometryData.angle_heading;
-        sendSteeringAngle(STEER_RIGHT_MAX);
-    }
-
-    // backwards until heading = headingAtStart + centralAngle....
-    //....maximum steering angle left
-    if( (m_odometryData.angle_heading - headingAtStart) >= centralAngle )
-    {
-        sendSteeringAngle(STEER_LEFT_MAX);
-    }
-
-    // backwards until headingAtStart is reached again
-    if( m_odometryData.angle_heading <= headingAtStart )
-    {
-        sendSpeed( 0 );
-        // Stop blinking
-    }
-
-
-
-    // at the end....
-    m_entry = false;
-    m_entrySaved = false;
-    m_minDistReached = false;
-    RETURN_NOERROR;
-}
-*/
-
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ALONGSIDE NORMAL +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 tResult cSWE_ParkPilot::parkRoutineAlongsideNormal()
 {
+    tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
+    tFloat32 distToGo = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( centralAngle ) );
+
+    // now adjust the central angle
+    centralAngle = centralAngle + m_AngleAdjustment;
+
+    switch(m_parkState)
+    {
+        case 1: // drive forward until position for starting the park maneuver is reached and break
+            if( m_odometryData.distance_sum - m_distStartPark >= distToGo )
+            {
+                sendSteeringAngle( STEER_NEUTRAL );
+                sendSpeed( 0 );
+                m_headingAtStart = m_odometryData.angle_heading;
+                m_parkState = 2;
+            }
+            break;
+
+        case 2: // check how much overshoot we had after breaking and drive backwards...
+            if( m_carStopped == true )
+            {
+                m_overshoot = m_odometryData.distance_sum - m_distStartPark - distToGo;
+                m_parkState = 3;
+                sendSpeed( -1 );
+            }
+            break;
+
+        case 3: // ...drive backwards until overshoot is killed and steer max right...
+            if( m_odometryData.distance_sum + m_overshoot >= 0)
+            {
+                m_parkState = 4;
+                sendSteeringAngle(STEER_RIGHT_MAX);
+            }
+            break;
+
+        case 4: // ... steer max right until central angle is reaced and steer max left...
+            if( m_odometryData.angle_heading >= (m_headingAtStart + centralAngle) )
+            {
+                m_parkState = 5;
+                sendSteeringAngle(STEER_LEFT_MAX);
+            }
+            break;
+
+        case 5: // ... steer max left until m_headingAtStart is reached again
+            if( m_odometryData.angle_heading <= m_headingAtStart )
+            {
+                m_parkState = 6;
+                sendSpeed( 0 );
+                //Stop blinking
+            }
+
+        default:
+            break;
+
+    }
     RETURN_NOERROR;
 }
 
