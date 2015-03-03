@@ -10,6 +10,8 @@ adtf_add_filter(${FILTER_NAME}
 
     SWE_LaneDetection.h
     SWE_LaneDetection.cpp
+    SWE_CatmullRomSpline.h
+    SWE_CatmullRomSpline.cpp
 )
 
 # linking libs

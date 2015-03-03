@@ -38,10 +38,32 @@ class cSWE_LaneDetection : public adtf::cFilter
             virtual ~cSWE_LaneDetection();
 
             cVideoPin		_oVideoInputPin;               /**< the input pin for the video*/
-            cVideoPin       _oGreyScaleVideoOutputPin;              /**< outputpin for the debug video */
+            cVideoPin       _oInternRepresentationVideoOutputPin;              /**< outputpin for the debug video */
             cVideoPin       _oColorVideoOutputPin;              /**< outputpin for the debug video */
             cOutputPin     m_oLines;
             cOutputPin     m_oSplines;
+
+            enum Side
+            {
+                RIGHT,
+                LEFT,
+                AMBIGOUS
+            };
+
+            class BlobDescriptor
+            {
+            public:
+                std::vector< cv::Point > contour;
+                Side side;
+                double lengthContour;
+                double areaContour;
+                cv::Point centerOfGravity;
+                double angleOfMainDirection;
+                double distanceToReference;
+                double principalAxisLengthRatio;
+                vector<Point2d> eigen_vecs;
+                vector<double> eigen_vals;
+            };
 
         protected:
 
@@ -53,42 +75,47 @@ class cSWE_LaneDetection : public adtf::cFilter
 
         private:
 
-            tResult ProcessInput(IMediaSample* pSample);
-            tResult InitTransformationMatrices( std::string pathExternalCameraParams );
-            tResult InitPinFormats();
-
-            std::pair< cv::Point, double > computeEnergy(const cv::Mat& src, const cv::Point2i& start, const cv::Point2i& directionStart, const cv::Point2i& directionEnd, size_t steps);
-            cv::Point findNextPoint(const cv::Mat& src, const cv::Point2i& start, const cv::Point2i& directionStart, size_t steps);
-
-            cv::Mat _backProjectionMatrix;
-            cv::Mat _projectionMatrix;                     /**< the projection Matrix for the inverse Perspective Mapping*/
-
-            tBitmapFormat _sGreyScaleBitMapOutputFormat;            /**< the inputformat of the video*/
-            tBitmapFormat _sColorBitMapOutputFormat;            /**< the inputformat of the video*/
-            const tBitmapFormat*   _sBitMapInputFormat;    /**< the outputformat for the debug video*/
-
-            // Parameters for cutting the image
-            tInt _leftBorder;
-            tInt _rightBorder;
-            tInt _upperBorder;
-            tInt _lowerBorder;
-            tBool _applyCut;                                    /**< Boolean indicating wether the image should be cut*/
-
-            // Parameters for the algorithm
-            std::string _pathExternalCameraParams;         /**< Path to the xml with the points of the inverse perspective transformation*/
-            FileStorage _inversePerspectiveFileStorage;    /**< Stream to deserialize the XML with the points*/
-
-            tInt _CountStdDevs;                            /**< the count of stdDevs for the Tresholding*/
-
-            tFloat64 _MinAngle;
-            tFloat64 _MaxAngle;
-
-            tFloat32 _thetaMax;
-            tFloat32 _rhoMax;
-
             /*! Coder Descriptors for the pins*/
             cObjectPtr<IMediaTypeDescription> m_pCoderDescLines;
             cObjectPtr<IMediaTypeDescription> m_pCoderDescSplines;
+
+            tResult                     ProcessInput(IMediaSample* pSample);
+            tResult                     InitTransformationMatrices( std::string pathExternalCameraParams );
+            tResult                     InitPinFormats();
+
+            // internal Functions
+            void                        getBlobDescriptions     ( const std::vector< std::vector< cv::Point > >& contours , std::vector< BlobDescriptor >& blobs );
+            void                        getOrientation          (BlobDescriptor& blob );
+            std::vector< bool >         getOuterLaneBoundaries  ( std::vector< BlobDescriptor >& blobs );
+            cv::Point                   getReferencePoint       (const std::vector< bool >& outerLaneBoundariesIndicator, const std::vector< BlobDescriptor >& blobs, cv::Mat& image);
+            bool                        findNextMiddleLaneBlob  (std::vector< BlobDescriptor* >& middleLaneBoundary, const std::vector< bool >& outerLaneBoundariesIndicator,
+                                                                 std::vector< BlobDescriptor >& blobs, const cv::Point& referencePoint , const double distanceThreshold );
+            std::pair< size_t, size_t > contourToSpline         (std::vector< cv::Point >& contour , const int splineSearchWidth , bool side = false );
+            void                        drawSpline              (cv::Mat& image, const std::vector< cv::Point2d >& splinePoints , const cv::Scalar& color);
+            void                        drawResultImage         (cv::Mat& image, const std::vector<BlobDescriptor>& blobs, const std::vector< bool > outerLaneBoundariesIndicator,
+                                                                 const cv::Point& referencePoint, const std::vector< BlobDescriptor* > middleLaneBoundary);
+
+            // Parameters for the algorithm
+            bool                        _draw;
+            double                      _rightDistanceReferencePoint;
+            double                      _leftDistanceReferencePoint;
+            double                      _minDistanceToReferencePoint;
+            int                         _heightThresh;
+            double                      _lowerAreaThreshold;
+            size_t                      _startHeight;
+            double                      _principalAxisLengthRatioThreshold;
+            int                         _splineSearchWidth;
+            int                         _CountStdDevs;                              /**< the count of stdDevs for the Tresholding*/
+
+            std::string                 _pathExternalCameraParams;                  /**< Path to the xml with the points of the inverse perspective transformation*/
+            FileStorage                 _inversePerspectiveFileStorage;             /**< Stream to deserialize the XML with the points*/
+
+            cv::Mat                     _backProjectionMatrix;
+            cv::Mat                     _projectionMatrix;                          /**< the projection Matrix for the inverse Perspective Mapping*/
+
+            tBitmapFormat               _sInternRepresentationBitMapOutputFormat;              /**< the inputformat of the video*/
+            tBitmapFormat               _sColorBitMapOutputFormat;                  /**< the inputformat of the video*/
+            const tBitmapFormat*        _sBitMapInputFormat;                        /**< the outputformat for the debug video*/
         };
 
         //*************************************************************************************************
