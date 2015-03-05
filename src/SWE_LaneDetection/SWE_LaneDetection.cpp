@@ -7,7 +7,7 @@
 ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_LANEDETECTION_FILTER , cSWE_LaneDetection);
 
 // Macros used to decouple text from code
-#define CORRESPING_POINTS_XML "Path to external Camera Params xml"
+#define CORRESPONDING_POINTS_XML "Path to external Camera Params xml"
 #define COUNT_OF_STDDEVS "Stddevs for the Thresholding"
 #define WIDTH_FACTOR "The factor by which the area exceeds the length of valid boundaries"
 #define MIDDLE_DISTANCE_HIGH_THRESHOLD "The minimum distance for a middle boundary"
@@ -69,8 +69,8 @@ cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
     SetPropertyBool( DRAW_IMAGES , true);
     SetPropertyBool( DRAW_IMAGES NSSUBPROP_ISCHANGEABLE, tTrue);
 
-    SetPropertyStr( CORRESPING_POINTS_XML , "/home/odroid/AADC/calibration_files/points.xml");
-    SetPropertyBool( CORRESPING_POINTS_XML NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyStr( CORRESPONDING_POINTS_XML , "/home/odroid/AADC/calibration_files/SWE_cameraCalibrationPoints.XML");
+    SetPropertyBool( CORRESPONDING_POINTS_XML NSSUBPROP_ISCHANGEABLE, tTrue);
 
     SetPropertyInt( HEIGHT_THRESHOLD , 50);
     SetPropertyBool( HEIGHT_THRESHOLD NSSUBPROP_ISCHANGEABLE, tTrue);
@@ -171,7 +171,7 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         _splineSearchWidth = GetPropertyInt(SPLINE_SEARCH_WIDTH);
 
         // read the parameters from a file and setup a transformation matrix
-        InitTransformationMatrices( GetPropertyStr( CORRESPING_POINTS_XML ) );
+        InitTransformationMatrices( GetPropertyStr( CORRESPONDING_POINTS_XML ) );
 
         // initialize the formats of the pins;
         InitPinFormats();
