@@ -84,22 +84,23 @@ class cSWE_LaneDetection : public adtf::cFilter
             tResult                     InitPinFormats();
 
             // internal Functions
-            void                        getBlobDescriptions     ( const std::vector< std::vector< cv::Point > >& contours , std::vector< BlobDescriptor >& blobs );
+            void                        getBlobDescriptions     (const std::vector< std::vector< cv::Point > >& contours , std::vector< BlobDescriptor >& blobs );
             void                        getOrientation          (BlobDescriptor& blob );
-            std::vector< bool >         getOuterLaneBoundaries  ( std::vector< BlobDescriptor >& blobs );
-            cv::Point                   getReferencePoint       (const std::vector< bool >& outerLaneBoundariesIndicator, const std::vector< BlobDescriptor >& blobs, cv::Mat& image);
-            bool                        findNextMiddleLaneBlob  (std::vector< BlobDescriptor* >& middleLaneBoundary, const std::vector< bool >& outerLaneBoundariesIndicator,
-                                                                 std::vector< BlobDescriptor >& blobs, const cv::Point& referencePoint , const double distanceThreshold );
-            std::pair< size_t, size_t > contourToSpline         (std::vector< cv::Point >& contour , const int splineSearchWidth , bool side = false );
-            void                        drawSpline              (cv::Mat& image, const std::vector< cv::Point2d >& splinePoints , const cv::Scalar& color);
-            void                        drawResultImage         (cv::Mat& image, const std::vector<BlobDescriptor>& blobs, const std::vector< bool > outerLaneBoundariesIndicator,
-                                                                 const cv::Point& referencePoint, const std::vector< BlobDescriptor* > middleLaneBoundary);
+            int                         getOuterLaneBoundaries  (std::vector< BlobDescriptor >& blobs);
+            std::pair< size_t, size_t > contourToSpline         (const std::vector< cv::Point >& contour , const int splineSearchWidth , bool side = false );
+            void                        drawSpline              (cv::Mat& image, const std::vector< cv::Point >& splinePoints , const cv::Scalar& color);
+            void                        drawResultImage         (cv::Mat& image, const std::vector<BlobDescriptor>& blobs, const int outerLaneBoundariesIndicator,
+                                                                 const std::vector< BlobDescriptor* > middleLaneBoundary);
+            void                        project                 (BlobDescriptor& blob, const cv::Mat& projectionMatrix, int offset = 0 );
+            void                        project                 (std::vector< cv::Point >& contour, const cv::Mat& projectionMatrix, int offset = 0 );
 
             // Parameters for the algorithm
             bool                        _draw;
-            double                      _rightDistanceReferencePoint;
-            double                      _leftDistanceReferencePoint;
-            double                      _minDistanceToReferencePoint;
+            cv::Point                   _resultImageOffsetVector;
+            double                      _widthFactor;
+            double                      _middleDistanceHighThreshold;
+            double                      _middleDistanceLowThreshold;
+            double                      _minOuterBoundaryLength;
             int                         _heightThresh;
             double                      _lowerAreaThreshold;
             size_t                      _startHeight;

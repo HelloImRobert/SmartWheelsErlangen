@@ -14,24 +14,6 @@
 		_Points.push_back(_Points[_Points.size() - 1]);
 	}
 
-    CatMullRomSpline::CatMullRomSpline(const std::vector<Point2d> &points , double tkParameter )
-        : _TkParameter( tkParameter )
-    {
-        if (points.size() < 2)
-        {
-            Exception e;
-            e.msg = "Catmull-Rom-Splines need at least two points to be constructed";
-            throw e;
-        }
-        for( size_t i = 0 ; i < points.size() ; i++ )
-        {
-            _Points.push_back( (cv::Point) points[ i ] );
-        }
-
-        _Points.insert(_Points.begin(), _Points[0]);
-        _Points.push_back(_Points[_Points.size() - 1]);
-    }
-
 	CatMullRomSpline::~CatMullRomSpline(){}
 
 	void CatMullRomSpline::addSplinePoint( const Point& point )

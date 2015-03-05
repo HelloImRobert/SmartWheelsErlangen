@@ -9,7 +9,6 @@
 	{
 	public:
         CatMullRomSpline( const std::vector< Point >& points , double tkParameter = 0.5 );
-        CatMullRomSpline( const std::vector< Point2d >& points , double tkParameter = 0.5 );
 		virtual ~CatMullRomSpline();
 
 		void addSplinePoint( const Point& point);

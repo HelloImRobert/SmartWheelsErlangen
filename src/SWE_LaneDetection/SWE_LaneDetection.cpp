@@ -9,15 +9,18 @@ ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_LANEDETECTION_FILTER , cSWE_Lan
 // Macros used to decouple text from code
 #define CORRESPING_POINTS_XML "Path to external Camera Params xml"
 #define COUNT_OF_STDDEVS "Stddevs for the Thresholding"
-#define DISTANCE_TO_RIGHT_REFERENCEPOINT "The distance of the ReferencePoint to the Right Lane"
-#define DISTANCE_TO_LEFT_REFERENCEPOINT "The distance of the ReferencePoint to the Left Lane"
-#define MINDISTANCE_TO_REFERENCEPOINT "The threshold for a blob to be considered als lying on the reference"
+#define WIDTH_FACTOR "The factor by which the area exceeds the length of valid boundaries"
+#define MIDDLE_DISTANCE_HIGH_THRESHOLD "The minimum distance for a middle boundary"
+#define MIDDLE_DISTANCE_LOW_THRESHOLD "The maximum distance for a middle boundary"
+#define MIN_OUTER_BOUNDARY_LENGTH "The minimum length an outer boundary must have"
 #define DRAW_IMAGES "Boolean indicating wether visualizations should be drawn"
 #define HEIGHT_THRESHOLD "The Threshold at which Blobs are removed"
 #define LOWER_AREA_THRESHOLD "Minimum area of a blob to be considered"
 #define START_HEIGHT "The heightvalue to which the image is cropped"
 #define PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD "The ratio of eigenvalues at which a blob is rejected as boundary"
 #define SPLINE_SEARCH_WIDTH "The width of pixels which is considered as a Y-Levelset for the spline reduction"
+#define RESULTVID_OFFSET_X "X-Value of the offset for the resultvideo"
+#define RESULTVID_OFFSET_Y "Y-Value of the offset for the resultvideo"
 
 /**
  * @brief cSWE_LaneDetection::cSWE_LaneDetection
@@ -26,25 +29,42 @@ ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_LANEDETECTION_FILTER , cSWE_Lan
  */
 cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
 {
+
+
+    SetPropertyFloat( RESULTVID_OFFSET_X , 320);
+    SetPropertyBool( RESULTVID_OFFSET_X NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( RESULTVID_OFFSET_X NSSUBPROP_MINIMUM  , 0);
+    SetPropertyFloat( RESULTVID_OFFSET_X NSSUBPROP_MAXIMUM  , 9999 );
+
+    SetPropertyFloat( RESULTVID_OFFSET_Y , 450);
+    SetPropertyBool( RESULTVID_OFFSET_Y NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( RESULTVID_OFFSET_Y NSSUBPROP_MINIMUM  , 0 );
+    SetPropertyFloat( RESULTVID_OFFSET_Y NSSUBPROP_MAXIMUM  , 9999 );
+
     SetPropertyFloat( COUNT_OF_STDDEVS , 3.0);
     SetPropertyBool( COUNT_OF_STDDEVS NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( COUNT_OF_STDDEVS NSSUBPROP_MINIMUM  , 0.5 );
     SetPropertyFloat( COUNT_OF_STDDEVS NSSUBPROP_MAXIMUM  , 10.0 );
 
-    SetPropertyInt( DISTANCE_TO_RIGHT_REFERENCEPOINT , 450);
-    SetPropertyBool( DISTANCE_TO_RIGHT_REFERENCEPOINT NSSUBPROP_ISCHANGEABLE, tTrue);
-    SetPropertyInt( DISTANCE_TO_RIGHT_REFERENCEPOINT NSSUBPROP_MINIMUM  , 0);
-    SetPropertyInt( DISTANCE_TO_RIGHT_REFERENCEPOINT NSSUBPROP_MAXIMUM  , 999);
+    SetPropertyFloat( WIDTH_FACTOR , 7.0);
+    SetPropertyBool( WIDTH_FACTOR NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( WIDTH_FACTOR NSSUBPROP_MINIMUM  , 0.01);
+    SetPropertyFloat( WIDTH_FACTOR NSSUBPROP_MAXIMUM  , 99.0);
 
-    SetPropertyInt( DISTANCE_TO_LEFT_REFERENCEPOINT , 150);
-    SetPropertyBool( DISTANCE_TO_LEFT_REFERENCEPOINT NSSUBPROP_ISCHANGEABLE, tTrue);
-    SetPropertyInt( DISTANCE_TO_LEFT_REFERENCEPOINT NSSUBPROP_MINIMUM  , 0);
-    SetPropertyInt( DISTANCE_TO_LEFT_REFERENCEPOINT NSSUBPROP_MAXIMUM  , 999);
+    SetPropertyFloat( MIDDLE_DISTANCE_HIGH_THRESHOLD , 270.0);
+    SetPropertyBool( MIDDLE_DISTANCE_HIGH_THRESHOLD NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( MIDDLE_DISTANCE_HIGH_THRESHOLD NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( MIDDLE_DISTANCE_HIGH_THRESHOLD NSSUBPROP_MAXIMUM  , 640.0);
 
-    SetPropertyFloat( MINDISTANCE_TO_REFERENCEPOINT , 120);
-    SetPropertyBool( MINDISTANCE_TO_REFERENCEPOINT NSSUBPROP_ISCHANGEABLE, tTrue);
-    SetPropertyFloat( MINDISTANCE_TO_REFERENCEPOINT NSSUBPROP_MINIMUM  , 0);
-    SetPropertyFloat( MINDISTANCE_TO_REFERENCEPOINT NSSUBPROP_MAXIMUM  , 999);
+    SetPropertyFloat( MIDDLE_DISTANCE_LOW_THRESHOLD , 170.0);
+    SetPropertyBool( MIDDLE_DISTANCE_LOW_THRESHOLD NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( MIDDLE_DISTANCE_LOW_THRESHOLD NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( MIDDLE_DISTANCE_LOW_THRESHOLD NSSUBPROP_MAXIMUM  , 640.0);
+
+    SetPropertyFloat( MIN_OUTER_BOUNDARY_LENGTH , 450.0);
+    SetPropertyBool( MIN_OUTER_BOUNDARY_LENGTH NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( MIN_OUTER_BOUNDARY_LENGTH NSSUBPROP_MINIMUM  , 0);
+    SetPropertyFloat( MIN_OUTER_BOUNDARY_LENGTH NSSUBPROP_MAXIMUM  , 99999);
 
     SetPropertyBool( DRAW_IMAGES , true);
     SetPropertyBool( DRAW_IMAGES NSSUBPROP_ISCHANGEABLE, tTrue);
@@ -67,7 +87,7 @@ cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
     SetPropertyFloat( LOWER_AREA_THRESHOLD NSSUBPROP_MINIMUM  , 0.0);
     SetPropertyFloat( LOWER_AREA_THRESHOLD NSSUBPROP_MAXIMUM  , 99999.0);
 
-    SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD , 5.0 );
+    SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD , 3.0 );
     SetPropertyBool( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD NSSUBPROP_MINIMUM  , 0.01);
     SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD NSSUBPROP_MAXIMUM  , 99999.0);
@@ -137,9 +157,11 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
     else if (eStage == StageNormal)
     {
         // fetch the algorithmic parameters
-        _rightDistanceReferencePoint = GetPropertyInt(DISTANCE_TO_RIGHT_REFERENCEPOINT);
-        _leftDistanceReferencePoint = GetPropertyInt(DISTANCE_TO_LEFT_REFERENCEPOINT);
-        _minDistanceToReferencePoint = GetPropertyFloat(MINDISTANCE_TO_REFERENCEPOINT);
+        _resultImageOffsetVector = cv::Point(GetPropertyInt(RESULTVID_OFFSET_X),GetPropertyInt(RESULTVID_OFFSET_Y));
+        _widthFactor = GetPropertyFloat(WIDTH_FACTOR);
+        _middleDistanceHighThreshold = GetPropertyFloat(MIDDLE_DISTANCE_HIGH_THRESHOLD);
+        _middleDistanceLowThreshold = GetPropertyFloat(MIDDLE_DISTANCE_LOW_THRESHOLD);
+        _minOuterBoundaryLength = GetPropertyFloat(MIN_OUTER_BOUNDARY_LENGTH);
         _heightThresh = GetPropertyInt(HEIGHT_THRESHOLD);
         _draw = GetPropertyBool(DRAW_IMAGES),
         _CountStdDevs = GetPropertyInt(COUNT_OF_STDDEVS);
@@ -183,10 +205,10 @@ tResult cSWE_LaneDetection::InitPinFormats()
     _sInternRepresentationBitMapOutputFormat.nBitsPerPixel = 24;
     _sInternRepresentationBitMapOutputFormat.nPixelFormat = cImage::PF_RGB_888;
     _sInternRepresentationBitMapOutputFormat.nPaletteSize = 0;
-    _sInternRepresentationBitMapOutputFormat.nWidth = 640;
-    _sInternRepresentationBitMapOutputFormat.nHeight = 480 - _startHeight;
-    _sInternRepresentationBitMapOutputFormat.nBytesPerLine = 640 * 3;
-    _sInternRepresentationBitMapOutputFormat.nSize = _sInternRepresentationBitMapOutputFormat.nBytesPerLine * ( 480 - _startHeight );
+    _sInternRepresentationBitMapOutputFormat.nWidth = 1280;
+    _sInternRepresentationBitMapOutputFormat.nHeight = 960;
+    _sInternRepresentationBitMapOutputFormat.nBytesPerLine = 1280 * 3;
+    _sInternRepresentationBitMapOutputFormat.nSize = _sInternRepresentationBitMapOutputFormat.nBytesPerLine * 960;
 
     // set the format to the outputpin
     _oInternRepresentationVideoOutputPin.SetFormat( &_sInternRepresentationBitMapOutputFormat , NULL );
@@ -298,76 +320,143 @@ bool sort_xVal( const cv::Point& point1, const cv::Point& point2)
     return point1.x < point2.x;
 }
 
-void cSWE_LaneDetection::getOrientation(BlobDescriptor& blob )
+    /**
+     * \brief A convenience overload to project a BlobDescriptors contour and update it's orientation parameters by passing the BlobDescriptor.
+     * @param blob the BlobDescriptor which should be transformed
+     * @param projectionMatrix the transformation Matrix to be used
+     * @param offset an optional parameter to reverse the effect of cropped images
+     */
+void cSWE_LaneDetection::project(BlobDescriptor& blob, const cv::Mat& projectionMatrix, int offset)
 {
-    const std::vector< cv::Point >& pts = blob.contour;
+    project(blob.contour, projectionMatrix, offset);
+    // update the orientation parameters
+    getOrientation(blob);
+}
 
-    //Construct a buffer used by the pca analysis
-    Mat data_pts = Mat(pts.size(), 2, CV_64FC1);
-    for (int i = 0; i < data_pts.rows; ++i)
+/**
+    * \brief A function to apply a projection to a contour.
+    * @param contour the contour which should be transformed
+    * @param projectionMatrix the transformation Matrix to be used
+    * @param offset an optional parameter to reverse the effect of cropped images
+    */
+void cSWE_LaneDetection::project(std::vector< cv::Point >& contour, const cv::Mat& projectionMatrix, int offset)
+{
+    // transform the points into a double vector and add the offset
+    std::vector< cv::Point2d > vec;
+    for (size_t j = 0; j < contour.size(); j++)
     {
-        data_pts.at<double>(i, 0) = pts[i].x;
-        data_pts.at<double>(i, 1) = pts[i].y;
+        contour[j].y += offset;
+        vec.push_back(contour[j]);
+    }
+    // project
+    perspectiveTransform(vec, vec, projectionMatrix);
+
+    // write back the results
+    contour.clear();
+    for (size_t j = 0; j < vec.size(); j++)
+    {
+        contour.push_back(vec[j]);
+    }
+}
+
+/**
+    * \brief A function calculating the orientation of a BlobDescriptor.
+    * This function calculates the eigenvectors and values of the contour of a BlobDescriptor,
+    * using PCA. An orientation angle, the center of gravity and the ratio of the eigenvalues are subsequently calculated and
+    * stored in the descriptor.
+    * @param blob a BlobDescriptor with a valid contour, which will receive the new information
+    */
+void cSWE_LaneDetection::getOrientation(BlobDescriptor& blob)
+{
+    // ensure empty data containers
+    blob.eigen_vals.clear();
+    blob.eigen_vecs.clear();
+
+    const std::vector< cv::Point >& contour = blob.contour;
+
+    // bring the contour into the format used by the PCA
+    cv::Mat contourAsMat = cv::Mat(contour.size(), 2, CV_64FC1);
+    for (int i = 0; i < contourAsMat.rows; ++i)
+    {
+        contourAsMat.at<double>(i, 0) = contour[i].x;
+        contourAsMat.at<double>(i, 1) = contour[i].y;
     }
 
-    //Perform PCA analysis
-    PCA pca_analysis(data_pts, Mat(), CV_PCA_DATA_AS_ROW);
+    // do the PCA
+    cv::PCA pca_analysis(contourAsMat, cv::Mat(), CV_PCA_DATA_AS_ROW);
 
-    //Store the position of the object
-    Point pos = Point(pca_analysis.mean.at<double>(0, 0),
-                      pca_analysis.mean.at<double>(0, 1));
+    // calculate the center of gravity
+    cv::Point centerOfGravity = cv::Point(pca_analysis.mean.at<double>(0, 0),pca_analysis.mean.at<double>(0, 1));
+    blob.centerOfGravity = centerOfGravity;
 
+    // store the results
     blob.eigen_vals.push_back( pca_analysis.eigenvalues.at<double>(0, 0) );
-    blob.eigen_vecs.push_back( Point2d(pca_analysis.eigenvectors.at<double>(0, 0), pca_analysis.eigenvectors.at<double>(0, 1)) );
+    blob.eigen_vecs.push_back( cv::Point2d(pca_analysis.eigenvectors.at<double>(0, 0), pca_analysis.eigenvectors.at<double>(0, 1)) );
 
+    // store the second eigenvector and eigenvalue
+    // they might not be calculated in case of line boundaries
     if (pca_analysis.eigenvectors.cols > 1 && pca_analysis.eigenvectors.rows > 1 && pca_analysis.eigenvalues.rows > 1)
     {
         blob.eigen_vals.push_back(pca_analysis.eigenvalues.at<double>(1, 0) );
-        blob.eigen_vecs.push_back( Point2d(pca_analysis.eigenvectors.at<double>(1, 0), pca_analysis.eigenvectors.at<double>(1, 1)) );
+        blob.eigen_vecs.push_back( cv::Point2d(pca_analysis.eigenvectors.at<double>(1, 0), pca_analysis.eigenvectors.at<double>(1, 1)) );
     }
+    // store dummy values
     else
     {
         blob.eigen_vals.push_back(0.01);
         blob.eigen_vecs.push_back(Point2d(0, 0));
     }
 
-    blob.principalAxisLengthRatio = blob.eigen_vals[0] / blob.eigen_vals[1];
+    // calculate the ratio of the eigenvalues as a measure of elongation
+    // avoid dividing by zero
+    if (blob.eigen_vals[1] > 0.0001 )
+    {
+        blob.principalAxisLengthRatio = blob.eigen_vals[0] / blob.eigen_vals[1];
+    }
+    // store the maximum double value in case of a very small second eigenvalue
+    else
+    {
+        blob.principalAxisLengthRatio = std::numeric_limits< double >().max();
+    }
+
+    // calculate the orientation angle
     blob.angleOfMainDirection = atan2(blob.eigen_vecs[0].y, blob.eigen_vecs[0].x);
-    blob.centerOfGravity = pos;
 }
 
+/**
+     * \brief A function verifying contours as candidates for lane boundaries and converting them into inverse perspective mapped descriptors with extra information.
+     * The contours are first verified, by checking if they extend to the lowest parts of the image, specified by _startHeight.
+     * Than the remaining contours get transformed and verified against a threshold _principalAxisLengthRatioThreshold, if they are elongated.
+     * Next we check if they are linelike by comparing their area to their length. Finally we throw away those, to small to represent a boundary.
+     * @param contours a vector of contours as found by opencv
+     * @param blobs an outputvector of blobdescriptors which represent plausible laneboundaries
+     */
 void cSWE_LaneDetection::getBlobDescriptions(const std::vector< std::vector< cv::Point > >& contours, std::vector< BlobDescriptor >& blobs )
 {
+    // inspect every contour
     for (size_t i = 0; i < contours.size(); i++)
     {
-        vector< Point > someContour;
+        // count how many elements are present in a lower part of the image
+        int contourElements = 0;
         for (size_t j = 0; j < contours[i].size(); j++)
         {
             if (contours[i][j].y > _heightThresh)
             {
-                someContour.push_back(contours[i][j]);
+                contourElements++;
             }
         }
-        if (someContour.size() > 0)
+        // if at least some elements are present consider the contour
+        if (contourElements > 0)
         {
-            vector<Point> approx;
-            approxPolyDP(Mat(contours[i]), approx,arcLength(Mat(contours[i]), true)*0.005, true);
-
+            // create a descriptor and reduce the points of the contour
             BlobDescriptor descriptor;
-            descriptor.contour = approx;
-            descriptor.lengthContour = arcLength(approx, true);
+            std::vector< cv::Point >& contour = descriptor.contour;
+            approxPolyDP(Mat(contours[i]), contour , arcLength(Mat(contours[i]), true)*0.005, true);
 
-            if (approx.size() > 2)
-            {
-                descriptor.areaContour = contourArea(approx);
-            }
-            else
-            {
-                descriptor.areaContour = descriptor.lengthContour;
-            }
-
+            // calculate the orientation parameters of the contour
             getOrientation(descriptor);
 
+            // decide on which side the object lies
             if (descriptor.angleOfMainDirection < -0.1)
             {
                 descriptor.side = LEFT;
@@ -381,251 +470,126 @@ void cSWE_LaneDetection::getBlobDescriptions(const std::vector< std::vector< cv:
                 descriptor.side = AMBIGOUS;
             }
 
-            if  (
-                 descriptor.principalAxisLengthRatio > _principalAxisLengthRatioThreshold &&
-                 descriptor.areaContour > _lowerAreaThreshold &&
-                 descriptor.areaContour < 6 * descriptor.lengthContour
-                 )
+            // take the contour to the inverse perspective and recalculate it's orientation parameters
+            project( descriptor , _projectionMatrix , _startHeight );
+
+            // calculate the length of the contour
+            descriptor.lengthContour = arcLength(contour, true);
+
+            // calculate the area of the contour, while handling the special case of a line boundary
+            if (contour.size() > 2)
+            {
+                descriptor.areaContour = contourArea(contour);
+            }
+            else
+            {
+                descriptor.areaContour = descriptor.lengthContour;
+            }
+
+            // features to verify if we found a road boundary
+            bool elongated = descriptor.principalAxisLengthRatio > _principalAxisLengthRatioThreshold;
+            bool lineLike = descriptor.areaContour < _widthFactor * descriptor.lengthContour;
+            bool large = descriptor.areaContour > _lowerAreaThreshold;
+
+            // if it could be a roadboundary write it to our set
+            if  ( elongated && lineLike && large )
             {
                 blobs.push_back(descriptor);
             }
         }
     }
 
+    // sort blobs depending on their arc_length in decreasing order
     sort(blobs.begin(), blobs.end(), sort_arcLength);
 }
 
-void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobDescriptor>& blobs, const std::vector< bool > outerLaneBoundariesIndicator,
-                                         const cv::Point& referencePoint, const std::vector< BlobDescriptor* > middleLaneBoundary )
+/**
+     * \brief A function calculating the perpendicular distance of a point to a line.
+     * @param directionVector the vector of direction along the line
+     * @param originOfLine a point on the line
+     * @param point the point for which the distance should be calculated
+     * @return the perpendicular distance of the point to the line
+     */
+double getPerpendicularDistance(cv::Point2d directionVector, cv::Point originOfLine, cv::Point point)
 {
-    vector<Vec4i> hierarchy;
+    // calculated the normal vector of the line
+    double lengthDirectionVector = cv::norm(directionVector);
+    cv::Point2d normal = cv::Point2d(-directionVector.y / lengthDirectionVector, directionVector.x / lengthDirectionVector);
 
-    for (size_t i = 0; i < blobs.size(); ++i)
-    {
-        const BlobDescriptor& blob = blobs[i];
-
-        // Draw the principal components
-        circle(image, blob.centerOfGravity, 3, CV_RGB(255, 0, 255), 2);
-        line(image, blob.centerOfGravity, blob.centerOfGravity + 0.02 * Point(blob.eigen_vecs[0].x * blob.eigen_vals[0], blob.eigen_vecs[0].y * blob.eigen_vals[0]), CV_RGB(255, 255, 0));
-        line(image, blob.centerOfGravity, blob.centerOfGravity + 0.02 * Point(blob.eigen_vecs[1].x * blob.eigen_vals[1], blob.eigen_vecs[1].y * blob.eigen_vals[1]), CV_RGB(255, 255, 0));
-    }
-
-    circle( image, referencePoint, 10, Scalar(255, 0, 0));
-
-    for (size_t i = 0; i < outerLaneBoundariesIndicator.size(); i++)
-    {
-        std::vector< std::vector< cv::Point > > contourToPaint;
-
-        const BlobDescriptor& blob = blobs[i];
-        Scalar color;
-
-        if (blob.side == LEFT)
-        {
-            color = cv::Scalar(255, 0, 0);
-        }
-        else if (blob.side == RIGHT)
-        {
-            color = cv::Scalar(0, 255, 0);
-        }
-        else
-        {
-            color = cv::Scalar(0, 0, 255);
-        }
-
-        contourToPaint.push_back(blob.contour);
-        drawContours(image, contourToPaint, 0, color, 2, 8, hierarchy, 0, Point());
-    }
-
-    cv::Scalar color = cv::Scalar(255, 255, 255);
-
-    std::vector < std::vector < cv::Point > > contourToDraw;
-    for (size_t j = 0; j < middleLaneBoundary.size(); ++j)
-    {
-        contourToDraw.push_back(middleLaneBoundary[j]->contour);
-    }
-
-    for (size_t i = 0; i < middleLaneBoundary.size();++i)
-    {
-        drawContours(image, contourToDraw, i, color, 2, 8, hierarchy, 0, Point());
-    }
+    // calculate the distance using Hesse-form
+    return normal.ddot(point - originOfLine);
 }
 
-std::vector< bool > cSWE_LaneDetection::getOuterLaneBoundaries( std::vector< BlobDescriptor >& blobs )
+/**
+     * \brief A function choosing the outerLaneBoundaries from a vector of candidates.
+     * The first BlobDescriptor is assumed as the likeliest candidate for an outer lane boundary because it's the longest.
+     * Therefore merely a minimum size requirement is checked on it. The second element is considered to be another outer lane boundary.
+     * It is checked if it lies correctly in a corridor of the doubled distance to the middle Lane.
+     * @param blobs a vector ordered by contour-length to choose the candidates from
+     * @return an integer indicating if the first or second element in the vector are to be considered as lane boundaries
+     */
+int cSWE_LaneDetection::getOuterLaneBoundaries( std::vector< BlobDescriptor >& blobs )
 {
-    vector<Vec4i> hierarchy;
-    std::vector< bool > outerLaneBoundariesIndicator;
+    int outerLaneBoundariesIndicator = 0;
 
-    int endIndex = min(2, (int)blobs.size());
-    double lengthFormerBlob = 0;
-    for (int i = 0; i < endIndex; i++)
+    if (blobs.size() > 0)
     {
-        BlobDescriptor& blob = blobs[i];
+        BlobDescriptor& firstBlob = blobs[0];
 
-        if (i != 1 || blob.lengthContour > 0.5 * lengthFormerBlob)
+        // if the contour is larger than our threshold accept it as a outer lane boundary
+        if (firstBlob.lengthContour > _minOuterBoundaryLength)
         {
-            if (i == 0)
+            outerLaneBoundariesIndicator++;
+        }
+
+        // if we found one outer boundary, look for another
+        bool found = outerLaneBoundariesIndicator > 0;
+        bool moreCandidates = blobs.size() > 1;
+        if (found && moreCandidates)
+        {
+            BlobDescriptor& secondBlob = blobs[1];
+
+            // calculate the perpendicular distance of the first principal axis of the first blob to the second blob
+            double distance = getPerpendicularDistance(firstBlob.eigen_vecs[0], firstBlob.centerOfGravity, secondBlob.centerOfGravity);
+
+            // calculated indicators if the candidate lies correctly
+            bool aboveLowThreshold = distance > 2 * _middleDistanceLowThreshold;
+            bool belowHighThreshold = distance < 2 * _middleDistanceHighThreshold;
+
+            // if it's in the correct place, assume it's another outer boundary
+            if (aboveLowThreshold && belowHighThreshold)
             {
-                lengthFormerBlob = blob.lengthContour;
-                outerLaneBoundariesIndicator.push_back( true );
-            }
-            else
-            {
-                outerLaneBoundariesIndicator.push_back( true );
+                outerLaneBoundariesIndicator++;
             }
         }
     }
     return outerLaneBoundariesIndicator;
 }
 
-cv::Point cSWE_LaneDetection::getReferencePoint( const std::vector< bool >& outerLaneBoundariesIndicator , const std::vector< BlobDescriptor >& blobs , cv::Mat& image )
+    /**
+     * \brief A function reducing a contour to a pointset for a spline.
+     * @param contour the contour to be reduced to a spline
+     * @param splineSearchWidth the width of elements considered as a levelset for the y direction
+     * @return a pair of indices representing the first and last index of the splinepoints in the contour
+     */
+std::pair< size_t, size_t > cSWE_LaneDetection::contourToSpline(const std::vector< cv::Point >& contour, const int splineSearchWidth, bool side)
 {
-    cv::Point referencePoint(0, 0);
-    if (outerLaneBoundariesIndicator.size() > 0)
-    {
-        const BlobDescriptor& blob = blobs[0];
-        const std::vector< cv::Point >& contour = blob.contour;
-        Side side = blob.side;
-
-        int yMax = 0;
-        size_t contourSize = contour.size();
-
-        std::vector< const cv::Point* > yMinLocs;
-        for (size_t i = 0; i < contourSize; i++)
-        {
-            int yCoord = contour[i].y;
-            if (yCoord > yMax)
-            {
-                yMax = yCoord;
-            }
-        }
-        for (size_t i = 0; i < contourSize; i++)
-        {
-            int yCoord = contour[i].y;
-            if (yCoord == yMax)
-            {
-                yMinLocs.push_back(&(contour[i]));
-            }
-        }
-
-        const cv::Point* targetPoint = NULL;
-
-        if (side == RIGHT)
-        {
-            int xMax = image.cols;
-            for (size_t i = 0; i < yMinLocs.size(); i++)
-            {
-                int xCoord = yMinLocs[i]->x;
-                if (xCoord < xMax)
-                {
-                    xMax = xCoord;
-                    targetPoint = yMinLocs[i];
-                }
-            }
-            referencePoint.y = image.rows - 5;
-            referencePoint.x = targetPoint->x - _rightDistanceReferencePoint;
-        }
-        else if (side == LEFT)
-        {
-            int xMax = 0;
-            for (size_t i = 0; i < yMinLocs.size(); i++)
-            {
-                int xCoord = yMinLocs[i]->x;
-                if (xCoord > xMax)
-                {
-                    xMax = xCoord;
-                    targetPoint = yMinLocs[i];
-                }
-            }
-            referencePoint.y = image.rows - 5;
-            referencePoint.x = targetPoint->x + _leftDistanceReferencePoint;
-        }
-        else
-        {
-            //TODO: find a better solution, maybe employ inverse perspective
-            referencePoint.y = blob.centerOfGravity.y;
-            referencePoint.x = blob.centerOfGravity.x;
-        }
-    }
-
-    return referencePoint;
-}
-
-bool cSWE_LaneDetection::findNextMiddleLaneBlob(std::vector< BlobDescriptor* >& middleLaneBoundary , const std::vector< bool >& outerLaneBoundariesIndicator,
-                                                std::vector< BlobDescriptor >& blobs, const cv::Point& referencePoint , const double distanceThreshold)
-{
-    int indexOfMinDistance = -1;
-    double minDistance = 1000;
-    if (referencePoint.x != 0)
-    {
-        for (size_t i = outerLaneBoundariesIndicator.size(); i < blobs.size(); i++)
-        {
-            BlobDescriptor& blob = blobs[i];
-            double lengthContour = blob.lengthContour;
-            if (lengthContour > 40 && lengthContour < 440)
-            {
-                blob.distanceToReference = cv::norm(referencePoint - blob.centerOfGravity);
-                double distance = blob.distanceToReference;
-
-                if (distance < minDistance)
-                {
-                    indexOfMinDistance = i;
-                    minDistance = distance;
-                }
-            }
-        }
-    }
-
-    // rember to bound minDistance by < 1000;
-    if (indexOfMinDistance != -1 && minDistance < distanceThreshold )
-    {
-        BlobDescriptor& blob = blobs[indexOfMinDistance];
-
-        if (middleLaneBoundary.size() > 0)
-        {
-            if (blob.areaContour >= middleLaneBoundary[ middleLaneBoundary.size() - 1 ]->areaContour)
-            {
-                return false;
-            }
-        }
-
-        // resolve ambiguities
-        if (blobs[0].side == AMBIGOUS)
-        {
-            // calculate directionvector of a middleLaneBoundaries Center of Gravity
-            // to the ambiguos boundaries Center of Gravity
-            cv::Point direction = blobs[0].centerOfGravity - blob.centerOfGravity;
-
-            // if it points upwards decide it's a right boundary
-            if (direction.y < 0)
-            {
-                blobs[0].side = RIGHT;
-            } // else it must be a left boundary ( we're outside the road ! )
-            else
-            {
-                blobs[0].side = LEFT;
-            }
-        }
-
-        middleLaneBoundary.push_back(&blob);
-        return true;
-    }
-    return false;
-}
-
-std::pair< size_t, size_t > cSWE_LaneDetection::contourToSpline(std::vector< cv::Point >& contour, const int splineSearchWidth, bool side)
-{
+    // buffer the contour and sort it according to it's y values
     std::vector< cv::Point > bufferedContour = contour;
     std::sort(bufferedContour.begin(), bufferedContour.end(), sort_yVal);
 
+    // calculate the Thresholds for the levelset
     int upperThresholdY = bufferedContour[0].y - splineSearchWidth;
     int lowerThresholdY = bufferedContour[bufferedContour.size() - 1].y + splineSearchWidth;
 
+    // if the thresholds overlap, make the levelset smaller
     if (upperThresholdY < lowerThresholdY)
     {
         upperThresholdY += ( splineSearchWidth - 1 );
         lowerThresholdY -= ( splineSearchWidth - 1 );
     }
 
+    // extract the levelset
     std::vector< cv::Point > contourUpperYSet;
     std::vector< cv::Point > contourLowerYSet;
     for (size_t i = 0; i < bufferedContour.size(); i++)
@@ -640,9 +604,11 @@ std::pair< size_t, size_t > cSWE_LaneDetection::contourToSpline(std::vector< cv:
         }
     }
 
+    // sort the levelset according to it's x value
     std::sort(contourLowerYSet.begin(), contourLowerYSet.end(), sort_xVal);
     std::sort(contourUpperYSet.begin(), contourUpperYSet.end(), sort_xVal);
 
+    // choose the most left or most right point depending on the position in the levelset
     cv::Point startPoint = contourUpperYSet[0];
     cv::Point endPoint = contourLowerYSet[0];
     if (side)
@@ -651,7 +617,7 @@ std::pair< size_t, size_t > cSWE_LaneDetection::contourToSpline(std::vector< cv:
         endPoint = contourLowerYSet[ contourLowerYSet.size() - 1 ];
     }
 
-    // just initialize them to prevent a warning - they are ALWAYS initialized afterwards
+    // find the indices in the contour for the calculated spline end-points
     size_t startIndex = -1;
     size_t endIndex = -1;
     for (size_t i = 0; i < contour.size(); ++i)
@@ -665,6 +631,8 @@ std::pair< size_t, size_t > cSWE_LaneDetection::contourToSpline(std::vector< cv:
             endIndex = i;
         }
     }
+
+    // handle  the case where start and end are reversed
     if (startIndex > endIndex)
     {
         size_t buffer = startIndex;
@@ -675,7 +643,87 @@ std::pair< size_t, size_t > cSWE_LaneDetection::contourToSpline(std::vector< cv:
     return std::pair< size_t, size_t>(startIndex, endIndex);
 }
 
-void cSWE_LaneDetection::drawSpline( cv::Mat& image , const std::vector< cv::Point2d >& splinePoints , const cv::Scalar& color )
+/**
+     * \brief A function creating the image for visualization of the internal representation which was calculated.
+     * @param image the image to draw on
+     * @param blobs the vector of BlodDescriptors containing plausible lane candidates
+     * @param outerLaneBoundariesIndicator the indicator for the outer lane boundaries
+     * @param middleLaneBoundary the blobs considered as forming the middle lane boundary
+     */
+void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobDescriptor>& blobs, const int outerLaneBoundariesIndicator,
+                                   const std::vector< BlobDescriptor* > middleLaneBoundary)
+{
+    vector<Vec4i> hierarchy;
+
+    // draw the orientation properties for every plausible blob
+    for (size_t i = 0; i < blobs.size(); ++i)
+    {
+        const BlobDescriptor& blob = blobs[i];
+        cv::Point currentCenterOfGravity = blob.centerOfGravity + _resultImageOffsetVector;
+
+        circle(image, currentCenterOfGravity, 3, CV_RGB(255, 0, 255), 2);
+        line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[0].x * blob.eigen_vals[0], blob.eigen_vecs[0].y * blob.eigen_vals[0]), CV_RGB(255, 255, 0));
+        line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[1].x * blob.eigen_vals[1], blob.eigen_vecs[1].y * blob.eigen_vals[1]), CV_RGB(255, 255, 0));
+    }
+
+    // draw the outer lane boundaries
+    for (int i = 0; i < outerLaneBoundariesIndicator; ++i)
+    {
+        std::vector< std::vector< cv::Point > > contourToPaint;
+
+        const BlobDescriptor& blob = blobs[i];
+
+        // choose the color depending on the recognition
+        Scalar color;
+        if (blob.side == LEFT)
+        {
+            color = cv::Scalar(255, 0, 0);
+        }
+        else if (blob.side == RIGHT)
+        {
+            color = cv::Scalar(0, 255, 0);
+        }
+        else
+        {
+            color = cv::Scalar(0, 0, 255);
+        }
+
+        // offset the contours to fit nicely into the resultImage
+        contourToPaint.push_back(blob.contour);
+        for (size_t j = 0; j < contourToPaint[0].size(); ++j)
+        {
+            contourToPaint[0][j] += _resultImageOffsetVector;
+        }
+        drawContours(image, contourToPaint, 0, color, 2, 8, hierarchy, 0, Point());
+    }
+
+    // paint the middle lane boundary
+    cv::Scalar color = cv::Scalar(255, 255, 255);
+    std::vector < std::vector < cv::Point > > contourToDraw;
+    for (size_t i = 0; i < middleLaneBoundary.size(); ++i)
+    {
+        contourToDraw.push_back(middleLaneBoundary[i]->contour);
+
+        // offset the contours to fit nicely into the resultImage
+        for (size_t j = 0; j < contourToDraw[i].size(); ++j)
+        {
+            contourToDraw[i][j] += _resultImageOffsetVector;
+        }
+    }
+
+    for (size_t i = 0; i < middleLaneBoundary.size(); ++i)
+    {
+        drawContours(image, contourToDraw, i, color, 2, 8, hierarchy, 0, Point());
+    }
+}
+
+/**
+     * \brief A function drawing splines on images.
+     * @param image the image to draw on
+     * @param splinePoints the points for the spline
+     * @param color the color for the spline
+     */
+void cSWE_LaneDetection::drawSpline( cv::Mat& image , const std::vector< cv::Point >& splinePoints , const cv::Scalar& color )
 {
     CatMullRomSpline CRspline(splinePoints);
 
@@ -725,129 +773,76 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     vector<Vec4i> hierarchy;
     findContours(thresholdedImage, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 
-    //TODO:	submodule ?
-
-    cv::Mat result = cv::Mat(croppedImage.rows, croppedImage.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::Mat result = cv::Mat( 2 * image.rows, 2 * image.cols, CV_8UC3, cv::Scalar(0, 0, 0));
 
     // get enhanced Descriptions of the blobs with basic removal of candidates
     std::vector< BlobDescriptor > blobs;
     getBlobDescriptions(contours, blobs);
 
     // get the outer Lane Boundaries
-    std::vector< bool > outerLaneBoundariesIndicator = getOuterLaneBoundaries( blobs );
+    int outerLaneBoundariesIndicator = getOuterLaneBoundaries( blobs );
 
-    BlobDescriptor* rightLaneBoundary = NULL;
-    BlobDescriptor* leftLaneBoundary = NULL;
-    std::vector< BlobDescriptor* > middleLaneBoundary;
-
-    // predict the location of the first middleLaneBlob
-    cv::Point referencePoint = getReferencePoint(outerLaneBoundariesIndicator, blobs, result);
-
-    // find a middleLaneBlob which is close enough to the prediction
-    bool found = findNextMiddleLaneBlob(middleLaneBoundary, outerLaneBoundariesIndicator, blobs, referencePoint, _minDistanceToReferencePoint);
+    std::vector< cv::Point > rightSpline;
+    std::vector< cv::Point > leftSpline;
 
     // commit to decisions what we have found
-    for (size_t i = 0; i < outerLaneBoundariesIndicator.size(); ++i)
+    for (int i = 0; i < outerLaneBoundariesIndicator; ++i)
     {
         BlobDescriptor& blob = blobs[i];
-        if (blob.side == RIGHT)
+        // only accept the candidate if we didn't already find a better
+        if (blob.side == RIGHT && rightSpline.size() == 0 )
         {
-            if (rightLaneBoundary == NULL)
+            std::pair< size_t, size_t > indices = contourToSpline(blob.contour, _splineSearchWidth);
+
+            if (indices.first != indices.second)
             {
-                rightLaneBoundary = &blob;
-            }
-            else if (rightLaneBoundary->side == AMBIGOUS)
-            {
-                rightLaneBoundary = &blob;
+                for (size_t i = indices.first; i <= indices.second; ++i)
+                {
+                    rightSpline.push_back(blob.contour[i]);
+                }
             }
         }
-        else if (blob.side == LEFT)
+        // only accept the candidate if we didn't already find a better
+        else if (blob.side == LEFT && leftSpline.size() == 0)
         {
-            if (leftLaneBoundary == NULL)
+            std::pair< size_t, size_t > indices = contourToSpline(blob.contour, _splineSearchWidth, true);
+            if (indices.first != indices.second)
             {
-                leftLaneBoundary = &blob;
+                for (size_t i = indices.first; i <= indices.second; ++i)
+                {
+                    leftSpline.push_back(blob.contour[i]);
+                }
             }
-            else if (leftLaneBoundary->side == AMBIGOUS)
-            {
-                leftLaneBoundary = &blob;
-            }
-        }
-        //TODO: idea is to resolve ambiguity by guessing right, but that's dangerous -> speak to Matthias
-        else if (blob.side == AMBIGOUS && rightLaneBoundary == NULL && leftLaneBoundary == NULL )
-        {
-            rightLaneBoundary = &blob;
         }
     }
 
-    // starting from the first middleLaneBlob try to find some more
-    size_t index = 0;
-    while (found)
+    // decide on the middle lane boundaries by finding BlobDescriptors with an appropropriate distance to the found outer lane boundary
+    std::vector< BlobDescriptor* > middleLaneBoundary;
+    std::vector< double > distances;
+    for (size_t i = 1; i < blobs.size(); ++i)
     {
-        const BlobDescriptor& blob = *(middleLaneBoundary[ index ]);
-
-        cv::Point updatedReferencePoint = blob.centerOfGravity;
-        updatedReferencePoint.y -= 80;
-        if (rightLaneBoundary != NULL)
-        {
-            updatedReferencePoint.x += 50.0 * rightLaneBoundary->eigen_vecs[0].x;
-        }
-        else if ( leftLaneBoundary != NULL )
-        {
-            updatedReferencePoint.x += 80.0 * leftLaneBoundary->eigen_vecs[0].x;
-        }
-
-        circle(result, updatedReferencePoint, 10, cv::Scalar(255, 0, 255));
-
-        found = findNextMiddleLaneBlob(middleLaneBoundary, outerLaneBoundariesIndicator, blobs, updatedReferencePoint, 0.8 * _minDistanceToReferencePoint);
-        index++;
+        // calculate the perpendicular distance to the found outer lane boundary
+        distances.push_back(getPerpendicularDistance(blobs[0].eigen_vecs[0],blobs[ 0 ].centerOfGravity , blobs[ i ].centerOfGravity));
     }
 
-    // create the debugimage of the internal representation
+    // pick all the blobs with an appropriate distance
+    for (size_t i = 1; i < blobs.size(); ++i)
+    {
+        bool aboveLowThreshold = distances[i - 1] > _middleDistanceLowThreshold;
+        bool belowHighThreshold = distances[i - 1] < _middleDistanceHighThreshold;
+        if ( belowHighThreshold && aboveLowThreshold )
+        {
+            middleLaneBoundary.push_back(&blobs[i]);
+        }
+    }
+
     if (_draw)
     {
-        drawResultImage(result, blobs , outerLaneBoundariesIndicator , referencePoint , middleLaneBoundary);
+        drawResultImage(result, blobs, outerLaneBoundariesIndicator, middleLaneBoundary);
     }
 
-    // transform back to original image from the cropped
-    for (size_t i = 0; i < blobs.size(); i++)
-    {
-        std::vector< cv::Point >& contour = blobs[i].contour;
-        for (size_t j = 0; j < contour.size(); j++)
-        {
-            contour[j].y += _startHeight;
-        }
-    }
-
-    std::vector< cv::Point2d > rightSpline;
-    std::vector< cv::Point2d > leftSpline;
-    std::vector< cv::Point2d > middleSpline;
-
-    if (rightLaneBoundary != NULL)
-    {
-        std::pair< size_t, size_t > indices = contourToSpline(rightLaneBoundary->contour , _splineSearchWidth );
-
-        if (indices.first != indices.second)
-        {
-            for (size_t i = indices.first; i <= indices.second; ++i)
-            {
-                rightSpline.push_back(rightLaneBoundary->contour[i]);
-            }
-        }
-    }
-
-    if (leftLaneBoundary != NULL)
-    {
-        std::pair< size_t, size_t > indices = contourToSpline(leftLaneBoundary->contour , _splineSearchWidth , true );
-
-        if (indices.first != indices.second)
-        {
-            for (size_t i = indices.first; i <= indices.second; ++i)
-            {
-                leftSpline.push_back(leftLaneBoundary->contour[i]);
-            }
-        }
-    }
-
+    // concatentate the blobs for the middle lane boundary to a single lane boundary and form a spline from it
+    std::vector< cv::Point > middleSpline;
     if (middleLaneBoundary.size() > 0)
     {
         std::vector< std::pair< size_t, size_t > > indicesVector;
@@ -875,34 +870,24 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         sort(middleSpline.begin(), middleSpline.end(), sort_yVal);
     }
 
-    // draw on original image;
+    // draw the results on the original image;
     if (_draw)
     {
         if (leftSpline.size() > 0)
         {
+            project(leftSpline, _backProjectionMatrix );
             drawSpline(image, leftSpline, cv::Scalar(255, 0, 0));
         }
         if (rightSpline.size() > 0)
         {
+            project(rightSpline, _backProjectionMatrix );
             drawSpline(image, rightSpline, cv::Scalar(0, 255, 0));
         }
         if (middleSpline.size() > 0)
         {
+            project(middleSpline, _backProjectionMatrix );
             drawSpline(image, middleSpline, cv::Scalar(255, 0, 255));
         }
-    }
-
-    if (leftSpline.size() > 0)
-    {
-        perspectiveTransform( leftSpline , leftSpline , _projectionMatrix );
-    }
-    if (rightSpline.size() > 0)
-    {
-        perspectiveTransform( rightSpline , rightSpline , _projectionMatrix );
-    }
-    if (middleSpline.size() > 0)
-    {
-        perspectiveTransform( middleSpline , middleSpline , _projectionMatrix );
     }
 
  /*******************************************************/
