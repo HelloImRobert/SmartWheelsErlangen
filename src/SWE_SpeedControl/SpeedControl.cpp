@@ -3,7 +3,7 @@
 
 ADTF_FILTER_PLUGIN("SWE Motor Speed Controller", OID_ADTF_SWE_SPEEDCONTROL, SpeedControl)
 
-SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0), m_setPoint(0), m_currentState(0), m_lastState(0), m_goingForwards(true), m_lastSampleTime(0), m_no_wait(true), m_last_pwm(90), m_last_brakeLights(0), m_last_reverseLights(0), m_last_goingForwards(1)
+SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0), m_setPoint(0), m_currentState(0), m_lastState(0), m_goingForwards(0), m_lastSampleTime(0),m_timerStart(0), m_no_wait(true), m_last_pwm(90), m_last_brakeLights(0), m_last_reverseLights(0), m_last_DirectionSent(0)
 {
     SetPropertyFloat("Gear 3 PWM value",105); //the pwm value sent to the car motor when driving in this gear. In degrees 0-180 => 90 = stop/neutral
     SetPropertyFloat("Gear 3 speed threshold",150); // the speed in mm/s (measured) at which the controller decides it has reached the desired gear/speed
@@ -63,6 +63,9 @@ tResult SpeedControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(m_oOutputPWM.Create("PWMvalue", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputPWM));
 
+    RETURN_IF_FAILED(m_oOutputDirection.Create("Direction", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputDirection));
+
 
     // Struct for brake
     tChar const * strDescLightOutput = pDescManager->GetMediaDescription("tBoolSignalValue");
@@ -75,9 +78,6 @@ tResult SpeedControl::CreateOutputPins(__exception)
 
     RETURN_IF_FAILED(m_oOutputreverse.Create("ReverseLight", pTypeLightData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputreverse));
-
-    RETURN_IF_FAILED(m_oOutputDirection.Create("Direction", pTypeLightData, static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oOutputDirection));
 
     RETURN_IF_FAILED(m_oOutputCarStopped.Create("Car Stopped Flag", pTypeLightData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputCarStopped));
@@ -295,6 +295,7 @@ tFloat32 SpeedControl::GetControllerValue()
     {
         m_no_wait = true; //... allow new acceleration values...
         SetCarStopped(true); // ... and tell other filters that the car has just stopped
+        SetDirection(0);
     }
 
     if (m_no_wait)
@@ -304,6 +305,7 @@ tFloat32 SpeedControl::GetControllerValue()
         if (m_currentState == 3)
         {
             SetReverseLights(false);
+            SetDirection(1);
 
             switch(m_setPoint)
             {
@@ -323,6 +325,7 @@ tFloat32 SpeedControl::GetControllerValue()
         else if (m_currentState == 2)
         {
             SetReverseLights(false);
+            SetDirection(1);
 
             switch(m_setPoint)
             {
@@ -346,6 +349,7 @@ tFloat32 SpeedControl::GetControllerValue()
         else if (m_currentState == 1)
         {
             SetReverseLights(false);
+            SetDirection(1);
 
             switch(m_setPoint)
             {
@@ -377,37 +381,36 @@ tFloat32 SpeedControl::GetControllerValue()
             case 3:
                 SetReverseLights(false);
                 SetBrakeLights(false);
-                SetDirection(true);
+                SetDirection(1);
                 outputData = m_pwm_boost_p3;
                 break;
             case 2:
                 SetReverseLights(false);
                 SetBrakeLights(false);
-                SetDirection(true);
+                SetDirection(1);
                 outputData = m_pwm_boost_p2;
                 break;
             case 1:
                 SetReverseLights(false);
                 SetBrakeLights(false);
-                SetDirection(true);
+                SetDirection(1);
                 outputData = m_pwm_boost_p1;
                 break;
             case 0:
                 SetReverseLights(false);
                 SetBrakeLights(true);
-                SetDirection(true);
                 outputData = m_pwm_0;
                 break;
             case -1:
                 SetReverseLights(true);
                 SetBrakeLights(false);
-                SetDirection(false);
+                SetDirection(-1);
                 outputData = m_pwm_boost_n1;
                 break;
             case -2:
                 SetReverseLights(true);
                 SetBrakeLights(false);
-                SetDirection(false);
+                SetDirection(-1);
                 outputData = m_pwm_boost_n2;
                 break;
             }
@@ -415,6 +418,7 @@ tFloat32 SpeedControl::GetControllerValue()
         else if (m_currentState == -1)
         {
             SetReverseLights(true);
+            SetDirection(-1);
 
             switch(m_setPoint)
             {
@@ -448,6 +452,7 @@ tFloat32 SpeedControl::GetControllerValue()
         else if (m_currentState == -2)
         {
             SetReverseLights(true);
+            SetDirection(-1);
 
             switch(m_setPoint)
             {
@@ -570,34 +575,38 @@ tResult SpeedControl::SetReverseLights(tBool state)
     RETURN_NOERROR;
 }
 
-tResult SpeedControl::SetDirection(tBool state)
+tResult SpeedControl::SetDirection(tFloat32 state)
 {
-    if(state != m_last_goingForwards)
+    if(state != m_last_DirectionSent)
     {
         cObjectPtr<IMediaCoder> pCoder;
+        tUInt32 timeStamp = 0;
+
+        timeStamp = GetTime();
 
         //create new media sample
-        cObjectPtr<IMediaSample> pMediaSampleOutput;
-        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+        cObjectPtr<IMediaSample> pMediaSample;
+        AllocMediaSample((tVoid**)&pMediaSample);
 
         //allocate memory with the size given by the descriptor
         cObjectPtr<IMediaSerializer> pSerializer;
-
-        m_pCodeOutputbrakelight->GetMediaSampleSerializer(&pSerializer);
+        m_pCoderDescSignal->GetMediaSampleSerializer(&pSerializer);
         tInt nSize = pSerializer->GetDeserializedSize();
-        pMediaSampleOutput->AllocBuffer(nSize);
+        pMediaSample->AllocBuffer(nSize);
 
         //write date to the media sample with the coder of the descriptor
-        RETURN_IF_FAILED(m_pCodeOutputbrakelight->WriteLock(pMediaSampleOutput, &pCoder));
-        pCoder->Set("bValue", (tVoid*)&(state));
-        m_pCodeOutputbrakelight->Unlock(pCoder);
+        m_pCoderDescSignal->WriteLock(pMediaSample, &pCoder);
+
+        pCoder->Set("f32Value", (tVoid*)&(state));
+        pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+        m_pCoderDescSignal->Unlock(pCoder);
 
         //transmit media sample over output pin
-        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-        RETURN_IF_FAILED(m_oOutputDirection.Transmit(pMediaSampleOutput));
+        RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oOutputDirection.Transmit(pMediaSample));
     }
 
-    m_last_goingForwards = state;
+    m_last_DirectionSent = state;
 
     RETURN_NOERROR;
 }

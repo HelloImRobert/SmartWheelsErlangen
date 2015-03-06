@@ -18,9 +18,12 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR I
 #include "stdafx.h"
 #include "SWE_cSmartSlidingWindow.h"
 
+#define TIMESTAMP_RESOLUTION 1000 //TODO : micro- or milli-seconds?
+#define AVG_UPDATES_PER_SECOND 18.0f
+
 
 SWE_cSmartSlidingWindow::SWE_cSmartSlidingWindow( tInt32 in_max_length, tFloat32 in_maxDelay):
-m_maxLength(in_max_length), m_resolution(10), m_queueValueSum(0), m_queueTimeSum(0), m_maxDelay(in_maxDelay), m_lastTickTime(0) , m_lastTickValue(0)
+m_maxLength(in_max_length), m_resolution(10), m_queueValueSum(0), m_queueTimeSum(0), m_maxDelay(in_maxDelay), m_lastPulseTime(0) , m_lastPulseValue(0)
 {
 }
 
@@ -32,7 +35,7 @@ tVoid SWE_cSmartSlidingWindow::AddNewValue(tInt32 inputValues, tTimeStamp inputT
     // ------- discard old values -------
 
     // are those/this last sample(s) too old to be kept?
-    while ( ( m_inputValues.size() > 0 )    )//DEBUG && ( ( inputTime - ( m_lastTickTime - m_queueTimeSum ) ) > m_maxDelay ) ) //last sample too old?
+    while ( ( m_inputValues.size() > 0 )  && ( ( inputTime - ( m_lastPulseTime - m_queueTimeSum ) ) > 2*m_maxDelay ) ) //last sample too old?
     {
             m_queueTimeSum -= GetEndTime();
             m_queueValueSum -= GetEndValue();
@@ -42,28 +45,31 @@ tVoid SWE_cSmartSlidingWindow::AddNewValue(tInt32 inputValues, tTimeStamp inputT
 
     // ------------- fill the queue ------------
 
-    if (m_lastTickValue < inputValues) //was a tick registered?
+    if (m_lastPulseValue < inputValues) //was a pulse registered?
     {
-        tInt32 delta_ticks;
+        tInt32 delta_pulses;
         tFloat32 delta_time;
 
-        delta_ticks = inputValues - m_lastTickValue;
-        delta_time = inputTime - m_lastTickTime;
+        delta_pulses = inputValues - m_lastPulseValue;
+        delta_time = inputTime - m_lastPulseTime;
 
+        if (delta_time < m_maxDelay)// not too slow/old to be registered?
+        {
         //save relative values
-        m_inputValues.push(make_pair<tInt32,tTimeStamp>(delta_ticks, delta_time));
+        m_inputValues.push(make_pair<tInt32,tTimeStamp>(delta_pulses, delta_time));
 
         //save absolute values
-        m_queueValueSum += delta_ticks;
+        m_queueValueSum += delta_pulses;
         m_queueTimeSum += delta_time;
+        }
 
-        m_lastTickTime = inputTime;
-        m_lastTickValue = inputValues;
+        m_lastPulseTime = inputTime;
+        m_lastPulseValue = inputValues;
     }
 
 
     // ---------- shorten the queue ----------------
-    //shorten until minimum resolution reached
+    //shorten until minimum resolution reached, to keep a short delay and use minimal averaging
 
     while ( (m_inputValues.size() > 1) &&  (  (m_inputValues.size() > m_maxLength)  ||  (GetNextRes() >= m_resolution ) )) //is cutting off the last sample OK? 1. long enough to cut sth. off AND (2. cutting off results in high enough resolution OR 3. queue is too long)
     {
@@ -79,7 +85,7 @@ tTimeStamp SWE_cSmartSlidingWindow::GetTime()
     return m_queueTimeSum;
 }
 
-tInt32 SWE_cSmartSlidingWindow::GetTicks()
+tInt32 SWE_cSmartSlidingWindow::GetPulses()
 {
     return m_queueValueSum;
 }
@@ -114,7 +120,7 @@ tFloat32 SWE_cSmartSlidingWindow::GetNextRes()
     tFloat32 next_res;
 
     if (m_inputValues.size() > 0)
-        next_res = (m_queueValueSum - GetEndValue()) * ((m_queueTimeSum - GetEndTime()) / (1.0 / 18) ); //TODO : BUG
+        next_res = (m_queueValueSum - GetEndValue()) * ((m_queueTimeSum - GetEndTime()) / ((1.0 / AVG_UPDATES_PER_SECOND) * TIMESTAMP_RESOLUTION ) );
     else
         next_res = 0;
 

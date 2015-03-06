@@ -22,7 +22,7 @@ odometry data structure:
         tFloat32	 distance_y; 		// relative y coordinates in mm
         tFloat32   	 angle_heading;		// realtive heading in radians
         tFloat32     velocity;          // current velocity in mm/s
-        tFloat32     distance_sum;      // sum of distance driven, this data counts forwards and backwards depending on direction and is the accumulation of travel as measured  by wheelsensor ticks. All other odometry data is based on estimated speed, therefore there is some difference between both values.
+        tFloat32     distance_sum;      // sum of distance driven. Absolute measured value, no interpolation, accurate to about 2cm. This data counts forwards and backwards depending on direction and is the accumulation of travel as measured  by wheelsensor pulses. All other odometry data is based on estimated speed, therefore there is some difference between both values.
 
         + ui32ArduinoTimestamp          // timestamp of the trigger signal triggering the output
 
@@ -61,20 +61,23 @@ class SWE_Odometry : public adtf::cFilter
 {
     ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_ODOMETRY, "SWE_Odometry", OBJCAT_DataFilter, "Odometry", 1, 0, 0, "pre alpha version");
 
-        /*! input pin for the steering angle -- in RAD */
-        cInputPin m_oInputSteeringAngle; //TODO: not clear what type of angle we get
 
-        /*! input pin for the left wheel optical sensor -- ticks*/
+        /*! input pin for the steering angle -- in RAD */
+        /*!
+        cInputPin m_oInputSteeringAngle; //TODO: not clear what type of angle we get
+        */
+
+        /*! input pin for the left wheel optical sensor -- pulses*/
         cInputPin m_oInputWheelLeft;
 
-        /*! input pin for the right wheel optical sensor -- ticks*/
+        /*! input pin for the right wheel optical sensor -- pulses*/
         cInputPin m_oInputWheelRight;
 
         /*! input pin that tells the odometry which direction the wheels are turning -- true = forwards*/
         cInputPin m_oInputDirection;
 
         /*! input pin for the heading/yaw gyro signal -- in RAD */
-        cInputPin m_oInputYaw;//TODO
+        cInputPin m_oInputYaw;
 
         /*! input pin for the trigger signal */
         cInputPin m_oInputTrigger;
@@ -106,7 +109,7 @@ class SWE_Odometry : public adtf::cFilter
 	/*! Private member variables */
     /*! input variables*/
 	tFloat32 m_steeringAngle;
-    tFloat32 m_Yaw;
+    tFloat32 m_yaw;
 	tFloat32 m_buffer;
     tFloat32 m_wheelCounter_left;
     tFloat32 m_wheelCounter_right;
@@ -114,33 +117,37 @@ class SWE_Odometry : public adtf::cFilter
     tInt32 m_currentDirection;
     tBool m_boolBuffer;
 
-    tTimeStamp m_currTimeStamp;
     tTimeStamp m_oldTimeStamp;
     tTimeStamp m_lastPinEvent;
     tTimeStamp m_lastTriggerTime;
-    tTimeStamp m_lastLeftWheelTime;
-    tTimeStamp m_lastRightWheelTime;
+    tTimeStamp m_yawSampleTime_now;
+    tTimeStamp m_yawSampleTime_old_interpol;
 
     tFloat32 m_lastwheelCounter_left;
     tFloat32 m_lastwheelCounter_right;
 
+    tFloat32 m_heading_lastStep;        //heading after last odometry step
+    tFlaot32 m_heading_now;             //current reported heading (by sensor)
+    tFloat32 m_heading_old_interpol;   //value of old heading sensor sample (for extrapolation)
+
+
 	
     /*! other variables */
-    tFloat32 m_slippageAngle;
-    tFloat32 m_velocityLeft;
-    tFloat32 m_velocityLeft_last;
+    //tFloat32 m_slippageAngle;
+    tFloat32 m_velocityLeft;         // current velocities measured on each wheel
     tFloat32 m_velocityRight;
-    tFloat32 m_velocityRight_last;
-    tFloat32 m_velocityUnfiltered;
-    tFloat32 m_velocityFiltered;
-	tFloat32 m_distanceX_sum;
-	tFloat32 m_distanceY_sum;
-	tFloat32 m_heading_sum;
+    tFloat32 m_velocityUnfiltered;  //current velocity of car
+    tFloat32 m_velocityFiltered;    //velocity low-pass filtered for speed control
+    tFloat32 m_distanceX_sum;       //translation change since last trigger
+    tFloat32 m_distanceY_sum;       // """"
+    tFloat32 m_heading_sum;         //rotation change since last trigger
     tFloat32 m_distanceAllSum;
     tInt32   m_velocityResolution; //resolution of the velocity calculation 10 ~ max 10% error, 5 ~ max 20% error etc.
 
     tFloat32 m_filterStrength;
     tFloat32 m_wheelCircumfence;
+
+    tBool m_wheelsync;
 
     /*! sliding window filter for the left wheel*/
     SWE_cSmartSlidingWindow m_SlidingWindowCntLeftWheel;
@@ -154,19 +161,22 @@ class SWE_Odometry : public adtf::cFilter
     /*! METHODS */
 
     /*! calc and send odometry */
-    tResult CalcSingleOdometry(tTimeStamp timeIntervall); // a single integration step //TODO
-    tResult SendOdometry(tTimeStamp timestamp); //TODO
+    tResult CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last); // a single integration step //TODO
+    tResult SendOdometry(tTimeStamp timestamp);
 
     /*! helpers */
-    tFloat32 GetAngleDiff(tFloat32 angle_old, tFloat32 angle_new); //TODO
-    tFloat32 CalcDistance(tInt32 direction, tFloat32 ticks); //TODO
+    tFloat32 GetAngleDiff(tFloat32 angle_new, tFloat32 angle_old); //get the smaller difference in heading angle. Angles: +PI.....-PI
+    tFloat32 CalcDistance(tInt32 direction, tFloat32 pulses);
 
     /*! calculate and send velocity */
-    tResult CalcVelocity(); //TODO
-    tResult  FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity);
-    tResult  SendVelocity(); //TODO
+    tResult  ProcessPulses(tTimeStamp timeStamp);
+    tResult  CalcVelocity(); //TODO: milliseconds or microseconds????
+    tResult  FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity); //simple low pass filtering
+    tResult  SendVelocity();
 
-    tFloat32 FilterTicks(tTimeStamp last_tick, tTimeStamp curr_tick, tFloat32 last_Count, tFloat32 curr_count);//TODO  prevent double hits due to jittery sensors
+    tResult  FilterPulses();// heuristic filter for multiple hits at slow speeds due to jittery sensors
+
+    tFloat32  GetExtrapolatedHeadingDiff(tTimeStamp time_now); //extrapolate heading from last known heading sample to this moment
 };
 
 

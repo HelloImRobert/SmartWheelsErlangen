@@ -23,7 +23,7 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR I
 
 /*! SmartWheels-Erlangen (Robert de Temple): This class defines a smart sliding window filter.
  * The datatypes are tInt32 and tTimeStamp (hoping that Audi will stop that tFloat stupidity for counting variables soon ;) )
- * It returns the amount of ticks and the timeframe in which they occured.
+ * It returns the amount of pulses and the timeframe in which they occured.
  * The length of the timeframe depends on the data and is dynamically adjusted to always ensure a minimum accuracy without wasting any dynamics on unneccessary averaging.
  * 1/in_resolution is the maximum allowable error in this measurement (at least theoretically).
  * Higher values result in higher accuracy but also slower dynamics.
@@ -49,7 +49,7 @@ public:
     */
     tVoid AddNewValue(tInt32 inputValues, tTimeStamp inputTime);
 
-    tInt32 GetTicks();
+    tInt32 GetPulses();
 
     tTimeStamp GetTime();
 
@@ -82,9 +82,9 @@ private:
     tInt32 m_resolution;
     tFloat32 m_queueValueSum;
     tTimeStamp m_queueTimeSum;
-    tTimeStamp m_lastTickTime;
+    tTimeStamp m_lastPulseTime;
     tFloat32 m_maxDelay;
-    tInt32 m_lastTickValue;
+    tInt32 m_lastPulseValue;
 };
 
 #endif

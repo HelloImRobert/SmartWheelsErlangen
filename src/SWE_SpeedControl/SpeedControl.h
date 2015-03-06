@@ -67,7 +67,7 @@ class SpeedControl : public adtf::cFilter
         /*! tell the odometry what direction we're going
         @param state going forwards yes or no
         */
-        tResult SetDirection (tBool state);
+        tResult SetDirection (tFloat32 state);
 
         /*! tell the parkpilot that we've stopped
         @param state unimportant payload
@@ -105,7 +105,7 @@ class SpeedControl : public adtf::cFilter
 
         /*! current direction of travel as the wheel sensors can't sense that*/
 
-        tBool m_goingForwards; //true = forward
+        tFloat32 m_goingForwards; //1 = forward, 0 = stopped, -1 = backwards
 
 		/*! holds the last sample time */
 		tTimeStamp m_lastSampleTime;
@@ -153,14 +153,14 @@ class SpeedControl : public adtf::cFilter
         tFloat32 m_last_pwm;
         tBool m_last_brakeLights;
         tBool m_last_reverseLights;
-        tBool m_last_goingForwards;
+        tFloat32 m_last_DirectionSent;
 
 
 	    /*! Coder Descriptor for the pins*/
         cObjectPtr<IMediaTypeDescription> m_pCoderDescSignaltSignalValue;
         cObjectPtr<IMediaTypeDescription> m_pCoderDescSignalint8;
         cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;
-        cObjectPtr<IMediaTypeDescription>  m_pCodeOutputbrakelight;
+        cObjectPtr<IMediaTypeDescription> m_pCodeOutputbrakelight;
 
 	
 };
