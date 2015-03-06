@@ -199,7 +199,7 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoderInput));
 
             //get values from media sample
-            pCoderInput->Get("f32Value", (tVoid*)&m_wheelCounter_lef);
+            pCoderInput->Get("f32Value", (tVoid*)&m_wheelCounter_left);
             pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoderInput);
 
@@ -330,7 +330,7 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
     tTimeStamp current_time;
     current_time = GetTime();
 
-    FilterTicks();
+    FilterPulses();
 
     m_distanceAllSum = m_distanceAllSum + (CalcDistance(m_currentDirection, (m_wheelCounter_left - m_lastwheelCounter_left)) / 2.0) + ( CalcDistance(m_currentDirection, (m_wheelCounter_right - m_lastwheelCounter_right)) / 2.0);
     m_lastwheelCounter_left = m_wheelCounter_left;
@@ -507,23 +507,22 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
 
 
     // corner cases
-    if(m_currentDirection == 0) //if car stopped no movement (should have) occurred --> prevents spidering and drift
+    if(m_currentDirection == 0) //if car stopped no movement (should have) occurred --> prevents impact of sensor drift
     {
         heading_diff = 0;
         distance_driven = 0;
     }
 
 
-
     // ------ calculate current turning radius ---------
 
-    if ( heading_diff != 0 )
+    if (heading_diff != 0)
     {
         radius = (distance_driven / heading_diff);
     }
     else
     {
-        radius = 100000;
+        radius = 1000000;
     }
 
     //absolute value...
@@ -533,59 +532,47 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
 
     // -------- calculate relative movement -------
 
-    if((radius >= 5000) || (radius < MINIMUM_TURNING_RADIUS)) //on big radiuses linear movement interpolation is enough (and potentially even more percise), very small radiuses are caused by quantisation and drift and should be ignored as well
+    if(radius >= 10000)  // linear interpolation if infinite (or very big) radius
     {
-        X_distance = sin(heading_diff*0.5) * distance_driven;
-
-        if (heading_diff >= 0)
+        Y_distance = sin(heading_diff*0.5) * distance_driven;
+        X_distance = cos(heading_diff*0.5) * distance_driven;
+    }
+    else //non-linear interpolation based on circle segments for bigger angular steps
+    {
+        if (distance_driven == 0)
         {
-            Y_distance = (1-cos(heading_diff*0.5)) * distance_driven;
+            X_distance = Y_distance = 0;
         }
         else
         {
-            Y_distance = (1-cos(heading_diff*0.5)) * distance_driven *(-1);
+            X_distance = sin(heading_diff) * radius;
+            Y_distance = (1 - cos(heading_diff)) * radius;
+
+            if (distance_driven < 0)
+            {
+                X_distance *= (-1);
+            }
+
+            if ((heading_diff > 0) && (distance_driven < 0))
+            {
+                Y_distance *= (-1);
+            }
+            else if ((heading_diff < 0) && (distance_driven > 0))
+            {
+                Y_distance *= (-1);
+            }
         }
     }
-    else //non-linear movement based on circle segments
-    {
 
-    }
+    // ----- sum everything up -----------
 
-    /*!
-    //calculate single movement step
-    // >>>>>>>> old steering angle-based odometry
-    if ( (m_steeringAngle + m_slippageAngle) > 1.4) //prevent crazy steering angles
-    {
-        radius = WHEELBASE / ( tan( 1.4 ) );
-    }
-    else
-    {
-        radius = WHEELBASE / ( tan( m_steeringAngle + m_slippageAngle ) );
-    }
-
-    if ( timeIntervall < 0 ) timeIntervall = 0;
-
-    angle = m_velocityUnfiltered * timeIntervall / radius;
-    distance = 2 * radius * sin( angle * 0.5 );
-
-
-    //divide vector into components + add to sum
-
-    //m_distanceAllSum = m_distanceAllSum + distance;
-    m_distanceX_sum = m_distanceX_sum + cos( angle + m_heading_sum ) * distance;
-    m_distanceY_sum = m_distanceY_sum + sin( angle + m_heading_sum ) * distance;
-
-    m_heading_sum = m_heading_sum + angle;
-
-    */
-
-    // sum everything up
     m_distanceX_sum += X_distance;
     m_distanceY_sum += Y_distance;
     m_heading_sum   += heading_diff;
 
 
-    // update data for new step
+    // -------- update data for new step --------
+
     m_heading_lastStep = extrapol_heading;
 
 
@@ -624,7 +611,7 @@ tFloat32 SWE_Odometry::GetExtrapolatedHeadingDiff(tTimeStamp time_now)
     // calculate the angular velocity between the last two yaw samples and get the difference in heading between the last sensor reading and now
     tFloat32 heading_diff_old;
     tFloat32 heading_diff_now;
-    tFLoat32 time_diff_old;
+    tFloat32 time_diff_old;
     tFloat32 time_diff_now;
 
     heading_diff_old = GetAngleDiff( m_heading_now, m_heading_old_interpol);

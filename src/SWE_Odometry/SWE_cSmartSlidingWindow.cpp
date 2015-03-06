@@ -15,7 +15,7 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR I
 **********************************************************************
 * $Author:: spiesra $  $Date:: 2014-09-16 13:29:48#$ $Rev:: 26104   $
 **********************************************************************/
-#include "stdafx.h"
+//#include "stdafx.h"
 #include "SWE_cSmartSlidingWindow.h"
 
 #define TIMESTAMP_RESOLUTION 1000 //TODO : micro- or milli-seconds?

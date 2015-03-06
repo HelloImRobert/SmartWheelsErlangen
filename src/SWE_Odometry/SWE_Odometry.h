@@ -127,7 +127,7 @@ class SWE_Odometry : public adtf::cFilter
     tFloat32 m_lastwheelCounter_right;
 
     tFloat32 m_heading_lastStep;        //heading after last odometry step
-    tFlaot32 m_heading_now;             //current reported heading (by sensor)
+    tFloat32 m_heading_now;             //current reported heading (by sensor)
     tFloat32 m_heading_old_interpol;   //value of old heading sensor sample (for extrapolation)
 
 
