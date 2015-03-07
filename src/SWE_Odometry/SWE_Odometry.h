@@ -131,6 +131,9 @@ class SWE_Odometry : public adtf::cFilter
     tFloat32 m_heading_old_interpol;   //value of old heading sensor sample (for extrapolation)
 
 
+
+    //DEBUG
+    tFloat32 debugvar;
 	
     /*! other variables */
     //tFloat32 m_slippageAngle;
@@ -143,6 +146,8 @@ class SWE_Odometry : public adtf::cFilter
     tFloat32 m_heading_sum;         //rotation change since last trigger
     tFloat32 m_distanceAllSum;
     tInt32   m_velocityResolution; //resolution of the velocity calculation 10 ~ max 10% error, 5 ~ max 20% error etc.
+    tInt32   m_errorPulses_left;
+    tInt32   m_errorPulses_right;
 
     tFloat32 m_filterStrength;
     tFloat32 m_wheelCircumfence;

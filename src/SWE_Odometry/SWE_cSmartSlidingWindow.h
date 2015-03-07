@@ -59,6 +59,9 @@ public:
     /*! set the resolution */
     tResult SetResolution(tInt32 in_resolution);
 
+    //DEBUG:
+    tFloat32 debugvar;
+
 
 private:
 
@@ -74,17 +77,19 @@ private:
     tFloat32 GetNextRes();
 
 
+
     /*! queue which holds all the samples with their timestamps as a pair*/
     queue< pair<tInt32,tTimeStamp> > m_inputValues;
 
     /*! length of the queue, i.e. the length of the sliding window*/
     tInt32 m_maxLength;
     tInt32 m_resolution;
-    tFloat32 m_queueValueSum;
+    tInt32 m_queueValueSum;
     tTimeStamp m_queueTimeSum;
     tTimeStamp m_lastPulseTime;
     tFloat32 m_maxDelay;
     tInt32 m_lastPulseValue;
+    tBool m_firstSample;
 };
 
 #endif

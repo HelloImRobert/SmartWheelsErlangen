@@ -1,14 +1,14 @@
 /**
 Copyright (c) 
 Audi Autonomous Driving Cup. All rights reserved.
- 
+
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
- 
+
 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
 3.  All advertising materials mentioning features or use of this software must display the following acknowledgement: This product includes software developed by the Audi AG and its contributors for Audi Autonomous Driving Cup.
 4.  Neither the name of Audi nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
- 
+
 THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL AUDI AG OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
@@ -19,11 +19,11 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR I
 #include "SWE_cSmartSlidingWindow.h"
 
 #define TIMESTAMP_RESOLUTION 1000 //TODO : micro- or milli-seconds?
-#define AVG_UPDATES_PER_SECOND 18.0f
+#define AVG_UPDATES_PER_SECOND 18.0
 
 
 SWE_cSmartSlidingWindow::SWE_cSmartSlidingWindow( tInt32 in_max_length, tFloat32 in_maxDelay):
-m_maxLength(in_max_length), m_resolution(10), m_queueValueSum(0), m_queueTimeSum(0), m_maxDelay(in_maxDelay), m_lastPulseTime(0) , m_lastPulseValue(0)
+    m_maxLength(in_max_length), m_resolution(10), m_queueValueSum(0), m_queueTimeSum(0), m_maxDelay(in_maxDelay), m_lastPulseTime(0) , m_lastPulseValue(0), m_firstSample (true)
 {
 }
 
@@ -31,6 +31,13 @@ SWE_cSmartSlidingWindow::~SWE_cSmartSlidingWindow(){}
 
 tVoid SWE_cSmartSlidingWindow::AddNewValue(tInt32 inputValues, tTimeStamp inputTime)
 {
+
+    if (m_firstSample)
+    {
+        m_lastPulseTime = inputTime;
+        m_lastPulseValue = inputValues;
+        m_firstSample = false;
+    }
 
     // ------- discard old values -------
 
@@ -43,35 +50,39 @@ tVoid SWE_cSmartSlidingWindow::AddNewValue(tInt32 inputValues, tTimeStamp inputT
             m_inputValues.pop();
     }
 
+
     // ------------- fill the queue ------------
 
-    if (m_lastPulseValue < inputValues) //was a pulse registered?
+    if (m_lastPulseValue < inputValues) //was a new pulse registered?
     {
         tInt32 delta_pulses;
-        tFloat32 delta_time;
+        tTimeStamp delta_time;
 
         delta_pulses = inputValues - m_lastPulseValue;
         delta_time = inputTime - m_lastPulseTime;
 
-        if (delta_time < m_maxDelay)// not too slow/old to be registered?
+        if ((delta_time < m_maxDelay) && ( delta_time > 0))// not too slow/old to be registered?
         {
-        //save relative values
-        m_inputValues.push(make_pair<tInt32,tTimeStamp>(delta_pulses, delta_time));
+            //save relative values
+            m_inputValues.push(make_pair<tInt32,tTimeStamp>(delta_pulses, delta_time));
 
-        //save absolute values
-        m_queueValueSum += delta_pulses;
-        m_queueTimeSum += delta_time;
+            //save absolute values
+            m_queueValueSum += delta_pulses;
+            m_queueTimeSum += delta_time;
         }
 
         m_lastPulseTime = inputTime;
         m_lastPulseValue = inputValues;
+
+        //DEBUG
+        debugvar = m_queueTimeSum;
     }
 
 
     // ---------- shorten the queue ----------------
     //shorten until minimum resolution reached, to keep a short delay and use minimal averaging
 
-    while ( (m_inputValues.size() > 1) &&  (  (m_inputValues.size() > m_maxLength)  ||  (GetNextRes() >= m_resolution ) )) //is cutting off the last sample OK? 1. long enough to cut sth. off AND (2. cutting off results in high enough resolution OR 3. queue is too long)
+    while ( (m_inputValues.size() > 2) &&  (  (m_inputValues.size() > m_maxLength)  ||  (GetNextRes() >= m_resolution ) )) //is cutting off the last sample OK? 1. long enough to cut sth. off AND (2. cutting off results in high enough resolution OR 3. queue is too long)
     {
             m_queueTimeSum -= GetEndTime();
             m_queueValueSum -= GetEndValue();
@@ -94,7 +105,7 @@ tInt32 SWE_cSmartSlidingWindow::GetPulses()
 tInt32 SWE_cSmartSlidingWindow::GetEndValue()
 {
     if (m_inputValues.size() > 0)
-        return m_inputValues.back().first;
+        return m_inputValues.front().first;
     else
         return 0;
 }
@@ -102,7 +113,7 @@ tInt32 SWE_cSmartSlidingWindow::GetEndValue()
 tTimeStamp SWE_cSmartSlidingWindow::GetEndTime()
 {
     if (m_inputValues.size() > 0)
-        return m_inputValues.back().second;
+        return m_inputValues.front().second;
     else
         return 0;
 }
@@ -137,6 +148,7 @@ tResult SWE_cSmartSlidingWindow::Reset()
 
     m_queueValueSum = 0;
     m_queueTimeSum = 0.0;
+    m_firstSample = true;
 
     RETURN_NOERROR;
 }

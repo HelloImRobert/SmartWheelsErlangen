@@ -12,6 +12,8 @@ cSWE_BirdEyeTransformation::cSWE_BirdEyeTransformation(const tChar* __info):cFil
 {
     SetPropertyStr( CORRESPING_POINTS_XML , "/home/odroid/AADC/calibration_files/SWE_cameraCalibrationPoints.XML");
     SetPropertyBool( CORRESPING_POINTS_XML NSSUBPROP_ISCHANGEABLE, tTrue);
+
+    m_frameCounter = 0;
 }
 
 cSWE_BirdEyeTransformation::~cSWE_BirdEyeTransformation()
@@ -176,6 +178,8 @@ tResult cSWE_BirdEyeTransformation::OnPinEvent(IPin* pSource,
 
 tResult cSWE_BirdEyeTransformation::ProcessInput(IMediaSample* pMediaSample)
 {
+    m_frameCounter++;
+
     // ----------- transform the input to a opencv Mat ----------
     tUInt8* pData = NULL;
     pMediaSample->Lock((const tVoid**) &pData);
@@ -204,6 +208,9 @@ tResult cSWE_BirdEyeTransformation::ProcessInput(IMediaSample* pMediaSample)
 
     //transmit media sample over output pin --> the timestamp is used for both output pins
     tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
+
+    //DEBUG:
+    tmStreamTime = m_frameCounter;
 
     RETURN_IF_FAILED(pMediaSampleOutput->SetTime(tmStreamTime));
     //RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));

@@ -43,6 +43,8 @@ class cSWE_BirdEyeTransformation : public adtf::cFilter
             std::string _pathExternalCameraParams;         /**< Path to the xml with the points of the inverse perspective transformation*/
             FileStorage _inversePerspectiveFileStorage;    /**< Stream to deserialize the XML with the points*/
 
+            tInt32 m_frameCounter;
+
             // descriptor
             cObjectPtr<IMediaTypeDescription>  _pCodeTrigger;
         };

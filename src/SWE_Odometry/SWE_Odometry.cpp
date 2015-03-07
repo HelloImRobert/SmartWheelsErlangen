@@ -1,10 +1,9 @@
 #include "SWE_Odometry.h"
 #include "SWE_cSmartSlidingWindow.h"
 
-
-#define WHEELBASE 359.0f
-#define WHEELPULSE_PER_TURN 16.0f
-#define TIMESTAMP_RESOLUTION 1000
+#define WHEELBASE 359.0
+#define WHEELPULSE_PER_TURN 16.0
+#define TIMESTAMP_RESOLUTION 1000.0
 #define MAX_TICK_FILTER_VELOCITY 1000 //in mm/s
 #define MY_PI 3.14159265359f
 #define MINIMUM_TURNING_RADIUS 600 // in mm -> actually ~ 680-ish ?
@@ -13,7 +12,7 @@
 ADTF_FILTER_PLUGIN("SWE_Odometry", OID_ADTF_SWE_ODOMETRY, SWE_Odometry)
 
 
-SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWindowCntLeftWheel(21, (0.33 * TIMESTAMP_RESOLUTION)), m_SlidingWindowCntRightWheel(21, (0.66 * TIMESTAMP_RESOLUTION)), m_mutex()  //TODO
+SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWindowCntLeftWheel(21, (0.33 * TIMESTAMP_RESOLUTION)), m_SlidingWindowCntRightWheel(21, (0.33 * TIMESTAMP_RESOLUTION)), m_mutex()  //TODO
 {
 
     m_steeringAngle = 0;
@@ -38,7 +37,10 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     m_wheelCounter_left = 0;
     m_wheelCounter_right = 0;
 
-    m_currentDirection = 0;
+
+    //DEBUG:
+    //m_currentDirection = 0;
+    m_currentDirection = 1;
 
     m_wheelsync = false;
 
@@ -46,11 +48,12 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     m_heading_now = 0.0;
     m_heading_old_interpol = 0.0;
 
+    m_errorPulses_left = 0;
+    m_errorPulses_right = 0;
+
     SetPropertyFloat("Velocity Filter Strength",0.3);
     SetPropertyFloat("Wheel circumfence in mm",329);
     SetPropertyInt("time and pulse resolution of the velocity calculation 2-20",10);
-
-
 
 }
 
@@ -151,11 +154,43 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
     }
     else if (eStage == StageNormal)
     {
-
+        m_SlidingWindowCntLeftWheel.Reset();
+        m_SlidingWindowCntRightWheel.Reset();
     }
     else if(eStage == StageGraphReady)
     {
+        m_SlidingWindowCntLeftWheel.Reset();
+        m_SlidingWindowCntRightWheel.Reset();
 
+        m_lastwheelCounter_left = 0;
+        m_lastwheelCounter_right = 0;
+
+        m_wheelCounter_left = 0;
+        m_wheelCounter_right = 0;
+
+        m_errorPulses_left = 0;
+        m_errorPulses_right = 0;
+
+        m_wheelsync = false;
+
+        m_distanceAllSum = 0;
+        m_distanceX_sum = 0;
+        m_distanceY_sum = 0;
+        m_heading_sum = 0;
+
+        m_oldTimeStamp = GetTime();
+        m_lastPinEvent = GetTime();
+        m_lastTriggerTime = GetTime();
+
+
+        //DEBUG:
+        //m_currentDirection = 0;
+        m_currentDirection = 1;
+
+        m_velocityLeft = 0;
+        m_velocityRight = 0;
+        m_velocityFiltered = 0;
+        m_velocityUnfiltered = 0;
     }
 
     RETURN_NOERROR;
@@ -202,6 +237,7 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             pCoderInput->Get("f32Value", (tVoid*)&m_wheelCounter_left);
             pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoderInput);
+
 
             //process data
             if (m_wheelsync) // has the sibling wheeldata arrived yet?
@@ -357,16 +393,23 @@ tTimeStamp SWE_Odometry::GetTime()
 
 tResult SWE_Odometry::CalcVelocity()
 {
-    if (m_SlidingWindowCntLeftWheel.GetPulses() != 0)
-        m_velocityLeft = ((m_SlidingWindowCntLeftWheel.GetPulses() / (m_SlidingWindowCntLeftWheel.GetTime() )) / WHEELPULSE_PER_TURN) * m_wheelCircumfence * 1000 * m_currentDirection;
+    if (m_SlidingWindowCntLeftWheel.GetTime() > 0)
+    {
+        m_velocityLeft = (((tFloat32)m_SlidingWindowCntLeftWheel.GetPulses() / m_SlidingWindowCntLeftWheel.GetTime() ) / WHEELPULSE_PER_TURN) * m_wheelCircumfence * TIMESTAMP_RESOLUTION * m_currentDirection;
+    }
     else
+    {
         m_velocityLeft = 0.0;
+    }
 
-    if (m_SlidingWindowCntRightWheel.GetPulses() != 0)
-        m_velocityRight = ((m_SlidingWindowCntRightWheel.GetPulses() / (m_SlidingWindowCntRightWheel.GetTime() )) / WHEELPULSE_PER_TURN) * m_wheelCircumfence * 1000 * m_currentDirection;
+    if (m_SlidingWindowCntRightWheel.GetTime() > 0)
+    {
+        m_velocityRight = (((tFloat32)m_SlidingWindowCntRightWheel.GetPulses() / m_SlidingWindowCntRightWheel.GetTime() ) / WHEELPULSE_PER_TURN) * m_wheelCircumfence * TIMESTAMP_RESOLUTION * m_currentDirection;
+    }
     else
+    {
         m_velocityRight = 0.0;
-
+    }
 
     m_velocityUnfiltered = ((m_velocityLeft + m_velocityRight) / 2.0);
     m_velocityFiltered = FilterVelocity(m_filterStrength, m_velocityFiltered, m_velocityUnfiltered );
@@ -386,15 +429,23 @@ tResult SWE_Odometry::FilterPulses()
 {
     tFloat32 delta_count_left;
     tFloat32 delta_count_right;
+    tFloat32 tempCounter;
+
+    //compensate for errors => IMPROVEMENT: better would be the registration of only the pulse delta right at the input pin
+    m_wheelCounter_left = m_wheelCounter_left - m_errorPulses_left;
+    m_wheelCounter_right = m_wheelCounter_right - m_errorPulses_right;
 
     delta_count_left = m_wheelCounter_left - m_lastwheelCounter_left;
     delta_count_right = m_wheelCounter_right - m_lastwheelCounter_right;
 
     //if the delta of pulses between both wheels differs by more than 1 pulse + 100% then its probably a pulse-burst (sensor error)
-    // if car stopped don't accept pulses at all
+    // if car is stopped don't accept pulses at all
     // possible improvement: make the relative part (the worst-case 100%) dependend on steering angle
     if(m_currentDirection == 0)
     {
+        m_errorPulses_left += (tInt32)(m_wheelCounter_left - m_lastwheelCounter_left);
+        m_errorPulses_right += (tInt32)(m_wheelCounter_right - m_lastwheelCounter_right);
+
         m_wheelCounter_left = m_lastwheelCounter_left;
         m_wheelCounter_right = m_lastwheelCounter_right;
     }
@@ -402,14 +453,18 @@ tResult SWE_Odometry::FilterPulses()
     {
         if( (delta_count_left - delta_count_right) > (1 + ( 1.0 * delta_count_right )) )
         {
-            m_wheelCounter_left = m_lastwheelCounter_left + delta_count_right; //guess the delta to be the same as the other wheel
+            tempCounter = m_lastwheelCounter_left + delta_count_right; //guess the delta to be the same as the other wheel
+            m_errorPulses_left = (tInt32)(m_wheelCounter_left - tempCounter); //those were too many
+            m_wheelCounter_left = tempCounter;
         }
     }
     else if (delta_count_left < delta_count_right)
     {
         if( (delta_count_right - delta_count_left) > (1 + ( 1.0 * delta_count_left )) )
         {
-            m_wheelCounter_right = m_lastwheelCounter_right + delta_count_left;
+            tempCounter = m_lastwheelCounter_right + delta_count_left; //guess the delta to be the same as the other wheel
+            m_errorPulses_right += (tInt32)(m_wheelCounter_right - tempCounter); //those were too many
+            m_wheelCounter_right = tempCounter;
         }
     }
 
@@ -443,7 +498,14 @@ tResult SWE_Odometry::SendVelocity()
     //write date to the media sample with the coder of the descriptor
     m_pCoderDescSignal->WriteLock(pMediaSample, &pCoder);
 
-    pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
+
+
+    //DEBUG:
+    //pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
+    pCoder->Set("f32Value", (tVoid*)&(debugvar));
+
+
+
     pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&m_lastPinEvent);
     m_pCoderDescSignal->Unlock(pCoder);
 
@@ -498,7 +560,7 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
     tFloat32 time_intervall;
 
     // ---------- get deltas -----------
-    time_intervall = time_now - time_last;
+    time_intervall = (tTimeStamp)(time_now - time_last) / 10E6; //DEBUG
 
     extrapol_heading = m_heading_now + GetExtrapolatedHeadingDiff(time_now);
     heading_diff = GetAngleDiff(extrapol_heading, m_heading_lastStep) ;
@@ -563,6 +625,9 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
             }
         }
     }
+
+    //DEBUG
+    debugvar = time_intervall;
 
     // ----- sum everything up -----------
 
