@@ -3,6 +3,7 @@
 // +++ begin_defines +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*! Sensor positions */
 #define POS_IR_SIDE_RIGHT -150.0f
+#define POS_IR_SIDE_LEFT 150.0f
 #define POS_IR_FRONT_SIDE 450.0f
 
 /*! Thresholds */
@@ -13,32 +14,31 @@
 /*! Park styles */
 #define PARK_ALONGSIDE 1
 #define PARK_CROSS 2
+#define PULL_LEFT 3
+#define PULL_RIGHT 4
 
 /*! Lot sizes */
 #define ALONGSIDE_SIZE 765.0f         // minimum size of parking lot
-#define CROSS_SIZE 500.0f             // ?? minimum size of parking lot ??
+#define CROSS_SIZE 450.0f             // minimum size of parking lot
 #define EASY_ALONGSIDE 40.0f          // buffer for easy S-curve maneuver
 
 /*! Helpers to calculate central angle */
 #define CALC_QUOTIENT -799.0f
 #define CALC_CARHALF 150.0f
 #define CALC_RADIUS 400.0f
-#define DEG_TO_RAD 0.017453292f
 
-/*! Invalide sensor values */
-#define INVALIDE_LOW 0.0f
-#define INVALIDE_HIGH 9999.0f
+/*! Other math helpers */
+#define DEG_TO_RAD 0.017453292f
+#define STEERING_TO_SERVO 0.71428571f
+
+/*! Invalid sensor values */
+#define INVALID_LOW 0.0f
+#define INVALID_HIGH 9999.0f
 
 /*! Steering angles */
 #define STEER_RIGHT_MAX -30.0f             // Maximaler Lenkwinkel rechts
 #define STEER_LEFT_MAX 30.0f               // Maximaler Lenkwinkel links
 #define STEER_NEUTRAL 0.0f                 // Lenkwinkel = 0
-
-/*! Adjustment for normal parking maneuver */
-// TODO: in filter properties schreiben
-#define ANGLE_ADJUSTMENT 3.0f                  // in degree !
-#define DIST_ADJUSTMENT 30.0f
-#define COUNT_MANEUVERS 4
 
 // +++ end_defines ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -50,21 +50,23 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         // initialise member variables
         m_searchState = 0;
         m_parkState = 0;
+        m_pulloutState = 0;
 
-        m_IRFrontRightCur = INVALIDE_HIGH;
-        m_IRRearRightCur = INVALIDE_HIGH;
-        m_IRFrontRightOld = INVALIDE_HIGH;
-        m_IRRearRightOld = INVALIDE_HIGH;
+        m_IRFrontRightCur = INVALID_HIGH;
+        m_IRRearRightCur = INVALID_HIGH;
+        m_IRFrontLeftCur = INVALID_HIGH;
         m_distEntry = 0.0;
+        m_distExit = 0.0;	// maybe kill
         m_parkTrigger = 0;
         m_lastIRshort = 0.0;
 
         m_distStartPark = 0.0;
-        m_overshoot = 0.0;
+        m_centralAngle = 0.0;
+        m_counterAngle = 0.0;
+        m_distStart = 0.0;
+        m_rememberDist = 0.0;
 
         m_searchActive = false;
-        m_entry = false;
-        m_entrySaved = false;
         m_minDistReached = false;
         m_carStopped = false;
 
@@ -75,8 +77,18 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         m_odometryData.velocity = 0.0;
 
         // set filter properties
-        SetPropertyFloat("AngleAdjustment",3.0);
-        SetPropertyFloat("DistanceAdjustment",40.0);
+        SetPropertyFloat("A_HeadingAngleAdjustment",3.0);
+        SetPropertyFloat("A_DistanceAdjustment",40.0);
+        SetPropertyFloat("A_SecurityBuffer", 20.0);
+
+        SetPropertyFloat("C_StraightForward", 50.0);
+        SetPropertyFloat("C_HeadingAngleLeftForward", 35.0);
+        SetPropertyFloat("C_SteerAngleRightBackward", 31.8);
+        SetPropertyFloat("C_PerpendicularBackward", 470.0);
+
+        SetPropertyFloat("C_PullLeftStraight", 720.0);
+        SetPropertyFloat("C_PullRightStraight", 300.0);
+
 
 }
 
@@ -110,6 +122,9 @@ tResult cSWE_ParkPilot::CreateOutputPins(__exception)
     RETURN_IF_FAILED(m_outputSteering.Create("Steering_Signal", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_outputSteering));
 
+    RETURN_IF_FAILED(m_outputParkState.Create("ParkState", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_outputParkState));
+
     RETURN_NOERROR;
 
     // oder so?? :P
@@ -138,8 +153,16 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
     }
     else if (eStage == StageNormal)
     {
-        m_AngleAdjustment = GetPropertyFloat("AngleAdjustment");
-        m_DistanceAdjustment = GetPropertyFloat("DistanceAdjustment");
+        m_AngleAdjustment = GetPropertyFloat("A_HeadingAngleAdjustment");
+        m_DistanceAdjustment = GetPropertyFloat("A_DistanceAdjustment");
+        m_securityBuffer = GetPropertyFloat("A_SecurityBuffer");
+
+        m_straightForward = GetPropertyFloat("C_StraightForward");
+        m_headingAngleForward = GetPropertyFloat("C_HeadingAngleLeftForward");
+        m_steeringAnlgeBackward = GetPropertyFloat("C_SteerAngleRightBackward");
+        m_perpendicularBackward = GetPropertyFloat("C_PerpendicularBackward");
+        m_pullLeftStraight = GetPropertyFloat("C_PullLeftStraight");
+        m_pullRightStraight = GetPropertyFloat("C_PullRightStraight");
     }
     else if(eStage == StageGraphReady)
     {
@@ -195,7 +218,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         else if(pSource == &m_inputObjectData)
         {
             // leave if we have not received a park trigger
-            if( m_parkTrigger != PARK_ALONGSIDE && m_parkTrigger != PARK_CROSS )
+            if( m_parkTrigger > 4 )
             {
                 RETURN_NOERROR;
             }
@@ -207,20 +230,40 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             pCoder->Get("PointArray", (tVoid*)&objectData);
             m_pCoderDesc->Unlock(pCoder);
 
-            m_IRFrontRightCur = (-1) * (objectData[1].y - POS_IR_SIDE_RIGHT);
-            m_IRRearRightCur = (-1) * (objectData[4].y - POS_IR_SIDE_RIGHT);
+            m_IRFrontRightCur = (-1) * (objectData[5].y - POS_IR_SIDE_RIGHT);
+            m_IRRearRightCur = (-1) * (objectData[7].y - POS_IR_SIDE_RIGHT);
+            m_IRFrontLeftCur = objectData[4].y - POS_IR_SIDE_LEFT;
 
             // Check whether we have reached the first car; if yes, activate the search
+            // Check whether 10 samples are < TH_SHORT; if yes, active search
+            if(m_searchActive == false)
+            {
+                tFloat32 nextElem;
 
-            //TODO: fuer eine kurze mindestlaenge
-            if(m_IRFrontRightCur > TH_SHORT && m_searchState == 0 )
-            {
-                RETURN_NOERROR;
-            }
-            else
-            {
-                m_searchState = 1;
-                RETURN_NOERROR;
+                if(m_initTest_vect.size() < 10)
+                {
+                    m_initTest_vect.push_back(nextElem);
+                    m_initTest_vect.back() = m_IRFrontRightCur;
+                }
+                else
+                {
+                    m_initTest_vect.erase( m_initTest_vect.begin() );
+                    m_initTest_vect.push_back(nextElem);
+                    m_initTest_vect.back() = m_IRFrontRightCur;
+                }
+
+
+                for(int i = 0; i < m_initTest_vect.size(); ++i)
+                {
+                    if(m_initTest_vect.at(i) > TH_SHORT)
+                    {
+                        m_searchActive = false;
+                    }
+                    else
+                    {
+                        m_searchActive = true;
+                    }
+                }
             }
 
         }
@@ -237,21 +280,70 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         }
     }
 
-    if( m_parkTrigger == PARK_ALONGSIDE && m_searchState > 0 && m_searchState < 4 )
+    /* INDICES:
+     * 101... search Alongside
+     * 201... park Alongside easy
+     * 301... park Alongside normal
+     * 401... pull out Alongside
+     *
+     * 501... search Cross
+     * 601... park Cross
+     * 701... pull out Cross right
+     * 801... pull out Cross left
+     */
+
+
+    // Suche Aktivieren
+    if(m_searchActive == true && m_parkTrigger == PARK_ALONGSIDE)
+    {
+        m_searchState = 101;
+    }
+    else if(m_searchActive == true && m_parkTrigger == PARK_CROSS)
+    {
+        m_searchState = 501;
+    }
+
+
+
+
+    // Was machen wir?
+    if( m_searchState > 100 && m_searchState < 200 )
     {
         searchRoutineAlongside();
     }
-    else if( m_parkTrigger == PARK_CROSS && m_searchState > 0 && m_searchState < 4 )
+    else if( m_searchState > 500 && m_searchState < 600 )
     {
         searchRoutineCross();
     }
-    else if( m_parkTrigger == PARK_ALONGSIDE && m_searchState == 4 && m_parkState > 0 && m_parkState <= 100 )
+    else if( m_searchState == 104 && m_parkState > 200 && m_parkState < 300 )
+    {
+        parkRoutineAlongsideEasy();
+    }
+    else if( m_searchState == 104 && m_parkState > 300 && m_parkState < 400 )
     {
         parkRoutineAlongsideNormal();
     }
-    else if( m_parkTrigger == PARK_ALONGSIDE && m_searchState == 4 && m_parkState > 100 )
+    else if( m_searchState == 503 && m_parkState > 600 && m_parkState < 700 )
     {
-        parkRoutineAlongsideEasy();
+        parkRoutineCross();
+    }
+    else if( m_parkTrigger == PULL_LEFT && m_parkState == 605 )
+    {
+        pullOutCrossLeft();
+    }
+    else if( m_parkTrigger == PULL_RIGHT && m_parkState == 605 )
+    {
+        pullOutCrossRight();
+    }
+    else if( (m_parkTrigger == PULL_LEFT && m_parkState == 206) || (m_parkTrigger == PULL_LEFT && m_parkState == 307) )
+    {
+        // TODO
+        pullOutAlongsideLeft();
+    }
+    else if( (m_parkTrigger == PULL_RIGHT && m_parkState == 206) || (m_parkTrigger == PULL_RIGHT && m_parkState == 307) )
+    {
+        // TODO
+        pullOutAlongsideRight();
     }
 
     RETURN_NOERROR;
@@ -260,53 +352,55 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++ ALONGSIDE ROUTINE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+// ++++++++++++++++++++++++++++++++++++++++ SEARCH ALONGSIDE +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 tResult cSWE_ParkPilot::searchRoutineAlongside()
 {
     tFloat32 distTravelled = 0;
 
     switch( m_searchState )
     {
-        case 1: // search for possible beginning
+        case 101: // search for possible beginning
             if( m_IRFrontRightCur >= TH_LONG_ALONGSIDE )
             {
                 m_distEntry = m_odometryData.distance_sum;
-                m_searchState = 2;
+                m_searchState = 102;
             }
             break;
 
 
-        case 2: // check the size
+        case 102: // check the size
             distTravelled = m_odometryData.distance_sum - m_distEntry;
 
             // too small, return to state 1
             if( m_IRFrontRightCur <= TH_SHORT && distTravelled < ALONGSIDE_SIZE )
             {
-                m_searchState = 1;
+                m_searchState = 101;
             }
 
             // min size reached, proceed with state 3
             if( distTravelled >= ALONGSIDE_SIZE )
             {
-                m_searchState = 3;
+                m_searchState = 103;
             }
             break;
 
-        case 3: // min size reached, try to get as much space as possible
+        case 103: // min size reached, try to get as much space as possible
             distTravelled = m_odometryData.distance_sum - m_distEntry;
-            m_distStartPark = m_odometryData.distance_sum;
+            m_distExit = m_odometryData.distance_sum;
 
             if( distTravelled >= ALONGSIDE_SIZE + EASY_ALONGSIDE )
             {
-                m_searchState = 4;
-                // Start blinking
-                m_parkState = 101;
+                m_searchState = 104; // 0 = search ended
+                // TODO: Start blinking
+                m_parkState = 201;
             }
 
             if( m_IRFrontRightCur <= TH_SHORT )
             {
-                m_searchState = 4;
-                // Start blinking
-                m_parkState = 1;
+                m_searchState = 104; // 0 = search ended
+                // TODO: Start blinking
+                m_parkState = 301;
             }
             break;
 
@@ -321,51 +415,59 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ALONGSIDE EASY +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
 {
-    tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
-    tFloat32 distToGo = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( centralAngle ) );
 
     switch(m_parkState)
     {
-        case 101: // drive forward until position for starting the park maneuver is reached and break
-            if( m_odometryData.distance_sum - m_distStartPark >= distToGo )
+        case 201: // drive forward until position for starting the park maneuver is reached and break
+            m_centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
+            m_distStart = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( m_centralAngle ) );
+
+            if( m_odometryData.distance_sum - m_distEntry >= m_distStart )
             {
                 sendSteeringAngle( STEER_NEUTRAL );
+                // UEBERLEGEN, OB GLEICH RUECKWAERTSGANG REINBALLERN
                 sendSpeed( 0 );
                 m_headingAtStart = m_odometryData.angle_heading;
-                m_parkState = 102;
+                m_parkState = 202;
             }
             break;
 
-        case 102: // check how much overshoot we had after breaking and drive backwards...
+        case 202: // wait until we have stopped and drive backwards...
             if( m_carStopped == true )
             {
-                m_overshoot = m_odometryData.distance_sum - m_distStartPark - distToGo;
-                m_parkState = 103;
+                //Denkhilfe
+                //distStop = m_odometryData.distance_sum;
+                //overshoot = distStop - m_distStart;
+                m_parkState = 203;
                 sendSpeed( -1 );
             }
             break;
 
-        case 103: // ...drive backwards until overshoot is killed and steer max right...
-            if( m_odometryData.distance_sum + m_overshoot >= 0)
+        case 203: // ...drive backwards until overshoot is killed and steer max right...
+            //Denkhilfe
+            // fahre rueckwaerts bis distStop - overshoot = m_distStart
+            if( m_odometryData.distance_sum <= m_distStart )
             {
-                m_parkState = 104;
+                m_parkState = 204;
                 sendSteeringAngle(STEER_RIGHT_MAX);
             }
             break;
 
-        case 104: // ... steer max right until central angle is reaced and steer max left...
-            if( m_odometryData.angle_heading >= (m_headingAtStart + centralAngle) )
+        case 204: // ... steer max right until central angle is reached and steer max left...
+            if( m_odometryData.angle_heading >= (m_headingAtStart + m_centralAngle) )
             {
-                m_parkState = 105;
+                m_parkState = 205;
                 sendSteeringAngle(STEER_LEFT_MAX);
             }
             break;
 
-        case 105: // ... steer max left until m_headingAtStart is reached again
+        case 205: // ... steer max left until m_headingAtStart is reached again
             if( m_odometryData.angle_heading <= m_headingAtStart )
             {
-                m_parkState = 106;
+                m_parkState = 206;
                 sendSpeed( 0 );
+                sendParkState ( 1 );
+                m_rememberDist = m_odometryData.distance_sum;
                 //Stop blinking
             }
 
@@ -379,56 +481,72 @@ tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ALONGSIDE NORMAL +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 tResult cSWE_ParkPilot::parkRoutineAlongsideNormal()
 {
-    tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
-    tFloat32 distToGo = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( centralAngle ) );
-
-    // now adjust the central angle
-    centralAngle = centralAngle + m_AngleAdjustment;
 
     switch(m_parkState)
     {
-        case 1: // drive forward until position for starting the park maneuver is reached and break
-            if( m_odometryData.distance_sum - m_distStartPark >= distToGo )
+        case 301: // drive forward until position for starting the park maneuver is reached and break
+            m_centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
+            m_distStart = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( m_centralAngle ) );
+
+            if( m_odometryData.distance_sum - m_distEntry >= m_distStart )
             {
                 sendSteeringAngle( STEER_NEUTRAL );
                 sendSpeed( 0 );
                 m_headingAtStart = m_odometryData.angle_heading;
-                m_parkState = 2;
+                m_parkState = 302;
             }
             break;
 
-        case 2: // check how much overshoot we had after breaking and drive backwards...
+        case 302: // wait until we have stopped and drive backwards...
             if( m_carStopped == true )
             {
-                m_overshoot = m_odometryData.distance_sum - m_distStartPark - distToGo;
+                //Denkhilfe
+                //distStop = m_odometryData.distance_sum;
+                //overshoot = distStop - m_distStart;
                 m_parkState = 3;
                 sendSpeed( -1 );
             }
             break;
 
-        case 3: // ...drive backwards until overshoot is killed and steer max right...
-            if( m_odometryData.distance_sum + m_overshoot >= 0)
+        case 303: // ...drive backwards until overshoot is killed and steer max right...
+            //Denkhilfe
+            // fahre rueckwaerts bis distStop - overshoot = m_distStart
+            if( m_odometryData.distance_sum <= m_distStart )
             {
-                m_parkState = 4;
+                m_parkState = 304;
                 sendSteeringAngle(STEER_RIGHT_MAX);
             }
             break;
 
-        case 4: // ... steer max right until central angle is reaced and steer max left...
-            if( m_odometryData.angle_heading >= (m_headingAtStart + centralAngle) )
+        ///// AB HIER NEUER CODE FUER 'NORMAL' /////
+        case 304: // ... steer max right until central angle + adjustment is reached and steer max left...
+            if( m_odometryData.angle_heading >= (m_headingAtStart + m_centralAngle + (m_AngleAdjustment * DEG_TO_RAD)  ) )
             {
-                m_parkState = 5;
+
+                tFloat32 distLeft = m_distStart - (CALC_RADIUS * sin( m_centralAngle + (m_AngleAdjustment * DEG_TO_RAD) )) - m_securityBuffer;
+                m_counterAngle = asin(distLeft);
+                m_parkState = 305;
                 sendSteeringAngle(STEER_LEFT_MAX);
             }
             break;
 
-        case 5: // ... steer max left until m_headingAtStart is reached again
+        case 305: // ... drive counterAngle backwards
+            if( m_odometryData.angle_heading <= m_headingAtStart + m_counterAngle )
+            {
+                m_parkState = 306;
+                sendSpeed( 1 );
+            }
+            break;
+
+        case 306: // pull straight
             if( m_odometryData.angle_heading <= m_headingAtStart )
             {
-                m_parkState = 6;
+                m_parkState = 307;
                 sendSpeed( 0 );
-                //Stop blinking
+                sendParkState ( 1 );
+                m_rememberDist = m_odometryData.distance_sum;
             }
+            break;
 
         default:
             break;
@@ -437,114 +555,227 @@ tResult cSWE_ParkPilot::parkRoutineAlongsideNormal()
     RETURN_NOERROR;
 }
 
-/*
-tResult cSWE_ParkPilot::parkRoutineAlongsideNormal()
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ PULLOUT ALONGSIDE RIGHT +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+tResult cSWE_ParkPilot::pullOutAlongsideRight()
 {
-
-    tFloat32 centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) ) + ( ANGLE_ADJUSTMENT * DEG_TO_RAD );
-    tFloat32 distToGo = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( centralAngle ) ) - DIST_ADJUSTMENT;
-    tFloat32 actualDistGone = 0.0;
-    tFloat32 overshoot = 0.0;
-    tFloat32 headingAtStart = 0.0;
-
-
-    if( m_odometryData.distance_sum - distStartPark >= distToGo)
-    {
-        //VOLLBREMSUNG
-        sendSpeed( 0 );
-    }
-
-    while(m_carStopped != true){}
-
-    if( m_carStopped == true )
-    {
-        actualDistGone = m_odometryData.distance_sum - distStartPark;
-        overshoot = actualDistGone - distToGo;
-
-        // Blink right
-
-        // Go backwards....
-        sendSpeed( -1 );
-    }
-
-    //...until "distToGo" is reached again
-    // maximum steering angle right (als servo signal rausgeben!! +-30)
-    while( (actualDistGone - m_odometryData.distance_sum) >= overshoot ){}
-    if( (actualDistGone - m_odometryData.distance_sum) >= overshoot )
-    {
-        headingAtStart = m_odometryData.angle_heading;
-        sendSteeringAngle(STEER_RIGHT_MAX);
-    }
-
-    // backwards until heading = headingAtStart + centralAngle....
-    //....maximum steering angle left
-    if( (m_odometryData.angle_heading - headingAtStart) >= centralAngle )
-    {
-        sendSteeringAngle(STEER_LEFT_MAX);
-    }
-
-    // backwards until headingAtStart is reached again
-    if( m_odometryData.angle_heading <= headingAtStart + ( ANGLE_ADJUSTMENT * DEG_TO_RAD ) )
-    {
-        sendSpeed( 0 );
-        // Stop blinking
-    }
-
-
-    // Rangieren bis er drin is
-    // hart coden oder algo?
-    while(m_odometryData.angle_heading < headingAtStart)
-    {
-        sendSteeringAngle(STEER_RIGHT_MAX);
-        sendSpeed( 1 );
-
-        if( m_odometryData.angle_heading >= ( ANGLE_ADJUSTMENT * DEG_TO_RAD / COUNT_MANEUVERS) )
-        {
-            sendSpeed( 0 );
-            sendSteeringAngle(STEER_LEFT_MAX);
-            sendSpeed( -1 );
-        }
-
-        // NACHDENKEN!
-//        if( m_odometryData.angle_heading )
-//        {
-//            sendSpeed( 0 );
-//        }
-
-    }
-
-
-
-    // at the end....
-    m_entry = false;
-    m_entrySaved = false;
-    m_minDistReached = false;
     RETURN_NOERROR;
 }
 
-*/
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ PULLOUT ALONGSIDE LEFT +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+tResult cSWE_ParkPilot::pullOutAlongsideLeft()
+{
+    RETURN_NOERROR;
+}
+
 
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++ CROSS ROUTINE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
-
-
+// ++++++++++++++++++++++++++++++++++++++++ SEARCH CROSS  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 tResult cSWE_ParkPilot::searchRoutineCross()
 {
+    tFloat32 distTravelled = 0;
+
+    switch( m_searchState )
+    {
+        case 501: // search for possible beginning
+            if( m_IRFrontRightCur >= TH_LONG_CROSS )
+            {
+                m_distEntry = m_odometryData.distance_sum;
+                m_searchState = 502;
+            }
+            break;
+
+
+        case 502: // check the size
+            distTravelled = m_odometryData.distance_sum - m_distEntry;
+
+            // too small, return to state 1
+            if( m_IRFrontRightCur <= TH_SHORT && distTravelled < CROSS_SIZE )
+            {
+                m_searchState = 1;
+            }
+
+            // min size reached
+            if( distTravelled >= CROSS_SIZE )
+            {
+                m_searchState = 503;
+                m_distExit = m_odometryData.distance_sum;
+                m_parkState = 601;
+
+            }
+            break;
+
+        default:
+            break;
+    }
+
     RETURN_NOERROR;
 }
 
-tResult cSWE_ParkPilot::parkRoutineCross(tFloat32 lotSize, tFloat32 distStartPark)
+
+// ++++++++++++++++++++++++++++++++++++++++ PARK CROSS  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+tResult cSWE_ParkPilot::parkRoutineCross()
 {
+    switch( m_parkState )
+    {
+        case 601: // go left for easier return
+            if( m_odometryData.distance_sum >= ( m_distEntry + (CROSS_SIZE/2) + m_straightForward ) )
+            {
+                m_headingAtStart = m_odometryData.angle_heading;
+                sendSteeringAngle(STEER_LEFT_MAX);
+                m_parkState = 602;
+            }
+            break;
+
+        case 602:
+            if( m_odometryData.angle_heading >= m_headingAtStart + m_headingAngleForward )
+            {
+                sendSpeed( 0 );
+                sendSteeringAngle( STEERING_TO_SERVO * m_steeringAnlgeBackward );
+                sendSpeed( -1 );
+                m_parkState = 603;
+            }
+            break;
+
+        case 603: //drive backwards until perpendicular to starting position = parallel to parking lot
+            if( m_odometryData.angle_heading >= m_headingAtStart + M_PI_2 )
+            {
+                sendSteeringAngle( STEER_NEUTRAL );
+                m_rememberDist = m_odometryData.distance_sum;
+                m_parkState = 604;
+            }
+            break;
+
+        case 604: // drive backwards until final parking position reached
+            if( m_odometryData.distance_sum <= (m_rememberDist - m_perpendicularBackward)  )
+            {
+                sendSpeed( 0 );
+                sendParkState ( 1 );
+                m_parkState = 605;
+            }
+            break;
+
+        default:
+            break;
+
+    }
+    RETURN_NOERROR;
+}
+
+
+// ++++++++++++++++++++++++++++++++++++++++ CROSS PULL OUT LEFT  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+tResult cSWE_ParkPilot::pullOutCrossLeft()
+{
+    switch( m_pulloutState )
+    {
+        case 801:
+            sendSpeed( 1 );
+            if( m_IRFrontRightCur > 500 && m_IRFrontLeftCur > 500 )
+            {
+                m_rememberDist = m_odometryData.distance_sum;
+                m_headingAtStart = m_odometryData.angle_heading;
+            }
+            m_pulloutState = 802;
+            break;
+
+        case 802:
+            if( m_odometryData.distance_sum >= (m_rememberDist + m_pullLeftStraight) )
+            {
+                sendSteeringAngle( STEER_LEFT_MAX );
+                m_pulloutState = 803;
+            }
+            break;
+
+        case 803:
+            if( m_odometryData.angle_heading >= (m_headingAtStart + M_PI_2) )
+            {
+                sendSteeringAngle( STEER_NEUTRAL );
+                // send FINISHED PIN TO KI
+
+                // set back all the stuff
+                m_parkTrigger = 0;
+                m_searchState = 0;
+                m_parkState = 0;
+                m_pulloutState = 0;
+                m_distEntry = 0;
+                m_headingAtStart = 0;
+                m_distStartPark = 0.0;
+                m_centralAngle = 0.0;
+                m_distStart = 0.0;
+                m_rememberDist = 0.0;
+                m_searchActive = false;
+                m_minDistReached = false;
+                m_carStopped = false;
+
+            }
+            break;
+
+        default:
+            break;
+
+    }
     RETURN_NOERROR;
 }
 
 
 
+// ++++++++++++++++++++++++++++++++++++++++ CROSS PULL OUT RIGHT  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+tResult cSWE_ParkPilot::pullOutCrossRight()
+{
+    switch( m_pulloutState )
+    {
+        case 701:
+            sendSpeed( 1 );
+            if( m_IRFrontRightCur > 500 && m_IRFrontLeftCur > 500 )
+            {
+                m_rememberDist = m_odometryData.distance_sum;
+                m_headingAtStart = m_odometryData.angle_heading;
+            }
+            m_pulloutState = 702;
+            break;
 
+        case 702:
+            if( m_odometryData.distance_sum >= (m_rememberDist + m_pullRightStraight) )
+            {
+                sendSteeringAngle( STEER_RIGHT_MAX );
+                m_pulloutState = 703;
+            }
+            break;
+
+        case 703:
+            if( m_odometryData.angle_heading >= (m_headingAtStart - M_PI_2) )
+            {
+                sendSteeringAngle( STEER_NEUTRAL );
+                // send FINISHED PIN TO KI
+
+                // set back all the stuff
+                m_parkTrigger = 0;
+                m_searchState = 0;
+                m_parkState = 0;
+                m_pulloutState = 0;
+                m_distEntry = 0;
+                m_headingAtStart = 0;
+                m_distStartPark = 0.0;
+                m_centralAngle = 0.0;
+                m_distStart = 0.0;
+                m_rememberDist = 0.0;
+                m_searchActive = false;
+                m_minDistReached = false;
+                m_carStopped = false;
+
+            }
+            break;
+
+        default:
+            break;
+
+    }
+    RETURN_NOERROR;
+}
 
 
 tResult cSWE_ParkPilot::sendSpeed(tInt8 speed)
@@ -604,8 +835,31 @@ tResult cSWE_ParkPilot::sendSteeringAngle(tFloat32 steeringAngle)
 
 }
 
+tResult cSWE_ParkPilot::sendParkState(tInt8 parkState)
+{
+    cObjectPtr<IMediaCoder> pCoder;
 
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSample;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
 
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescParkStateOut->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSample->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    RETURN_IF_FAILED(m_pCoderDescParkStateOut->WriteLock(pMediaSample, &pCoder));
+    pCoder->Set("tInt8SignalValue", (tVoid*)&(parkState));
+    m_pCoderDescParkStateOut->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    //RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_outputParkState.Transmit(pMediaSample));
+
+    RETURN_NOERROR;
+}
 
 
 

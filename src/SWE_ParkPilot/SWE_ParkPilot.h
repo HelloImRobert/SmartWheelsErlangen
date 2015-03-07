@@ -21,6 +21,7 @@ class cSWE_ParkPilot : public adtf::cFilter
 
     cOutputPin m_outputVelocity;
     cOutputPin m_outputSteering;
+    cOutputPin m_outputParkState;
 
 public:
     cSWE_ParkPilot(const tChar* __info);
@@ -35,32 +36,42 @@ protected: // overwrites cFilter
 
 
 
-
 private:
 
     tFloat32    m_IRFrontRightCur;
     tFloat32    m_IRRearRightCur;
-    tFloat32    m_IRFrontRightOld;
-    tFloat32    m_IRRearRightOld;
-    tFloat32    m_distEntry;
+    tFloat32    m_IRFrontLeftCur;
     tFloat32    m_lastIRshort;
 
     tFloat32    m_distStartPark;
     tFloat32    m_headingAtStart;
-    tFloat32    m_overshoot;
     tFloat32    m_AngleAdjustment;
     tFloat32    m_DistanceAdjustment;
+    tFloat32    m_distEntry;
+    tFloat32 	m_distExit;
+    tFloat32	m_distStart;
+    tFloat32	m_centralAngle;
+    tFloat32    m_counterAngle;
+    tFloat32	m_rememberDist;
+    tFloat32    m_securityBuffer;
+    tFloat32    m_headingAngleForward;
+    tFloat32    m_steeringAnlgeBackward;
+    tFloat32    m_perpendicularBackward;
+    tFloat32    m_pullLeftStraight;
+    tFloat32    m_pullRightStraight;
+    tFloat32    m_straightForward;
+
+    std::vector<tFloat32> m_initTest_vect;
 
     tInt8       m_parkTrigger;
 
     tBool       m_searchActive;
-    tBool       m_entry;
-    tBool       m_entrySaved;
     tBool       m_minDistReached;
     tBool       m_carStopped;
 
     tInt16      m_searchState;
     tInt16      m_parkState;
+    tInt16      m_pulloutState;
 
 
     /*! struct containing the odometry input data */
@@ -88,10 +99,15 @@ private:
 
     tResult parkRoutineAlongsideEasy();
     tResult parkRoutineAlongsideNormal();
-    tResult parkRoutineCross(tFloat32 lotSize, tFloat32 distStartPark);
+    tResult parkRoutineCross();
+    tResult pullOutAlongsideRight();
+    tResult pullOutAlongsideLeft();
+    tResult pullOutCrossRight();
+    tResult pullOutCrossLeft();
 
     tResult sendSpeed(tInt8 speed);
     tResult sendSteeringAngle(tFloat32 steeringAngle);
+    tResult sendParkState(tInt8 parkState);
 
 
     // Media Descriptors
@@ -99,6 +115,7 @@ private:
     cObjectPtr<IMediaTypeDescription> m_pCoderDesc;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSpeedOut;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSteeringOut;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescParkStateOut;
 };
 
 #endif // _SWE_PARKPILOT_H_
