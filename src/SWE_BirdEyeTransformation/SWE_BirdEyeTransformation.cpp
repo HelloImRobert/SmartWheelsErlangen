@@ -210,10 +210,10 @@ tResult cSWE_BirdEyeTransformation::ProcessInput(IMediaSample* pMediaSample)
     tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
 
     //DEBUG:
-    tmStreamTime = m_frameCounter;
+    //tmStreamTime = m_frameCounter;
 
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(tmStreamTime));
-    //RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    //RETURN_IF_FAILED(pMediaSampleOutput->SetTime(tmStreamTime));
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(_oOutputTrigger.Transmit(pMediaSampleOutput));
 
 

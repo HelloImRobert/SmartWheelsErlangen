@@ -1,10 +1,10 @@
 #include "SWE_Odometry.h"
 #include "SWE_cSmartSlidingWindow.h"
 
-#define WHEELBASE 359.0
-#define WHEELPULSE_PER_TURN 16.0
-#define TIMESTAMP_RESOLUTION 1000.0
-#define MAX_TICK_FILTER_VELOCITY 1000 //in mm/s
+#define WHEELBASE 359.0f
+#define WHEELPULSE_PER_TURN 16.0f
+#define TIMESTAMP_RESOLUTION 1000.0f
+#define MAX_TICK_FILTER_VELOCITY 1000.0f //in mm/s
 #define MY_PI 3.14159265359f
 #define MINIMUM_TURNING_RADIUS 600 // in mm -> actually ~ 680-ish ?
 
@@ -135,13 +135,32 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
         RETURN_IF_FAILED(RegisterPin(&m_oInputWheelLeft));
         //RETURN_IF_FAILED(m_oInputSteeringAngle.Create("SteeringAngle", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
         //RETURN_IF_FAILED(RegisterPin(&m_oInputSteeringAngle));
-        RETURN_IF_FAILED(m_oInputYaw.Create("Gyro_Yaw", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+
+        tChar const * strDescSignalValue_yaw = pDescManager->GetMediaDescription("tSignalValue");
+        RETURN_IF_POINTER_NULL(strDescSignalValue_yaw);
+        cObjectPtr<IMediaType> pTypeSignalValue_yaw = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue_yaw,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+        RETURN_IF_FAILED(pTypeSignalValue_yaw->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSignal_yaw));
+
+        RETURN_IF_FAILED(m_oInputYaw.Create("Gyro_Yaw", pTypeSignalValue_yaw, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oInputYaw));
-        RETURN_IF_FAILED(m_oInputDirection.Create("Direction", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+
+
+        tChar const * strDescSignalValue_direction = pDescManager->GetMediaDescription("tSignalValue");
+        RETURN_IF_POINTER_NULL(strDescSignalValue_direction);
+        cObjectPtr<IMediaType> pTypeSignalValue_direction = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue_direction,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+        RETURN_IF_FAILED(pTypeSignalValue_direction->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSignal_direction));
+
+        RETURN_IF_FAILED(m_oInputDirection.Create("Direction", pTypeSignalValue_direction, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oInputDirection));
 
         // ------- velocity output pin --------------
-        RETURN_IF_FAILED(m_oOutputVelocity.Create("Velocity", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+
+        tChar const * strDescSignalValue_Velocity = pDescManager->GetMediaDescription("tSignalValue");
+        RETURN_IF_POINTER_NULL(strDescSignalValue_Velocity);
+        cObjectPtr<IMediaType> pTypeSignalValue_Velocity = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue_Velocity,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+        RETURN_IF_FAILED(pTypeSignalValue_Velocity->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderVelocityOut));
+
+        RETURN_IF_FAILED(m_oOutputVelocity.Create("Velocity", pTypeSignalValue_Velocity, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oOutputVelocity));
 
 
@@ -299,6 +318,7 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
         else if (pSource == &m_oInputDirection)
         {
             tTimeStamp current_time;
+            //tTimeStamp timestamp;
             current_time = GetTime();
 
             //do odometry step first
@@ -308,12 +328,12 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
             // read-out the incoming Media Sample
             cObjectPtr<IMediaCoder> pCoderInput;
-            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoderInput));
+            RETURN_IF_FAILED(m_pCoderDescSignal_direction->Lock(pMediaSample, &pCoderInput));
 
             //get values from media sample
             pCoderInput->Get("f32Value", (tVoid*)&m_currentDirection);
             //pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
-            m_pCoderDescSignal->Unlock(pCoderInput);
+            m_pCoderDescSignal_direction->Unlock(pCoderInput);
 
             //process input data
             if (m_currentDirection == 0) //on car stopped signal reset everything (we know we're standing still)
@@ -325,6 +345,9 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 m_velocityRight = 0;
                 m_velocityUnfiltered = 0;
             }
+
+            //DEBUG
+            debugvar = m_currentDirection;
 
         }
         else if (pSource == &m_oInputYaw)
@@ -338,12 +361,12 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
             // read-out the incoming Media Sample
             cObjectPtr<IMediaCoder> pCoderInput;
-            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoderInput));
+            RETURN_IF_FAILED(m_pCoderDescSignal_yaw->Lock(pMediaSample, &pCoderInput));
 
             //get values from media sample
             pCoderInput->Get("f32Value", (tVoid*)&m_heading_now);
             //pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
-            m_pCoderDescSignal->Unlock(pCoderInput);
+            m_pCoderDescSignal_yaw->Unlock(pCoderInput);
 
         }
         else if (pSource == &m_oInputTrigger)
@@ -438,7 +461,7 @@ tResult SWE_Odometry::CalcVelocity()
 tResult  SWE_Odometry::FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity)
 {
     tFloat32 outputval;
-    outputval = new_velocity * (1 - filter_strength) + old_velocity* filter_strength;
+    outputval = new_velocity * (1.0 - filter_strength) + old_velocity* filter_strength;
 
     return outputval;
 }
@@ -493,7 +516,7 @@ tFloat32 SWE_Odometry::CalcDistance(tInt32 direction, tFloat32 pulses)
 {
     tFloat32 outputdata;
 
-    outputdata = (pulses / WHEELPULSE_PER_TURN) * m_wheelCircumfence * direction;
+    outputdata = ((tFloat32)pulses / (tFloat32)WHEELPULSE_PER_TURN) * m_wheelCircumfence * direction;
 
 
     return outputdata;
@@ -509,12 +532,12 @@ tResult SWE_Odometry::SendVelocity()
 
     //allocate memory with the size given by the descriptor
     cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderDescSignal->GetMediaSampleSerializer(&pSerializer);
+    m_pCoderVelocityOut->GetMediaSampleSerializer(&pSerializer);
     tInt nSize = pSerializer->GetDeserializedSize();
     pMediaSample->AllocBuffer(nSize);
 
     //write date to the media sample with the coder of the descriptor
-    m_pCoderDescSignal->WriteLock(pMediaSample, &pCoder);
+    m_pCoderVelocityOut->WriteLock(pMediaSample, &pCoder);
 
 
 
@@ -525,10 +548,10 @@ tResult SWE_Odometry::SendVelocity()
 
 
     pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&m_lastPinEvent);
-    m_pCoderDescSignal->Unlock(pCoder);
+    m_pCoderVelocityOut->Unlock(pCoder);
 
     //transmit media sample over output pin
-    RETURN_IF_FAILED(pMediaSample->SetTime(m_lastPinEvent));
+    RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(m_oOutputVelocity.Transmit(pMediaSample));
 
     RETURN_NOERROR;
@@ -560,7 +583,7 @@ tResult SWE_Odometry::SendOdometry(tTimeStamp timestamp)
     m_pCoderDescOdometryOut->Unlock(pCoder);
 
     //transmit media sample over output pin
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(timestamp));
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(m_oOutputOdometry.Transmit(pMediaSampleOutput));
 
     RETURN_NOERROR;
@@ -644,8 +667,6 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
         }
     }
 
-    //DEBUG
-    debugvar = time_intervall;
 
     // ----- sum everything up -----------
 

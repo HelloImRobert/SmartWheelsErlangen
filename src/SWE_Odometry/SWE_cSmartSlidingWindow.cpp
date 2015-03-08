@@ -89,6 +89,7 @@ tVoid SWE_cSmartSlidingWindow::AddNewValue(tInt32 inputValues, tTimeStamp inputT
 
             m_inputValues.pop();
     }
+
 }
 
 tTimeStamp SWE_cSmartSlidingWindow::GetTime()

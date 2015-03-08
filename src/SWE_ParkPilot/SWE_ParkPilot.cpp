@@ -284,16 +284,16 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
     {
 
         RETURN_IF_POINTER_NULL( pMediaSample);
-        if(pSource == &m_inputParkTrigger)
-        {
-           // save the park trigger: alongside or cross
-           cObjectPtr<IMediaCoder> pCoder;
-           RETURN_IF_FAILED(m_pCoderParkTrigger->Lock(pMediaSample, &pCoder));
-           pCoder->Get("tInt8SignalValue", (tVoid*)&m_parkTrigger);
-           m_pCoderParkTrigger->Unlock(pCoder);
+//        if(pSource == &m_inputParkTrigger)
+//        {
+//           // save the park trigger: alongside or cross
+//           cObjectPtr<IMediaCoder> pCoder;
+//           RETURN_IF_FAILED(m_pCoderParkTrigger->Lock(pMediaSample, &pCoder));
+//           pCoder->Get("tInt8SignalValue", (tVoid*)&m_parkTrigger);
+//           m_pCoderParkTrigger->Unlock(pCoder);
 
-        }
-        else if(pSource == &m_inputObjectData)
+//        }
+        if(pSource == &m_inputObjectData)
         {
             //LOG_ERROR(cString("Data from OBJECT" ));
             // leave if we have not received a park trigger
@@ -303,10 +303,10 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             }
 
             //FOR TEST START
+            sendSteeringAngle( STEER_NEUTRAL );
             LOG_ERROR(cString("PP: Send Speed" ));
             tFloat32 test = 1;
             sendSpeed( test );
-            sendSteeringAngle( STEER_LEFT_MAX );
             //FOR TEST ENDE
 
             // if we have received a park trigger: take a look at the IR data

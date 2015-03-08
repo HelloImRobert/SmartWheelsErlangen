@@ -96,7 +96,7 @@ class SpeedControl : public adtf::cFilter
         tFloat32 m_velocity;
 
         /*! holds the current setpoint/gear */
-        tInt16 m_setPoint;
+        tInt32 m_setPoint;
 
         /*! holds the last active gear/setpoint*/
         tFloat32 m_currentState;
@@ -112,6 +112,7 @@ class SpeedControl : public adtf::cFilter
 
         /*! start time for the timer */
         tUInt32 m_timerStart;
+        tUInt32 m_timerStart_init;
 
         /*! tells the controller if it has to wait bc the car just stopped */
         tBool m_no_wait;
@@ -155,11 +156,15 @@ class SpeedControl : public adtf::cFilter
         tBool m_last_reverseLights;
         tFloat32 m_last_DirectionSent;
 
+        tInt32 m_initRun;
+
 
 	    /*! Coder Descriptor for the pins*/
         cObjectPtr<IMediaTypeDescription> m_pCoderDescSignaltSignalValue;
         cObjectPtr<IMediaTypeDescription> m_pCoderDescSignalint8;
         cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;
+        cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal_pwm;
+        cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal_direction;
         cObjectPtr<IMediaTypeDescription> m_pCodeOutputbrakelight;
 
 	

@@ -107,9 +107,12 @@ class SWE_Odometry : public adtf::cFilter
 		
 	/*! Coder Descriptor for the pins*/
         cObjectPtr<IMediaTypeDescription>  m_pCoderDescSignal;
+        cObjectPtr<IMediaTypeDescription>  m_pCoderDescSignal_direction;
+        cObjectPtr<IMediaTypeDescription>  m_pCoderDescSignal_yaw;
         cObjectPtr<IMediaTypeDescription>  m_pCoderDescOdometryOut;
         cObjectPtr<IMediaTypeDescription>  m_pCoderBool;
         cObjectPtr<IMediaTypeDescription>  m_pCoderGyro;
+        cObjectPtr<IMediaTypeDescription>  m_pCoderVelocityOut;
 
 	/*! Private member variables */
     /*! input variables*/
@@ -119,7 +122,7 @@ class SWE_Odometry : public adtf::cFilter
     tFloat32 m_wheelCounter_left;
     tFloat32 m_wheelCounter_right;
 
-    tInt32 m_currentDirection;
+    tFloat32 m_currentDirection;
     tBool m_boolBuffer;
 
     tTimeStamp m_oldTimeStamp;
