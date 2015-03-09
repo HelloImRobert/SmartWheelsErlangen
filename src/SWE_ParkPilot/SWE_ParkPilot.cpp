@@ -8,7 +8,7 @@
 
 /*! Thresholds */
 #define TH_SHORT 140.0f
-#define TH_LONG_ALONGSIDE 590.0f
+#define TH_LONG_ALONGSIDE 290.0f  //DEBUG eigtl 590 !!
 #define TH_LONG_CROSS 590.0f
 
 /*! Park styles */
@@ -18,7 +18,7 @@
 #define PULL_RIGHT 4
 
 /*! Lot sizes */
-#define ALONGSIDE_SIZE 765.0f         // minimum size of parking lot
+#define ALONGSIDE_SIZE 500.0f   // DEBUG, true value = 765.0f         // minimum size of parking lot
 #define CROSS_SIZE 450.0f             // minimum size of parking lot
 #define EASY_ALONGSIDE 40.0f          // buffer for easy S-curve maneuver
 
@@ -66,7 +66,7 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         m_distStart = 0.0;
         m_rememberDist = 0.0;
 
-        m_searchActive = false;
+        m_searchActivated = false;
         m_minDistReached = false;
         m_carStopped = false;
 
@@ -88,6 +88,9 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
 
         SetPropertyFloat("C_PullLeftStraight", 720.0);
         SetPropertyFloat("C_PullRightStraight", 300.0);
+
+
+        m_debug_bool = false;
 
 
 }
@@ -121,6 +124,15 @@ tResult cSWE_ParkPilot::CreateInputPins(__exception)
     RETURN_IF_FAILED(m_inputObjectData.Create("Object_Data", pTypeObjectData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_inputObjectData));
 
+    // IR INPUT
+    tChar const * strDescIR = pDescManager->GetMediaDescription("tSignalValue");
+    RETURN_IF_POINTER_NULL(strDescIR);
+    cObjectPtr<IMediaType> pTypeIR = new cMediaType(0, 0, 0, "tSignalValue", strDescIR,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeIR->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderIR));
+
+    RETURN_IF_FAILED(m_pin_input_ir.Create("ir_front_right", pTypeIR, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_pin_input_ir));
+
 
     // ODOMETRY INPUT
     tChar const * strDescOdometry = pDescManager->GetMediaDescription("tOdometry");
@@ -130,6 +142,15 @@ tResult cSWE_ParkPilot::CreateInputPins(__exception)
 
     RETURN_IF_FAILED(m_inputOdometry.Create("Odometry_Data", pTypeOdometry, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_inputOdometry));
+
+    // STOP FLAG INPUT
+    tChar const * strDescStop = pDescManager->GetMediaDescription("tBoolSignalValue");
+    RETURN_IF_POINTER_NULL(strDescStop);
+    cObjectPtr<IMediaType> pTypeStop = new cMediaType(0, 0, 0, "tBoolSignalValue", strDescStop,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeStop->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescStop));
+
+    RETURN_IF_FAILED(m_inputStopFlag.Create("Stop_Flag", pTypeStop, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_inputStopFlag));
 
 
     RETURN_NOERROR;
@@ -235,7 +256,7 @@ tResult cSWE_ParkPilot::Start(__exception)
     m_distStart = 0.0;
     m_rememberDist = 0.0;
 
-    m_searchActive = false;
+    m_searchActivated = false;
     m_minDistReached = false;
     m_carStopped = false;
 
@@ -284,77 +305,41 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
     {
 
         RETURN_IF_POINTER_NULL( pMediaSample);
-//        if(pSource == &m_inputParkTrigger)
-//        {
-//           // save the park trigger: alongside or cross
-//           cObjectPtr<IMediaCoder> pCoder;
-//           RETURN_IF_FAILED(m_pCoderParkTrigger->Lock(pMediaSample, &pCoder));
-//           pCoder->Get("tInt8SignalValue", (tVoid*)&m_parkTrigger);
-//           m_pCoderParkTrigger->Unlock(pCoder);
-
-//        }
-        if(pSource == &m_inputObjectData)
+        if(pSource == &m_inputParkTrigger)
         {
-            //LOG_ERROR(cString("Data from OBJECT" ));
-            // leave if we have not received a park trigger
-            if( m_parkTrigger > 4 || m_parkTrigger == 0)
-            {
-                RETURN_NOERROR;
-            }
+           // save the park trigger: alongside or cross
+           cObjectPtr<IMediaCoder> pCoder;
+           RETURN_IF_FAILED(m_pCoderParkTrigger->Lock(pMediaSample, &pCoder));
+           pCoder->Get("tInt8SignalValue", (tVoid*)&m_parkTrigger);
+           m_pCoderParkTrigger->Unlock(pCoder);
 
-            //FOR TEST START
-            sendSteeringAngle( STEER_NEUTRAL );
-            //LOG_ERROR(cString("PP: Send Speed" ));
-            //tFloat32 test = 1;
-            //sendSpeed( test );
-            //FOR TEST ENDE
-
-            // if we have received a park trigger: take a look at the IR data
-            cv::Point2d objectData[10];
+        }
+        else if(pSource == &m_pin_input_ir)
+        {
             cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDescObjectData->Lock(pMediaSample, &pCoder));
-            pCoder->Get("tPointArray", (tVoid*)&(objectData));
-            m_pCoderDescObjectData->Unlock(pCoder);
+            RETURN_IF_FAILED(m_pCoderIR->Lock(pMediaSample, &pCoder));
+            pCoder->Get("f32Value", (tVoid*)&m_IRFrontRightCur);
+            m_pCoderIR->Unlock(pCoder);
 
-            if( (objectData[5].y != INVALID_LOW) && (objectData[5].y != INVALID_HIGH) )
+            m_IRFrontRightCur = 10 * m_IRFrontRightCur;
+
+            //FOR TEST
+            sendSteeringAngle( STEER_NEUTRAL );
+            //FOR TEST
+
+            //FOR TESTING
+            if(m_debug_bool == false)
             {
-                m_IRFrontRightCur = (-1) * (objectData[5].y - POS_IR_SIDE_RIGHT);
+                sendSpeed( 1.0 );
+                m_debug_bool = true;
             }
-            else
-            {
-                m_IRFrontRightCur = objectData[5].y;
-            }
+            //FOR TESTING
 
-
-            if( (objectData[7].y != INVALID_LOW) && (objectData[7].y != INVALID_HIGH) )
-            {
-                m_IRRearRightCur = (-1) * (objectData[7].y - POS_IR_SIDE_RIGHT);
-            }
-            else
-            {
-                m_IRRearRightCur = objectData[7].y;
-            }
-
-            if( (objectData[4].y != INVALID_LOW) && (objectData[4].y != INVALID_HIGH) )
-            {
-                m_IRFrontLeftCur = objectData[4].y - POS_IR_SIDE_LEFT;
-            }
-            else
-            {
-                m_IRFrontLeftCur = objectData[4].y;
-            }
-
-
-            //DEBUG
-            //LOG_ERROR(cString("PP: IR Front Right = " + cString::FromFloat64(m_IRFrontRightCur)  ));
-
-            // Check whether we have reached the first car; if yes, activate the search
-            // Check whether 50 samples are < TH_SHORT; if yes, active search
-            if(m_searchActive == false)
+            if(m_searchState == 0)
             {
                 tFloat32 nextElem;
 
-                if(m_initTest_vect.size() < 50)
+                if(m_initTest_vect.size() < 20)
                 {
                     m_initTest_vect.push_back(nextElem);
                     m_initTest_vect.back() = m_IRFrontRightCur;
@@ -369,22 +354,114 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                     {
                         if(m_initTest_vect.at(i) > TH_SHORT)
                         {
-                            m_searchActive = false;
-                            LOG_ERROR(cString("PP: Search Canceled" ));
+                            m_searchState = 0;
+                            //LOG_ERROR(cString("PP: Search Canceled" ));
                             break;
                         }
                         else
                         {
-                            m_searchActive = true;
-                            LOG_ERROR(cString("PP: Search Active" ));
+                            m_searchState = 1;
+                            //LOG_ERROR(cString("PP: Search Active" ));
                         }
                     }
 
                 }
-
             }
 
+
         }
+//        else if(pSource == &m_inputObjectData)
+//        {
+//            //LOG_ERROR(cString("Data from OBJECT" ));
+//            // leave if we have not received a park trigger
+//            if( m_parkTrigger > 4 || m_parkTrigger == 0)
+//            {
+//                RETURN_NOERROR;
+//            }
+
+//            //FOR TEST START
+//            sendSteeringAngle( STEER_NEUTRAL );
+//            //LOG_ERROR(cString("PP: Send Speed" ));
+//            //tFloat32 test = 1;
+//            //sendSpeed( test );
+//            //FOR TEST ENDE
+
+//            // if we have received a park trigger: take a look at the IR data
+//            cv::Point2d objectData[10];
+//            cObjectPtr<IMediaCoder> pCoder;
+//            RETURN_IF_FAILED(m_pCoderDescObjectData->Lock(pMediaSample, &pCoder));
+//            pCoder->Get("tPointArray", (tVoid*)&(objectData));
+//            m_pCoderDescObjectData->Unlock(pCoder);
+
+//            if( (objectData[5].y != INVALID_LOW) && (objectData[5].y != INVALID_HIGH) )
+//            {
+//                m_IRFrontRightCur = (-1) * (objectData[5].y - POS_IR_SIDE_RIGHT);
+//            }
+//            else
+//            {
+//                m_IRFrontRightCur = objectData[5].y;
+//            }
+
+
+//            if( (objectData[7].y != INVALID_LOW) && (objectData[7].y != INVALID_HIGH) )
+//            {
+//                m_IRRearRightCur = (-1) * (objectData[7].y - POS_IR_SIDE_RIGHT);
+//            }
+//            else
+//            {
+//                m_IRRearRightCur = objectData[7].y;
+//            }
+
+//            if( (objectData[4].y != INVALID_LOW) && (objectData[4].y != INVALID_HIGH) )
+//            {
+//                m_IRFrontLeftCur = objectData[4].y - POS_IR_SIDE_LEFT;
+//            }
+//            else
+//            {
+//                m_IRFrontLeftCur = objectData[4].y;
+//            }
+
+
+//            //DEBUG
+//            //LOG_ERROR(cString("PP: IR Front Right = " + cString::FromFloat64(m_IRFrontRightCur)  ));
+
+//            // Check whether we have reached the first car; if yes, activate the search
+//            // Check whether 50 samples are < TH_SHORT; if yes, active search
+//            if(m_searchActivated == false)
+//            {
+//                tFloat32 nextElem;
+
+//                if(m_initTest_vect.size() < 50)
+//                {
+//                    m_initTest_vect.push_back(nextElem);
+//                    m_initTest_vect.back() = m_IRFrontRightCur;
+//                }
+//                else
+//                {
+//                    m_initTest_vect.erase( m_initTest_vect.begin() );
+//                    m_initTest_vect.push_back(nextElem);
+//                    m_initTest_vect.back() = m_IRFrontRightCur;
+
+//                    for(uint i = 0; i < m_initTest_vect.size(); ++i)
+//                    {
+//                        if(m_initTest_vect.at(i) > TH_SHORT)
+//                        {
+//                            m_searchActivated = false;
+//                            LOG_ERROR(cString("PP: Search Canceled" ));
+//                            break;
+//                        }
+//                        else
+//                        {
+//                            m_searchActivated = true;
+//                            LOG_ERROR(cString("PP: Search Active" ));
+//                        }
+//                    }
+
+//                }
+
+//            }
+
+//        }
         else if(pSource == &m_inputOdometry)
         {
             //LOG_ERROR(cString("PP: Data from ODOMETRY" ));
@@ -396,6 +473,13 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             pCoder->Get("velocity", (tVoid*)&(m_odometryData.velocity));
             pCoder->Get("distance_sum", (tVoid*)&(m_odometryData.distance_sum));
             m_pCoderDescOdometry->Unlock(pCoder);
+        }
+        else if(pSource == &m_inputStopFlag)
+        {
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescStop->Lock(pMediaSample, &pCoder));
+            pCoder->Get("bValue", (tVoid*)&(m_carStopped));
+            m_pCoderDescStop->Unlock(pCoder);
         }
     }
 
@@ -413,24 +497,26 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
 
     // Suche Aktivieren
-    if(m_searchActive == true && m_parkTrigger == PARK_ALONGSIDE)
+    if(m_searchState == 1 && m_parkTrigger == PARK_ALONGSIDE)
     {
+        //LOG_ERROR(cString("PP: PinEvent: reset search to 101"));
         m_searchState = 101;
     }
-    else if(m_searchActive == true && m_parkTrigger == PARK_CROSS)
+    else if(m_searchState == 1 && m_parkTrigger == PARK_CROSS)
     {
         m_searchState = 501;
     }
 
-
-
+    // DEBUG
+    //LOG_ERROR(cString("PP: On Pin: Search State" + cString::FromInt(m_searchState) + "; ParkState" + cString::FromInt(m_parkState) ));
+    // DEBUG
 
     // Was machen wir?
-    if( m_searchState > 100 && m_searchState < 200 )
+    if( m_searchState > 100 && m_searchState < 200 && m_parkState == 0)
     {
         searchRoutineAlongside();
     }
-    else if( m_searchState > 500 && m_searchState < 600 )
+    else if( m_searchState > 500 && m_searchState < 600 && m_parkState == 0)
     {
         searchRoutineCross();
     }
@@ -482,9 +568,11 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
         case 101: // search for possible beginning
             if( m_IRFrontRightCur >= TH_LONG_ALONGSIDE )
             {
+                //LOG_ERROR(cString("PP: IR Sensor" + cString::FromFloat64(m_IRFrontRightCur)));
                 m_distEntry = m_odometryData.distance_sum;
                 m_searchState = 102;
             }
+            //LOG_ERROR(cString("PP: 101 Next State" + cString::FromInt(m_searchState)));
             break;
 
 
@@ -502,17 +590,17 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
             {
                 m_searchState = 103;
             }
+            //LOG_ERROR(cString("PP: 102 Next State" + cString::FromInt(m_searchState) + "; DistTravelled: " + cString::FromFloat64(distTravelled)));
             break;
 
         case 103: // min size reached, try to get as much space as possible
             distTravelled = m_odometryData.distance_sum - m_distEntry;
             m_distExit = m_odometryData.distance_sum;
-
             if( distTravelled >= ALONGSIDE_SIZE + EASY_ALONGSIDE )
             {
                 m_searchState = 104; // 0 = search ended
                 // TODO: Start blinking
-                LOG_INFO(cString("PP: LOT DETECTED" ));
+                LOG_ERROR(cString("PP: LOT DETECTED EASY" ));
                 m_parkState = 201;
             }
 
@@ -520,9 +608,10 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
             {
                 m_searchState = 104; // 0 = search ended
                 // TODO: Start blinking
-                LOG_INFO(cString("PP: LOT DETECTED" ));
+                LOG_ERROR(cString("PP: LOT DETECTED NORMAL" ));
                 m_parkState = 301;
             }
+            //LOG_ERROR(cString("PP: 103 Next State" + cString::FromInt(m_searchState) + "; DistTrav " + cString::FromFloat64(distTravelled) + "; parkState: " + cString::FromInt(m_parkState) + "; IR " + cString::FromFloat64(m_IRFrontRightCur) ));
             break;
 
         default:
@@ -537,20 +626,35 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
 tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
 {
 
+    tFloat32 test = m_odometryData.distance_sum - m_distEntry;
+
     switch(m_parkState)
-    {
+    {  
         case 201: // drive forward until position for starting the park maneuver is reached and break
+            LOG_ERROR(cString("PP: ALONGSIDE HERE !!! with parkState: " + cString::FromInt(m_parkState)));
+// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//------------------------------------------- WORKS FINE UNTIL HERE -----------------------------------------------------------------------------------------------------------
             m_centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
             m_distStart = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( m_centralAngle ) );
 
+
             if( m_odometryData.distance_sum - m_distEntry >= m_distStart )
-            {
-                sendSteeringAngle( STEER_NEUTRAL );
+            {   
+                //DEBUG Start
+                //sendSteeringAngle( STEER_NEUTRAL );
+                //DEBUG ende
+
                 // UEBERLEGEN, OB GLEICH RUECKWAERTSGANG REINBALLERN
-                sendSpeed( 0 );
+                //DEBUG Start
+                LOG_ERROR(cString("PP: HAs Stopped: " + cString::FromBool(m_carStopped)));
+                //sendSpeed( -1 );
+                LOG_ERROR(cString("PP: Speed sent"));
+                //DEBUG ende
+
                 m_headingAtStart = m_odometryData.angle_heading;
                 m_parkState = 202;
             }
+            LOG_ERROR(cString("PP: 201 Next State" + cString::FromInt(m_parkState) + "; Travelled: " + cString::FromFloat64(test) ));
             break;
 
         case 202: // wait until we have stopped and drive backwards...
@@ -562,6 +666,7 @@ tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
                 m_parkState = 203;
                 sendSpeed( -1 );
             }
+            LOG_ERROR(cString("PP: 202 Next State" + cString::FromInt(m_parkState) + "; Stopped: " + cString::FromBool(m_carStopped)));
             break;
 
         case 203: // ...drive backwards until overshoot is killed and steer max right...
@@ -828,7 +933,7 @@ tResult cSWE_ParkPilot::pullOutCrossLeft()
                 m_centralAngle = 0.0;
                 m_distStart = 0.0;
                 m_rememberDist = 0.0;
-                m_searchActive = false;
+                m_searchActivated = false;
                 m_minDistReached = false;
                 m_carStopped = false;
 
@@ -884,7 +989,7 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
                 m_centralAngle = 0.0;
                 m_distStart = 0.0;
                 m_rememberDist = 0.0;
-                m_searchActive = false;
+                m_searchActivated = false;
                 m_minDistReached = false;
                 m_carStopped = false;
 

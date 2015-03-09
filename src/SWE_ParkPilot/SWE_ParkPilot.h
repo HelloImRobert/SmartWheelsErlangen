@@ -17,7 +17,9 @@ class cSWE_ParkPilot : public adtf::cFilter
     // PINS
     cInputPin m_inputParkTrigger;
     cInputPin m_inputObjectData;
+    cInputPin m_pin_input_ir;
     cInputPin m_inputOdometry;
+    cInputPin m_inputStopFlag;
 
     cOutputPin m_outputSpeed;
     cOutputPin m_outputSteering;
@@ -69,13 +71,15 @@ private:
 
     tInt8       m_parkTrigger;
 
-    tBool       m_searchActive;
+    tBool       m_searchActivated;
     tBool       m_minDistReached;
     tBool       m_carStopped;
 
     tInt16      m_searchState;
     tInt16      m_parkState;
     tInt16      m_pulloutState;
+
+    tBool       m_debug_bool;
 
 
     /*! struct containing the odometry input data */
@@ -122,6 +126,8 @@ private:
     cObjectPtr<IMediaTypeDescription> m_pCoderParkTrigger;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescOdometry;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescObjectData;
+    cObjectPtr<IMediaTypeDescription> m_pCoderIR;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescStop;
 
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSpeedOut;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSteeringOut;
