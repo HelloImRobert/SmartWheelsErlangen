@@ -23,7 +23,7 @@ SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0)
     SetPropertyFloat("light brake strength", 0.03); //pwm value for light braking
     SetPropertyFloat("strong brake strength",0.1);
 
-    SetPropertyFloat("acceleration boost", 1.2); //pwm boost value for acceleration 1.0 = no boost
+    SetPropertyFloat("acceleration boost", 1.1); //pwm boost value for acceleration 1.0 = no boost
 
     SetPropertyFloat("Gear 0 speed window", 30); //threshold window for reliable stopping in mm/s
 
@@ -117,7 +117,7 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     tFloat32 thresholdWindow_0 = (tFloat32)GetPropertyFloat("Gear 0 speed window", 60);
 
-    tFloat32 boostValue = (tFloat32)GetPropertyFloat("acceleration boost", 1.2);
+    tFloat32 boostValue = (tFloat32)GetPropertyFloat("acceleration boost", 1.1);
 
     m_pwm_p3 = (tFloat32)GetPropertyFloat("Gear 3 PWM value",20);
     m_pwm_boost_p3 = (m_pwm_p3) * boostValue;

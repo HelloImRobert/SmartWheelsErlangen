@@ -6,8 +6,9 @@
 #include "stdafx.h"
 #include "math.h"
 #include "SWE_cSmartSlidingWindow.h"
+#include "cSlidingWindow.h"
 /*!
-* SmartWheels-Erlangen (Robert de Temple)
+* SmartWheels-Erlangen (Robert de Temple) bei Fragen => robert punkt detemple kringel gmail punkt com (the code is a mess, we know it, but it works very well)
 * Odometry based on bicycle model. Uses mainly gyro and wheel sensors.
 * The relative position and heading are internally updated whenever a new data sample arrives.
 * Output of the accumulated position change in position and heading every time a trigger signal arrives (accumulated since last trigger).
@@ -62,11 +63,6 @@ class SWE_Odometry : public adtf::cFilter
     ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_ODOMETRY, "SWE_Odometry", OBJCAT_DataFilter, "Odometry", 1, 0, 0, "pre alpha version");
 
 
-        /*! input pin for the steering angle -- in RAD */
-        /*!
-        cInputPin m_oInputSteeringAngle; //TODO: not clear what type of angle we get
-        */
-
         /*! input pin for the left wheel optical sensor -- pulses*/
         cInputPin m_oInputWheelLeft;
 
@@ -78,6 +74,12 @@ class SWE_Odometry : public adtf::cFilter
 
         /*! input pin for the heading/yaw gyro signal -- in RAD */
         cInputPin m_oInputYaw;
+
+        /*! input pin for the pitch gyro signal -- in RAD */
+        cInputPin m_oInputPitch;
+
+        /*! input pin for the accelerometer signal, Y-Axis -- in RAD */
+        cInputPin m_oInputAccel;
 
         /*! input pin for the trigger signal */
         cInputPin m_oInputTrigger;
@@ -105,7 +107,7 @@ class SWE_Odometry : public adtf::cFilter
 	/*!gets the actual time as a tTimeStamp */
 	tTimeStamp GetTime();
 		
-	/*! Coder Descriptor for the pins*/
+    /*! Coder Descriptor for the pins, you usually need one for every outpit pin and one for every type of input pin*/
         cObjectPtr<IMediaTypeDescription>  m_pCoderDescSignal;
         cObjectPtr<IMediaTypeDescription>  m_pCoderDescSignal_direction;
         cObjectPtr<IMediaTypeDescription>  m_pCoderDescSignal_yaw;
@@ -116,56 +118,60 @@ class SWE_Odometry : public adtf::cFilter
 
 	/*! Private member variables */
     /*! input variables*/
-	tFloat32 m_steeringAngle;
     tFloat32 m_yaw;
-	tFloat32 m_buffer;
     tFloat32 m_wheelCounter_left;
     tFloat32 m_wheelCounter_right;
+    tFloat32 m_wheelDelta_left;
+    tFloat32 m_wheelDelta_right;
 
     tFloat32 m_currentDirection;
     tBool m_boolBuffer;
 
-    tTimeStamp m_oldTimeStamp;
     tTimeStamp m_lastPinEvent;
     tTimeStamp m_lastTriggerTime;
     tTimeStamp m_yawSampleTime_now;
-    tTimeStamp m_yawSampleTime_old_interpol;
-
-    tFloat32 m_lastwheelCounter_left;
-    tFloat32 m_lastwheelCounter_right;
+    tTimeStamp m_accelerometerTimestamp_last;
+    tTimeStamp m_accelerometerTimestamp_now;
 
     tFloat32 m_heading_lastStep;        //heading after last odometry step
     tFloat32 m_heading_now;             //current reported heading (by sensor)
-    tFloat32 m_heading_old_interpol;   //value of old heading sensor sample (for extrapolation)
-
-
+    tFloat32 m_pitch_now;               //current pitch angle
+    tFloat32 m_accelerometerValue_now; //current accelerometer reading in mm/s²
+    tFloat32 m_accelerometerValue_old;
 
     //DEBUG
-    tFloat32 debugvar;
+    tFloat32 debugvar;                  //debugging variable
 	
     /*! other variables */
     //tFloat32 m_slippageAngle;
     tFloat32 m_velocityLeft;         // current velocities measured on each wheel
     tFloat32 m_velocityRight;
-    tFloat32 m_velocityUnfiltered;  //current velocity of car
+    tFloat32 m_velocityWheelSensors;  //current velocity of car (wheel measurements)
+    tFloat32 m_velocityCombined;        //current velocity of car (combined measurements)
     tFloat32 m_velocityFiltered;    //velocity low-pass filtered for speed control
+    tFloat32 m_velocityAccelerometer; //current (last step) velocity gain estimated by accelerometer values in mm/s
     tFloat32 m_distanceX_sum;       //translation change since last trigger
     tFloat32 m_distanceY_sum;       // """"
     tFloat32 m_heading_sum;         //rotation change since last trigger
     tFloat32 m_distanceAllSum;
     tInt32   m_velocityResolution; //resolution of the velocity calculation 10 ~ max 10% error, 5 ~ max 20% error etc.
-    tInt32   m_errorPulses_left;
-    tInt32   m_errorPulses_right;
 
     tFloat32 m_filterStrength;
     tFloat32 m_wheelCircumfence;
+    tFloat32 m_acceleromter_weight;
+    tFloat32 m_accelerometer_compensation;
+    tFloat32 m_accelOffsetValue;
 
     tBool m_wheelsync;
+    tBool m_useHighresDist;
 
     /*! sliding window filter for the left wheel*/
     SWE_cSmartSlidingWindow m_SlidingWindowCntLeftWheel;
     /*! sliding window filter for the right wheel*/
     SWE_cSmartSlidingWindow m_SlidingWindowCntRightWheel;
+
+    /*! sliding window for yaw rate estimation*/
+    cSlidingWindow m_yawSlidingWindow;
 
     /*! Lock */
     cCriticalSection m_mutex;
@@ -179,15 +185,17 @@ class SWE_Odometry : public adtf::cFilter
 
     /*! helpers */
     tFloat32 GetAngleDiff(tFloat32 angle_new, tFloat32 angle_old); //get the smaller difference in heading angle. Angles: +PI.....-PI
-    tFloat32 CalcDistance(tInt32 direction, tFloat32 pulses);
+    tFloat32 CalcDistance(tInt32 direction, tFloat32 pulses);       //get the distance between the wheelpulses
+    tFloat32 CompensatePitchInfluence(tFloat32 accel_value); //comensate the influence of gravity due to non-zero pitching angles on the accelerometer values
 
     /*! calculate and send velocity */
-    tResult  ProcessPulses(tTimeStamp timeStamp);
-    tResult  CalcVelocity(); //TODO: milliseconds or microseconds????
-    tResult  FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity); //simple low pass filtering
+    tResult  ProcessPulses(tTimeStamp timeStamp);               //does everything that needs to be done when a new sample of wheelsensor data arrived
+    tResult  CalcVelocity();                                    //calculate velocity from accumulated wheelsensor data
+    tResult  CalcCombinedVelocity();                                   //do sensor fusion on velocities to gain a stable, more dynamic velocity value
+    tFloat32 FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity); //simple low pass filtering
     tResult  SendVelocity();
 
-    tResult  FilterPulses();// heuristic filter for multiple hits at slow speeds due to jittery sensors
+    tResult  FilterPulses();                                   // heuristic filter for multiple hits at slow speeds due to jittery sensors
 
     tFloat32  GetExtrapolatedHeadingDiff(tTimeStamp time_now); //extrapolate heading from last known heading sample to this moment
 };

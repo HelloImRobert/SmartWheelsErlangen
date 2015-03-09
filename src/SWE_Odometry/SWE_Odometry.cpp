@@ -1,28 +1,36 @@
 #include "SWE_Odometry.h"
 #include "SWE_cSmartSlidingWindow.h"
+#include "cSlidingWindow.h"
 
 #define WHEELBASE 359.0f
-#define WHEELPULSE_PER_TURN 16.0f
-#define TIMESTAMP_RESOLUTION 1000.0f
+#define WHEELPULSE_PER_TURN 16.0f //# of black and white bars in a wheel
+#define TIMESTAMP_RESOLUTION 1000.0f // for the Arduino timestamps
+#define TIMESTAMP_RESOLUTION_ADTF 1000000.0f //ADTF uses microseconds
 #define MAX_TICK_FILTER_VELOCITY 1000.0f //in mm/s
-#define MY_PI 3.14159265359f
-#define MINIMUM_TURNING_RADIUS 600 // in mm -> actually ~ 680-ish ?
+#define MY_PI 3.14159265358979f
+#define MINIMUM_TURNING_RADIUS 600f // in mm -> actually ~ 680-ish ?
+#define LOCAL_GRAVITY 9810.0f //gravity in mm/s²
+#define ACCELEROMETER_INPUT_SCALING 1.2757f //with this factor the values will be in mm/s² !!important!! : the values shown in the AUDI GUI are already scaled, better look up the values in a signal view. You can also use a calibration filter.
+
 
 
 ADTF_FILTER_PLUGIN("SWE_Odometry", OID_ADTF_SWE_ODOMETRY, SWE_Odometry)
 
 
-SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWindowCntLeftWheel(21, (0.33 * TIMESTAMP_RESOLUTION)), m_SlidingWindowCntRightWheel(21, (0.33 * TIMESTAMP_RESOLUTION)), m_mutex()  //TODO
+// ****************************************************************************************************************
+//                                                   Init ADTF Filter
+// ****************************************************************************************************************
+
+SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWindowCntLeftWheel(21, (0.33 * TIMESTAMP_RESOLUTION)), m_SlidingWindowCntRightWheel(21, (0.33 * TIMESTAMP_RESOLUTION)), m_yawSlidingWindow(3), m_mutex()  //TODO
 {
 
-    m_steeringAngle = 0;
-    //m_slippageAngle = 0;
     m_velocityLeft = 0;
     m_velocityRight = 0;
     m_velocityFiltered = 0;
-    m_velocityUnfiltered = 0;
+    m_velocityWheelSensors = 0;
+    m_velocityAccelerometer = 0;
+    m_velocityCombined = 0;
 
-    m_oldTimeStamp = GetTime();
     m_lastPinEvent = GetTime();
     m_lastTriggerTime = GetTime();
 
@@ -31,29 +39,38 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     m_heading_sum = 0;
     m_distanceAllSum = 0;
 
-    m_lastwheelCounter_left = 0;
-    m_lastwheelCounter_right = 0;
+    m_wheelDelta_left = 0;
+    m_wheelDelta_right = 0;
 
     m_wheelCounter_left = 0;
     m_wheelCounter_right = 0;
+
+    m_accelerometerValue_now = 0;
+    m_accelerometerValue_old = 0;
+
+    m_accelerometerTimestamp_last = 0;
+    m_accelerometerTimestamp_now = 0;
 
 
     //DEBUG:
     //m_currentDirection = 0;
     m_currentDirection = 1;
+    debugvar = 0;
 
     m_wheelsync = false;
 
     m_heading_lastStep = 0.0;
     m_heading_now = 0.0;
-    m_heading_old_interpol = 0.0;
 
-    m_errorPulses_left = 0;
-    m_errorPulses_right = 0;
+    m_pitch_now = 0;
 
-    SetPropertyFloat("Velocity Filter Strength",0.3);
+    SetPropertyFloat("Velocity Filter Strength 0-1",0.3);
+    SetPropertyFloat("Accelerometer Velocity weighting 0-1",0.85);
+    SetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",50.0);
     SetPropertyFloat("Wheel circumfence in mm",329);
-    SetPropertyInt("time and pulse resolution of the velocity calculation 2-20",10);
+    SetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",15);
+    SetPropertyFloat("Accelerometer value offset in mm/s2",0.0);
+    SetPropertyBool("Use high-res distance measurement (based on velocity)", true);
 
 }
 
@@ -65,38 +82,38 @@ tResult SWE_Odometry::Start(__exception)
 {
     return cFilter::Start(__exception_ptr);
     
-    	m_SlidingWindowCntLeftWheel.Reset();
-        m_SlidingWindowCntRightWheel.Reset();
+    m_SlidingWindowCntLeftWheel.Reset();
+    m_SlidingWindowCntRightWheel.Reset();
 
-        m_lastwheelCounter_left = 0;
-        m_lastwheelCounter_right = 0;
+    m_wheelCounter_left = 0;
+    m_wheelCounter_right = 0;
 
-        m_wheelCounter_left = 0;
-        m_wheelCounter_right = 0;
+    m_wheelDelta_left = 0;
+    m_wheelDelta_right = 0;
 
-        m_errorPulses_left = 0;
-        m_errorPulses_right = 0;
+    m_wheelsync = false;
 
-        m_wheelsync = false;
+    m_distanceAllSum = 0;
+    m_distanceX_sum = 0;
+    m_distanceY_sum = 0;
+    m_heading_sum = 0;
 
-        m_distanceAllSum = 0;
-        m_distanceX_sum = 0;
-        m_distanceY_sum = 0;
-        m_heading_sum = 0;
-
-        m_oldTimeStamp = GetTime();
-        m_lastPinEvent = GetTime();
-        m_lastTriggerTime = GetTime();
+    m_lastPinEvent = GetTime();
+    m_lastTriggerTime = GetTime();
 
 
-        //DEBUG:
-        //m_currentDirection = 0;
-        m_currentDirection = 1;
+    //DEBUG:
+    //m_currentDirection = 0;
+    m_currentDirection = 1;
 
-        m_velocityLeft = 0;
-        m_velocityRight = 0;
-        m_velocityFiltered = 0;
-        m_velocityUnfiltered = 0;
+    m_velocityLeft = 0;
+    m_velocityRight = 0;
+    m_velocityFiltered = 0;
+    m_velocityWheelSensors = 0;
+    m_velocityAccelerometer = 0;
+    m_velocityCombined = 0;
+
+    m_accelerometerValue_old = 0;
 
 }
 
@@ -109,7 +126,6 @@ tResult SWE_Odometry::Shutdown(tInitStage eStage, __exception)
 {
     return cFilter::Shutdown(eStage,__exception_ptr);
 }
-
 
 tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 {
@@ -128,13 +144,12 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
         cObjectPtr<IMediaType> pTypeSignalValue = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
         RETURN_IF_FAILED(pTypeSignalValue->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSignal));
 
-
         RETURN_IF_FAILED(m_oInputWheelRight.Create("Sensor_left_Wheel", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oInputWheelRight));
         RETURN_IF_FAILED(m_oInputWheelLeft.Create("Sensor_right_Wheel", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oInputWheelLeft));
-        //RETURN_IF_FAILED(m_oInputSteeringAngle.Create("SteeringAngle", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
-        //RETURN_IF_FAILED(RegisterPin(&m_oInputSteeringAngle));
+
+
 
         tChar const * strDescSignalValue_yaw = pDescManager->GetMediaDescription("tSignalValue");
         RETURN_IF_POINTER_NULL(strDescSignalValue_yaw);
@@ -143,6 +158,10 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 
         RETURN_IF_FAILED(m_oInputYaw.Create("Gyro_Yaw", pTypeSignalValue_yaw, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oInputYaw));
+        RETURN_IF_FAILED(m_oInputPitch.Create("Gyro_Pitch", pTypeSignalValue_yaw, static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&m_oInputPitch));
+        RETURN_IF_FAILED(m_oInputAccel.Create("Accelerometer_y_axis", pTypeSignalValue_yaw, static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&m_oInputAccel));
 
 
         tChar const * strDescSignalValue_direction = pDescManager->GetMediaDescription("tSignalValue");
@@ -191,10 +210,13 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 
         // ------------------ further init ---------------------
 
-        m_filterStrength = (tFloat32)GetPropertyFloat("Velocity Filter Strength", 0.3);
+        m_filterStrength = (tFloat32)GetPropertyFloat("Velocity Filter Strength 0-1", 0.3);
         m_wheelCircumfence = (tFloat32)GetPropertyFloat("Wheel circumfence in mm",329);
-        m_velocityResolution = (tFloat32)GetPropertyInt("time and pulse resolution of the velocity calculation 2-20",10);
-
+        m_velocityResolution = (tFloat32)GetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",15);
+        m_acceleromter_weight = (tFloat32)GetPropertyFloat("Accelerometer Velocity weighting 0-1",0.85);
+        m_accelerometer_compensation = (tFloat32)GetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",50.0);
+        m_useHighresDist = (tBool)GetPropertyBool("Use high-res distance measurement (based on velocity)", true);
+        m_accelOffsetValue = (tFloat32)GetPropertyFloat("Accelerometer value offset in mm/s2",0.0);
 
         //prevent stupid filter values
         if(m_filterStrength >= 1.0)
@@ -206,9 +228,18 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
             m_filterStrength = 0.0;
         }
 
-        if(m_velocityResolution > 20)
+        if(m_acceleromter_weight > 1.0)
         {
-            m_velocityResolution = 20;
+            m_acceleromter_weight = 0.99;
+        }
+        else if (m_acceleromter_weight < 0.0)
+        {
+            m_acceleromter_weight = 0.0;
+        }
+
+        if(m_velocityResolution > 40)
+        {
+            m_velocityResolution = 40;
         }
         else if (m_velocityResolution < 2)
         {
@@ -233,48 +264,39 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
     RETURN_NOERROR;
 }
 
+
+// ****************************************************************************************************************
+//                                                   On Pin Event
+// ****************************************************************************************************************
+
+
 tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample)
 {
 
     if (nEventCode == IPinEventSink::PE_MediaSampleReceived && pMediaSample != NULL && m_pCoderDescSignal != NULL)
     {
 
-        m_mutex.Enter(); //serialize this filter for data consistency
-
-        /*!
-        if (pSource == &m_oInputSteeringAngle) //TODO
-        {
-            //m_lastPinEvent = GetTime();
-
-            // read-out the incoming Media Sample
-            cObjectPtr<IMediaCoder> pCoderInput;
-            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoderInput));
-
-            //get values from media sample
-            pCoderInput->Get("f32Value", (tVoid*)&m_buffer);
-            //pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&TimeStamp);
-            m_pCoderDescSignal->Unlock(pCoderInput);
-
-            //processing the data
-            m_steeringAngle = m_buffer;
-
-        }
-        else
-        */
+        m_mutex.Enter(); //serialize the whole filter for data consistency
 
         if (pSource == &m_oInputWheelLeft)
         {
             tTimeStamp timeStamp;
+            tFloat32 buffer;
+            tUInt32 delta;
 
             // read-out the incoming Media Sample
             cObjectPtr<IMediaCoder> pCoderInput;
             RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoderInput));
 
             //get values from media sample
-            pCoderInput->Get("f32Value", (tVoid*)&m_wheelCounter_left);
+            pCoderInput->Get("f32Value", (tVoid*)&buffer);
             pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoderInput);
 
+            delta = buffer - m_wheelCounter_left;
+
+            m_wheelCounter_left = buffer;
+            m_wheelDelta_left = delta;
 
             //process data
             if (m_wheelsync) // has the sibling wheeldata arrived yet?
@@ -286,21 +308,27 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             {
                 m_wheelsync = true;
             }
-
-
         }
         else if (pSource == &m_oInputWheelRight)
         {
             tTimeStamp timeStamp;
+            tFloat32 buffer;
+            tUInt32 delta;
 
             // read-out the incoming Media Sample
             cObjectPtr<IMediaCoder> pCoderInput;
             RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoderInput));
 
             //get values from media sample
-            pCoderInput->Get("f32Value", (tVoid*)&m_wheelCounter_right);
+            pCoderInput->Get("f32Value", (tVoid*)&buffer);
             pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoderInput);
+
+            delta = buffer - m_wheelCounter_right;
+
+            m_wheelCounter_right = buffer;
+            m_wheelDelta_right = delta;
+
 
             //process data
             if (m_wheelsync) // has the sibling wheeldata arrived yet?
@@ -312,8 +340,6 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             {
                 m_wheelsync = true;
             }
-
-
         }
         else if (pSource == &m_oInputDirection)
         {
@@ -343,21 +369,20 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 m_velocityFiltered = 0;
                 m_velocityLeft = 0;
                 m_velocityRight = 0;
-                m_velocityUnfiltered = 0;
+                m_velocityWheelSensors = 0;
+                m_velocityCombined = 0;
+                m_velocityAccelerometer = 0;
             }
-
-            //DEBUG
-            debugvar = m_currentDirection;
 
         }
         else if (pSource == &m_oInputYaw)
         {
             tTimeStamp current_time;
+            tTimeStamp timeStamp;
             current_time = GetTime();
 
-            m_yawSampleTime_old_interpol = m_yawSampleTime_now;
+            //save last yaw data for extrapolation
             m_yawSampleTime_now = current_time;
-            m_heading_old_interpol = m_heading_now;
 
             // read-out the incoming Media Sample
             cObjectPtr<IMediaCoder> pCoderInput;
@@ -365,8 +390,65 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
             //get values from media sample
             pCoderInput->Get("f32Value", (tVoid*)&m_heading_now);
+            pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+            m_pCoderDescSignal_yaw->Unlock(pCoderInput);
+
+            //for extrapolation
+            m_yawSlidingWindow.addNewValue(m_heading_now, timeStamp);
+
+            //calc odometry step
+            CalcOdometryStep(current_time,  m_lastPinEvent);
+            m_lastPinEvent = current_time;
+
+        }
+        else if (pSource == &m_oInputPitch)
+        {
+            // read-out the incoming Media Sample
+            cObjectPtr<IMediaCoder> pCoderInput;
+            RETURN_IF_FAILED(m_pCoderDescSignal_yaw->Lock(pMediaSample, &pCoderInput));
+
+            //get values from media sample
+            pCoderInput->Get("f32Value", (tVoid*)&m_pitch_now);
             //pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal_yaw->Unlock(pCoderInput);
+        }
+        else if (pSource == &m_oInputAccel)
+        {
+            tTimeStamp timeStamp;
+            tTimeStamp current_time;
+            tFloat32 buffer;
+
+            current_time = GetTime();
+
+            // read-out the incoming Media Sample
+            cObjectPtr<IMediaCoder> pCoderInput;
+            RETURN_IF_FAILED(m_pCoderDescSignal_yaw->Lock(pMediaSample, &pCoderInput));
+
+            //get values from media sample
+            pCoderInput->Get("f32Value", (tVoid*)&buffer);
+            pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+            m_pCoderDescSignal_yaw->Unlock(pCoderInput);
+
+            //process the data
+            m_accelerometerTimestamp_last = m_accelerometerTimestamp_now;
+            m_accelerometerTimestamp_now = timeStamp;
+
+            m_accelerometerValue_old = m_accelerometerValue_now;
+            m_accelerometerValue_now = CompensatePitchInfluence(buffer * ACCELEROMETER_INPUT_SCALING);
+
+            CalcCombinedVelocity();
+
+            //calc odometry step
+            CalcOdometryStep(current_time,  m_lastPinEvent);
+
+            //DEBUG
+            //debugvar = m_velocityWheelSensors;
+            //debugvar = m_pitch_now;
+            //debugvar = m_accelerometerValue_now;
+            //SendVelocity();
+            SendVelocity();
+
+            m_lastPinEvent = current_time;
 
         }
         else if (pSource == &m_oInputTrigger)
@@ -384,7 +466,7 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             m_pCoderBool->Unlock(pCoderInput);
 
             //process the data
-            CalcOdometryStep( current_time, m_lastPinEvent );
+            CalcOdometryStep( (current_time), m_lastPinEvent );
             m_lastPinEvent = current_time;
 
             SendOdometry(m_lastTriggerTime);
@@ -401,35 +483,88 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
     RETURN_NOERROR;
 }
 
-tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
+// ****************************************************************************************************************
+//                                                   Process Input Data
+// ****************************************************************************************************************
+
+tFloat32  SWE_Odometry::CompensatePitchInfluence(tFloat32 accel_value)
 {
+    tFloat32 outputval;
 
-    tTimeStamp current_time;
-    current_time = GetTime();
+    outputval = accel_value - ((sin(m_pitch_now) * LOCAL_GRAVITY)) + m_accelOffsetValue;
 
-    FilterPulses();
+    return outputval;
+}
 
-    m_distanceAllSum = m_distanceAllSum + (CalcDistance(m_currentDirection, (m_wheelCounter_left - m_lastwheelCounter_left)) / 2.0) + ( CalcDistance(m_currentDirection, (m_wheelCounter_right - m_lastwheelCounter_right)) / 2.0);
-    m_lastwheelCounter_left = m_wheelCounter_left;
-    m_lastwheelCounter_right = m_wheelCounter_right;
+tResult  SWE_Odometry::CalcCombinedVelocity()
+{
+    tFloat32 compensation_value;
+    tFloat32 intervall;
 
-    m_SlidingWindowCntLeftWheel.AddNewValue(m_wheelCounter_left, timeStamp);
-    m_SlidingWindowCntRightWheel.AddNewValue(m_wheelCounter_right, timeStamp);
+    intervall = ((m_accelerometerTimestamp_now - m_accelerometerTimestamp_last)/ TIMESTAMP_RESOLUTION); //time intervall in seconds
 
-    CalcVelocity();
+    if (intervall < 0)
+        intervall = 0;
 
-    CalcOdometryStep(current_time,  m_lastPinEvent);
+    m_velocityAccelerometer = intervall * ((m_accelerometerValue_now )); //OPTION: + m_accelerometerValue_old) / 2.0); //the change in velocity since the last sample
 
-    m_lastPinEvent = current_time;
+    // apply new acceleration value
+    m_velocityCombined = m_velocityCombined  +  m_velocityAccelerometer;
 
-    SendVelocity();
+    //apply constant compensation
+    tFloat32 difference;
+    tFloat32 compensation_sum;
+
+    difference = (m_velocityCombined - m_velocityWheelSensors);
+    compensation_sum = intervall * m_accelerometer_compensation;
+
+    if ( difference > 0)
+    {
+        if (difference < compensation_sum)
+            compensation_value = -difference;
+        else
+            compensation_value = -compensation_sum;
+    }
+    else
+    {
+        if (difference > -compensation_sum)
+            compensation_value = -difference;
+        else
+            compensation_value = compensation_sum;
+    }
+
+    m_velocityCombined += compensation_value;
+
+    //apply recursive weighting compensation
+    m_velocityCombined = (1.0-m_acceleromter_weight)*m_velocityWheelSensors + (m_acceleromter_weight*m_velocityCombined);
+
+    //zero if standing still
+    if (m_currentDirection == 0)
+        m_velocityCombined = 0;
+
+    if(m_useHighresDist)
+        m_distanceAllSum = m_distanceAllSum + (intervall * m_velocityCombined);
+
+    //calc filtered velocity
+    m_velocityFiltered = FilterVelocity(m_filterStrength, m_velocityFiltered, m_velocityCombined );
 
     RETURN_NOERROR;
 }
 
-tTimeStamp SWE_Odometry::GetTime()
+tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
 {
-    return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
+
+    FilterPulses();
+
+    if(!m_useHighresDist)
+        m_distanceAllSum = m_distanceAllSum + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
+
+    m_SlidingWindowCntLeftWheel.AddNewValue(m_wheelDelta_left, timeStamp);
+    m_SlidingWindowCntRightWheel.AddNewValue(m_wheelDelta_right, timeStamp);
+
+    CalcVelocity();
+
+    RETURN_NOERROR;
 }
 
 tResult SWE_Odometry::CalcVelocity()
@@ -452,144 +587,42 @@ tResult SWE_Odometry::CalcVelocity()
         m_velocityRight = 0.0;
     }
 
-    m_velocityUnfiltered = ((m_velocityLeft + m_velocityRight) / 2.0);
-    m_velocityFiltered = FilterVelocity(m_filterStrength, m_velocityFiltered, m_velocityUnfiltered );
+    m_velocityWheelSensors = ((m_velocityLeft + m_velocityRight) / 2.0);
 
     RETURN_NOERROR;
-}
-
-tResult  SWE_Odometry::FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity)
-{
-    tFloat32 outputval;
-    outputval = new_velocity * (1.0 - filter_strength) + old_velocity* filter_strength;
-
-    return outputval;
 }
 
 tResult SWE_Odometry::FilterPulses()
 {
-    tFloat32 delta_count_left;
-    tFloat32 delta_count_right;
-    tFloat32 tempCounter;
+    tFloat32 relativeDelta;
 
-    //compensate for errors => IMPROVEMENT: better would be the registration of only the pulse delta right at the input pin
-    m_wheelCounter_left = m_wheelCounter_left - m_errorPulses_left;
-    m_wheelCounter_right = m_wheelCounter_right - m_errorPulses_right;
-
-    delta_count_left = m_wheelCounter_left - m_lastwheelCounter_left;
-    delta_count_right = m_wheelCounter_right - m_lastwheelCounter_right;
+    relativeDelta = 1.0;
 
     //if the delta of pulses between both wheels differs by more than 1 pulse + 100% then its probably a pulse-burst (sensor error)
     // if car is stopped don't accept pulses at all
-    // possible improvement: make the relative part (the worst-case 100%) dependend on steering angle
+    // possible improvement: make relativeDelta (the worst-case 100%) dependend on current turning radius
     if(m_currentDirection == 0)
     {
-        m_errorPulses_left += (tInt32)(m_wheelCounter_left - m_lastwheelCounter_left);
-        m_errorPulses_right += (tInt32)(m_wheelCounter_right - m_lastwheelCounter_right);
-
-        m_wheelCounter_left = m_lastwheelCounter_left;
-        m_wheelCounter_right = m_lastwheelCounter_right;
+        m_wheelDelta_left = 0;
+        m_wheelDelta_right = 0;
     }
-    else if(delta_count_left > delta_count_right)
+    else if( (tInt32)(m_wheelDelta_left - m_wheelDelta_right) > (1 + ( relativeDelta * m_wheelDelta_right )) )
     {
-        if( (delta_count_left - delta_count_right) > (1 + ( 1.0 * delta_count_right )) )
-        {
-            tempCounter = m_lastwheelCounter_left + delta_count_right; //guess the delta to be the same as the other wheel
-            m_errorPulses_left = (tInt32)(m_wheelCounter_left - tempCounter); //those were too many
-            m_wheelCounter_left = tempCounter;
-        }
+        m_wheelDelta_left = m_wheelDelta_right;
     }
-    else if (delta_count_left < delta_count_right)
+    else if( (tInt32)(m_wheelDelta_right - m_wheelDelta_left) > (1 + ( relativeDelta * m_wheelDelta_left )) )
     {
-        if( (delta_count_right - delta_count_left) > (1 + ( 1.0 * delta_count_left )) )
-        {
-            tempCounter = m_lastwheelCounter_right + delta_count_left; //guess the delta to be the same as the other wheel
-            m_errorPulses_right += (tInt32)(m_wheelCounter_right - tempCounter); //those were too many
-            m_wheelCounter_right = tempCounter;
-        }
+        m_wheelDelta_right = m_wheelDelta_left;
     }
 
     RETURN_NOERROR;
 }
 
-tFloat32 SWE_Odometry::CalcDistance(tInt32 direction, tFloat32 pulses)
-{
-    tFloat32 outputdata;
+// ****************************************************************************************************************
+//                                          Odometry Main calculations
+// ****************************************************************************************************************
 
-    outputdata = ((tFloat32)pulses / (tFloat32)WHEELPULSE_PER_TURN) * m_wheelCircumfence * direction;
-
-
-    return outputdata;
-}
-
-tResult SWE_Odometry::SendVelocity()
-{
-    cObjectPtr<IMediaCoder> pCoder;
-
-    //create new media sample
-    cObjectPtr<IMediaSample> pMediaSample;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
-
-    //allocate memory with the size given by the descriptor
-    cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderVelocityOut->GetMediaSampleSerializer(&pSerializer);
-    tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSample->AllocBuffer(nSize);
-
-    //write date to the media sample with the coder of the descriptor
-    m_pCoderVelocityOut->WriteLock(pMediaSample, &pCoder);
-
-
-
-    //DEBUG:
-    pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
-    //pCoder->Set("f32Value", (tVoid*)&(debugvar));
-
-
-
-    pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&m_lastPinEvent);
-    m_pCoderVelocityOut->Unlock(pCoder);
-
-    //transmit media sample over output pin
-    RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_oOutputVelocity.Transmit(pMediaSample));
-
-    RETURN_NOERROR;
-}
-
-tResult SWE_Odometry::SendOdometry(tTimeStamp timestamp)
-{
-
-    //create new media sample
-    cObjectPtr<IMediaCoder> pCoder;
-    cObjectPtr<IMediaSample> pMediaSampleOutput;
-
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
-
-    //allocate memory with the size given by the descriptor
-    cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderDescOdometryOut->GetMediaSampleSerializer(&pSerializer);
-    tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSampleOutput->AllocBuffer(nSize);
-
-    //write date to the media sample with the coder of the descriptor
-    RETURN_IF_FAILED(m_pCoderDescOdometryOut->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&(timestamp));
-    pCoder->Set("distance_x", (tVoid*)&(m_distanceX_sum));
-    pCoder->Set("distance_y", (tVoid*)&(m_distanceY_sum));
-    pCoder->Set("angle_heading", (tVoid*)&(m_heading_sum));
-    pCoder->Set("velocity", (tVoid*)&(m_velocityUnfiltered));
-    pCoder->Set("distance_sum", (tVoid*)&(m_distanceAllSum));
-    m_pCoderDescOdometryOut->Unlock(pCoder);
-
-    //transmit media sample over output pin
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_oOutputOdometry.Transmit(pMediaSampleOutput));
-
-    RETURN_NOERROR;
-}
-
-tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last) //TODO
+tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last)
 {
     // calculate the movement that happened since the last step and sum it up
     tFloat32 radius;
@@ -601,13 +634,12 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
     tFloat32 time_intervall;
 
     // ---------- get deltas -----------
-    time_intervall = (tTimeStamp)(time_now - time_last) / 10E6; //DEBUG
+    time_intervall = (tFloat32)(time_now - time_last) / TIMESTAMP_RESOLUTION_ADTF ;
 
     extrapol_heading = m_heading_now + GetExtrapolatedHeadingDiff(time_now);
     heading_diff = GetAngleDiff(extrapol_heading, m_heading_lastStep) ;
 
-    distance_driven = time_intervall * m_velocityUnfiltered;
-
+    distance_driven = time_intervall * m_velocityCombined;
 
     // corner cases
     if(m_currentDirection == 0) //if car stopped no movement (should have) occurred --> prevents impact of sensor drift
@@ -635,7 +667,7 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
 
     // -------- calculate relative movement -------
 
-    if(radius >= 10000)  // linear interpolation if infinite (or very big) radius
+    if( radius >= 10000)  // linear interpolation if infinite (or very big) radius
     {
         Y_distance = sin(heading_diff*0.5) * distance_driven;
         X_distance = cos(heading_diff*0.5) * distance_driven;
@@ -651,7 +683,12 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
             X_distance = sin(heading_diff) * radius;
             Y_distance = (1 - cos(heading_diff)) * radius;
 
-            if (distance_driven < 0)
+            //negative quadrants
+            if ((distance_driven > 0) && (heading_diff < 0))
+            {
+                X_distance *= (-1);
+            }
+            else if ((distance_driven < 0) && (heading_diff > 0))
             {
                 X_distance *= (-1);
             }
@@ -667,62 +704,160 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
         }
     }
 
-
     // ----- sum everything up -----------
 
     m_distanceX_sum += X_distance;
     m_distanceY_sum += Y_distance;
     m_heading_sum   += heading_diff;
 
-
     // -------- update data for new step --------
 
     m_heading_lastStep = extrapol_heading;
 
 
+
     RETURN_NOERROR;
 }
+
+
+// ****************************************************************************************************************
+//                                                   Helpers
+// ****************************************************************************************************************
 
 tFloat32 SWE_Odometry::GetAngleDiff(tFloat32 angle_new, tFloat32 angle_old)
 {
     // get the smaller angle between two measurements + handle the corner cases when passing 0 and +/- PI
     tFloat32 angleDiff;
 
-    angleDiff = (angle_new + MY_PI) - (angle_old + MY_PI); //odometry sends them as +/-PI we want 0 - 2PI
 
-    if((angleDiff < MY_PI) || (angleDiff > -MY_PI)) //if zero has not been passed....
+    angleDiff = angle_new - angle_old;
+
+    if (angleDiff > (MY_PI))
     {
-        angleDiff = angle_new - angle_old;
+        angleDiff = angleDiff - (2*MY_PI);
     }
-    else if (angleDiff > MY_PI)
+    else if (angleDiff < -(MY_PI)) //positive turn through -Pi / +Pi border
     {
-        angleDiff = (angle_new - (2*MY_PI)) - angle_old;
-    }
-    else if (angleDiff < -MY_PI)
-    {
-        angleDiff = (angle_new + (2*MY_PI)) - angle_old;
-    }
-    else
-    {
-        angleDiff = MY_PI;
+        angleDiff = angleDiff + (2*MY_PI);
     }
 
     return angleDiff;
 }
 
+tFloat32 SWE_Odometry::CalcDistance(tInt32 direction, tFloat32 pulses)
+{
+    tFloat32 outputdata;
+
+    outputdata = (pulses / WHEELPULSE_PER_TURN) * m_wheelCircumfence * direction;
+
+    return outputdata;
+}
+
+tTimeStamp SWE_Odometry::GetTime()
+{
+    return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
+}
+
+tFloat32  SWE_Odometry::FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity)
+{
+    tFloat32 outputval;
+    outputval = new_velocity * (1.0 - filter_strength) + old_velocity* filter_strength;
+
+    return outputval;
+}
+
 tFloat32 SWE_Odometry::GetExtrapolatedHeadingDiff(tTimeStamp time_now)
 {
-    // calculate the angular velocity between the last two yaw samples and get the difference in heading between the last sensor reading and now
+    // calculate the angular velocity between the last yaw samples and get the estimated/extrapolated difference in heading between the last sensor reading and now
     tFloat32 heading_diff_old;
     tFloat32 heading_diff_now;
     tFloat32 time_diff_old;
     tFloat32 time_diff_now;
 
-    heading_diff_old = GetAngleDiff( m_heading_now, m_heading_old_interpol);
-    time_diff_old = m_yawSampleTime_now - m_yawSampleTime_old_interpol;
-    time_diff_now = time_now - m_yawSampleTime_now;
+    heading_diff_old =  GetAngleDiff(m_yawSlidingWindow.getEndValue(), m_yawSlidingWindow.getBeginValue());
+    time_diff_old = (m_yawSlidingWindow.getEndTime() - m_yawSlidingWindow.getBeginTime()) * (TIMESTAMP_RESOLUTION_ADTF / TIMESTAMP_RESOLUTION); //is in ms
 
-    heading_diff_now = heading_diff_old * (time_diff_now / time_diff_old);
+    time_diff_now = time_now - m_yawSampleTime_now; //how old is the current sample?
+
+    if (time_diff_old > 0)
+    {
+        heading_diff_now = heading_diff_old * (time_diff_now / time_diff_old);
+    }
+    else
+    {
+        heading_diff_now = 0;
+    }
 
     return heading_diff_now;
+}
+
+
+
+// ****************************************************************************************************************
+//                                                   Transmit Data
+// ****************************************************************************************************************
+
+
+tResult SWE_Odometry::SendOdometry(tTimeStamp timestamp)
+{
+
+    //create new media sample
+    cObjectPtr<IMediaCoder> pCoder;
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescOdometryOut->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    RETURN_IF_FAILED(m_pCoderDescOdometryOut->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&(timestamp));
+    pCoder->Set("distance_x", (tVoid*)&(m_distanceX_sum));
+    pCoder->Set("distance_y", (tVoid*)&(m_distanceY_sum));
+    pCoder->Set("angle_heading", (tVoid*)&(m_heading_sum));
+    pCoder->Set("velocity", (tVoid*)&(m_velocityCombined));
+    pCoder->Set("distance_sum", (tVoid*)&(m_distanceAllSum));
+    m_pCoderDescOdometryOut->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputOdometry.Transmit(pMediaSampleOutput));
+
+    RETURN_NOERROR;
+}
+
+
+tResult SWE_Odometry::SendVelocity()
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSample;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderVelocityOut->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSample->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    m_pCoderVelocityOut->WriteLock(pMediaSample, &pCoder);
+
+    pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
+    //pCoder->Set("f32Value", (tVoid*)&(debugvar));
+
+
+    pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&m_lastPinEvent);
+    m_pCoderVelocityOut->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputVelocity.Transmit(pMediaSample));
+
+    RETURN_NOERROR;
 }

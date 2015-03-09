@@ -18,61 +18,56 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR I
 //#include "stdafx.h"
 #include "SWE_cSmartSlidingWindow.h"
 
-#define TIMESTAMP_RESOLUTION 1000 //TODO : micro- or milli-seconds?
-#define AVG_UPDATES_PER_SECOND 18.0
+#define TIMESTAMP_RESOLUTION 1000.0f //TODO : micro- or milli-seconds?
+#define AVG_UPDATES_PER_SECOND 18.0f
 
 
-SWE_cSmartSlidingWindow::SWE_cSmartSlidingWindow( tInt32 in_max_length, tFloat32 in_maxDelay):
-    m_maxLength(in_max_length), m_resolution(10), m_queueValueSum(0), m_queueTimeSum(0), m_maxDelay(in_maxDelay), m_lastPulseTime(0) , m_lastPulseValue(0), m_firstSample (true)
+SWE_cSmartSlidingWindow::SWE_cSmartSlidingWindow( tUInt32 in_max_length, tFloat32 in_maxDelay):
+    m_maxLength(in_max_length), m_resolution(10), m_queueValueSum(0), m_queueTimeSum(0), m_lastPulseTime(0) , m_maxDelay(in_maxDelay), m_firstSample (true)
 {
 }
 
 SWE_cSmartSlidingWindow::~SWE_cSmartSlidingWindow(){}
 
-tVoid SWE_cSmartSlidingWindow::AddNewValue(tInt32 inputValues, tTimeStamp inputTime)
+tVoid SWE_cSmartSlidingWindow::AddNewValue(tInt32 inputDelta, tTimeStamp inputTime)
 {
-
     if (m_firstSample)
     {
         m_lastPulseTime = inputTime;
-        m_lastPulseValue = inputValues;
         m_firstSample = false;
     }
 
     // ------- discard old values -------
 
     // are those/this last sample(s) too old to be kept?
-    while ( ( m_inputValues.size() > 0 )  && ( ( inputTime - ( m_lastPulseTime - m_queueTimeSum ) ) > 2*m_maxDelay ) ) //last sample too old?
+    while ( ( m_myQueue.size() > 0 )  && ( ( inputTime - ( m_lastPulseTime - m_queueTimeSum ) ) > 2*m_maxDelay ) ) //last sample too old?
     {
             m_queueTimeSum -= GetEndTime();
             m_queueValueSum -= GetEndValue();
 
-            m_inputValues.pop();
+            m_myQueue.pop();
     }
 
 
     // ------------- fill the queue ------------
 
-    if (m_lastPulseValue < inputValues) //was a new pulse registered?
+    if (inputDelta > 0) //was a new pulse registered?
     {
-        tInt32 delta_pulses;
-        tTimeStamp delta_time;
+        tInt32 delta_time;
 
-        delta_pulses = inputValues - m_lastPulseValue;
         delta_time = inputTime - m_lastPulseTime;
 
-        if ((delta_time < m_maxDelay) && ( delta_time > 0))// not too slow/old to be registered?
+        if ((delta_time < m_maxDelay) && ( delta_time > 0))// not too slow/old to be registered, or first pulse after a long time?
         {
             //save relative values
-            m_inputValues.push(make_pair<tInt32,tTimeStamp>(delta_pulses, delta_time));
+            m_myQueue.push(make_pair<tInt32,tTimeStamp>(inputDelta, (tTimeStamp)delta_time));
 
             //save absolute values
-            m_queueValueSum += delta_pulses;
+            m_queueValueSum += inputDelta;
             m_queueTimeSum += delta_time;
         }
 
         m_lastPulseTime = inputTime;
-        m_lastPulseValue = inputValues;
 
         //DEBUG
         debugvar = m_queueTimeSum;
@@ -82,12 +77,12 @@ tVoid SWE_cSmartSlidingWindow::AddNewValue(tInt32 inputValues, tTimeStamp inputT
     // ---------- shorten the queue ----------------
     //shorten until minimum resolution reached, to keep a short delay and use minimal averaging
 
-    while ( (m_inputValues.size() > 2) &&  (  (m_inputValues.size() > m_maxLength)  ||  (GetNextRes() >= m_resolution ) )) //is cutting off the last sample OK? 1. long enough to cut sth. off AND (2. cutting off results in high enough resolution OR 3. queue is too long)
+    while ( (m_myQueue.size() > 3U) &&  (  (m_myQueue.size() > m_maxLength)  ||  (GetNextRes() >= m_resolution ) )) //is cutting off the last sample OK? 1. long enough to cut sth. off AND (2. cutting off results in high enough resolution OR 3. queue is too long)
     {
             m_queueTimeSum -= GetEndTime();
             m_queueValueSum -= GetEndValue();
 
-            m_inputValues.pop();
+            m_myQueue.pop();
     }
 
 }
@@ -105,16 +100,16 @@ tInt32 SWE_cSmartSlidingWindow::GetPulses()
 
 tInt32 SWE_cSmartSlidingWindow::GetEndValue()
 {
-    if (m_inputValues.size() > 0)
-        return m_inputValues.front().first;
+    if (m_myQueue.size() > 0U)
+        return m_myQueue.front().first;
     else
         return 0;
 }
 
 tTimeStamp SWE_cSmartSlidingWindow::GetEndTime()
 {
-    if (m_inputValues.size() > 0)
-        return m_inputValues.front().second;
+    if (m_myQueue.size() > 0U)
+        return m_myQueue.front().second;
     else
         return 0;
 }
@@ -131,8 +126,8 @@ tFloat32 SWE_cSmartSlidingWindow::GetNextRes()
 {
     tFloat32 next_res;
 
-    if (m_inputValues.size() > 0)
-        next_res = (m_queueValueSum - GetEndValue()) * ((m_queueTimeSum - GetEndTime()) / ((1.0 / AVG_UPDATES_PER_SECOND) * TIMESTAMP_RESOLUTION ) );
+    if (m_myQueue.size() > 0U)
+        next_res = (m_queueValueSum - GetEndValue())   *   (((tFloat32)(m_queueTimeSum - GetEndTime()) * AVG_UPDATES_PER_SECOND) / TIMESTAMP_RESOLUTION) ;
     else
         next_res = 0;
 
@@ -142,9 +137,9 @@ tFloat32 SWE_cSmartSlidingWindow::GetNextRes()
 tResult SWE_cSmartSlidingWindow::Reset()
 {
 
-    while (m_inputValues.size() > 0)
+    while (m_myQueue.size() > 0U)
     {
-        m_inputValues.pop();
+        m_myQueue.pop();
     }
 
     m_queueValueSum = 0;
