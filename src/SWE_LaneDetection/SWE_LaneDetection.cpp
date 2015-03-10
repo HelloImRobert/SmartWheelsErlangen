@@ -21,6 +21,16 @@ ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_LANEDETECTION_FILTER , cSWE_Lan
 #define SPLINE_SEARCH_WIDTH "The width of pixels which is considered as a Y-Levelset for the spline reduction"
 #define RESULTVID_OFFSET_X "X-Value of the offset for the resultvideo"
 #define RESULTVID_OFFSET_Y "Y-Value of the offset for the resultvideo"
+#define RESULTVID_SCALE "The scaling of the resultvideo"
+#define MIN_LENGTH_MIDDLE_BOUNDARY "Minimum contour length of a middle laneboundary"
+#define MAX_LENGTH_MIDDLE_BOUNDARY "Maximum contour length of a middle laneboundary"
+#define AMBIGOUSANGLE "Minimum Angle, under which a line is classified as Ambiguos"
+#define DIST_FRONT_TO_WARPED_IMAGE_BOTTOM "distance of the lowest point visible in the inverse perspective to the car coordinate system"
+#define DIST_FRONT_TO_FRONT_AXIS "distance of the front point of the car to the front axis"
+#define DIST_SIDE_IMAGE_TO_MID "distance of the middle of the image to the middle of the car in inverse perspective"
+
+#define IMAGE_WIDTH 640
+#define IMAGE_HEIGHT 480
 
 /**
  * @brief cSWE_LaneDetection::cSWE_LaneDetection
@@ -29,39 +39,57 @@ ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_LANEDETECTION_FILTER , cSWE_Lan
  */
 cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
 {
+    SetPropertyFloat( AMBIGUOSANGLE , 0.06);
+    SetPropertyBool( AMBIGUOSANGLE NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( AMBIGUOSANGLE NSSUBPROP_MINIMUM  , 0.0001);
+    SetPropertyFloat( AMBIGUOSANGLE NSSUBPROP_MAXIMUM  , 1 );
 
+    SetPropertyFloat( RESULTVID_SCALE , 0.3);
+    SetPropertyBool( RESULTVID_SCALE NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( RESULTVID_SCALE NSSUBPROP_MINIMUM  , 0.1);
+    SetPropertyFloat( RESULTVID_SCALE NSSUBPROP_MAXIMUM  , 1 );
 
-    SetPropertyFloat( RESULTVID_OFFSET_X , 320);
+    SetPropertyFloat( RESULTVID_OFFSET_X , 600);
     SetPropertyBool( RESULTVID_OFFSET_X NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( RESULTVID_OFFSET_X NSSUBPROP_MINIMUM  , 0);
     SetPropertyFloat( RESULTVID_OFFSET_X NSSUBPROP_MAXIMUM  , 9999 );
 
-    SetPropertyFloat( RESULTVID_OFFSET_Y , 450);
+    SetPropertyFloat( RESULTVID_OFFSET_Y , 700);
     SetPropertyBool( RESULTVID_OFFSET_Y NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( RESULTVID_OFFSET_Y NSSUBPROP_MINIMUM  , 0 );
     SetPropertyFloat( RESULTVID_OFFSET_Y NSSUBPROP_MAXIMUM  , 9999 );
 
-    SetPropertyFloat( COUNT_OF_STDDEVS , 3.0);
+    SetPropertyFloat( COUNT_OF_STDDEVS , 2.0);
     SetPropertyBool( COUNT_OF_STDDEVS NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( COUNT_OF_STDDEVS NSSUBPROP_MINIMUM  , 0.5 );
     SetPropertyFloat( COUNT_OF_STDDEVS NSSUBPROP_MAXIMUM  , 10.0 );
 
-    SetPropertyFloat( WIDTH_FACTOR , 7.0);
+    SetPropertyFloat( WIDTH_FACTOR , 25.0);
     SetPropertyBool( WIDTH_FACTOR NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( WIDTH_FACTOR NSSUBPROP_MINIMUM  , 0.01);
     SetPropertyFloat( WIDTH_FACTOR NSSUBPROP_MAXIMUM  , 99.0);
 
-    SetPropertyFloat( MIDDLE_DISTANCE_HIGH_THRESHOLD , 270.0);
+    SetPropertyFloat( MIDDLE_DISTANCE_HIGH_THRESHOLD , 660.0);
     SetPropertyBool( MIDDLE_DISTANCE_HIGH_THRESHOLD NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( MIDDLE_DISTANCE_HIGH_THRESHOLD NSSUBPROP_MINIMUM  , 0.0);
-    SetPropertyFloat( MIDDLE_DISTANCE_HIGH_THRESHOLD NSSUBPROP_MAXIMUM  , 640.0);
+    SetPropertyFloat( MIDDLE_DISTANCE_HIGH_THRESHOLD NSSUBPROP_MAXIMUM  , IMAGE_WIDTH);
 
-    SetPropertyFloat( MIDDLE_DISTANCE_LOW_THRESHOLD , 170.0);
+    SetPropertyFloat( MIDDLE_DISTANCE_LOW_THRESHOLD , 360.0);
     SetPropertyBool( MIDDLE_DISTANCE_LOW_THRESHOLD NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( MIDDLE_DISTANCE_LOW_THRESHOLD NSSUBPROP_MINIMUM  , 0.0);
-    SetPropertyFloat( MIDDLE_DISTANCE_LOW_THRESHOLD NSSUBPROP_MAXIMUM  , 640.0);
+    SetPropertyFloat( MIDDLE_DISTANCE_LOW_THRESHOLD NSSUBPROP_MAXIMUM  , IMAGE_WIDTH);
 
-    SetPropertyFloat( MIN_OUTER_BOUNDARY_LENGTH , 450.0);
+    SetPropertyFloat( MIN_LENGTH_MIDDLE_BOUNDARY , 180.0);
+    SetPropertyBool(  MIN_LENGTH_MIDDLE_BOUNDARY NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( MIN_LENGTH_MIDDLE_BOUNDARY NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( MIN_LENGTH_MIDDLE_BOUNDARY NSSUBPROP_MAXIMUM  , 9999.0);
+
+    SetPropertyFloat( MAX_LENGTH_MIDDLE_BOUNDARY , 1100.0);
+    SetPropertyBool(  MAX_LENGTH_MIDDLE_BOUNDARY NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( MAX_LENGTH_MIDDLE_BOUNDARY NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( MAX_LENGTH_MIDDLE_BOUNDARY NSSUBPROP_MAXIMUM  , 9999.0);
+
+    SetPropertyFloat( MIN_OUTER_BOUNDARY_LENGTH , 1200.0);
     SetPropertyBool( MIN_OUTER_BOUNDARY_LENGTH NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( MIN_OUTER_BOUNDARY_LENGTH NSSUBPROP_MINIMUM  , 0);
     SetPropertyFloat( MIN_OUTER_BOUNDARY_LENGTH NSSUBPROP_MAXIMUM  , 99999);
@@ -72,22 +100,22 @@ cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
     SetPropertyStr( CORRESPONDING_POINTS_XML , "/home/odroid/AADC/calibration_files/SWE_cameraCalibrationPoints.XML");
     SetPropertyBool( CORRESPONDING_POINTS_XML NSSUBPROP_ISCHANGEABLE, tTrue);
 
-    SetPropertyInt( HEIGHT_THRESHOLD , 50);
+    SetPropertyInt( HEIGHT_THRESHOLD , 35);
     SetPropertyBool( HEIGHT_THRESHOLD NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyInt( HEIGHT_THRESHOLD NSSUBPROP_MINIMUM  , 0);
     SetPropertyInt( HEIGHT_THRESHOLD NSSUBPROP_MAXIMUM  , 479);
 
-    SetPropertyInt( START_HEIGHT , 255 );
+    SetPropertyInt( START_HEIGHT , 265 );
     SetPropertyBool( START_HEIGHT NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyInt( START_HEIGHT NSSUBPROP_MINIMUM  , 0);
     SetPropertyInt( START_HEIGHT NSSUBPROP_MAXIMUM  , 479);
 
-    SetPropertyFloat( LOWER_AREA_THRESHOLD , 20);
+    SetPropertyFloat( LOWER_AREA_THRESHOLD , 180);
     SetPropertyBool( LOWER_AREA_THRESHOLD NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( LOWER_AREA_THRESHOLD NSSUBPROP_MINIMUM  , 0.0);
     SetPropertyFloat( LOWER_AREA_THRESHOLD NSSUBPROP_MAXIMUM  , 99999.0);
 
-    SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD , 3.0 );
+    SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD , 5.5 );
     SetPropertyBool( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD NSSUBPROP_MINIMUM  , 0.01);
     SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD NSSUBPROP_MAXIMUM  , 99999.0);
@@ -96,6 +124,21 @@ cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
     SetPropertyBool( SPLINE_SEARCH_WIDTH NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyInt( SPLINE_SEARCH_WIDTH NSSUBPROP_MINIMUM  , 2);
     SetPropertyInt( SPLINE_SEARCH_WIDTH NSSUBPROP_MAXIMUM  , 200);
+
+    SetPropertyFloat( DIST_FRONT_TO_WARPED_IMAGE_BOTTOM , 310.0 );
+    SetPropertyBool( DIST_FRONT_TO_WARPED_IMAGE_BOTTOM NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( DIST_FRONT_TO_WARPED_IMAGE_BOTTOM NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( DIST_FRONT_TO_WARPED_IMAGE_BOTTOM NSSUBPROP_MAXIMUM  , 99999.0);
+
+    SetPropertyFloat( DIST_FRONT_TO_FRONT_AXIS , 120.0 );
+    SetPropertyBool( DIST_FRONT_TO_FRONT_AXIS NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( DIST_FRONT_TO_FRONT_AXIS NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( DIST_FRONT_TO_FRONT_AXIS NSSUBPROP_MAXIMUM  , 99999.0);
+
+    SetPropertyFloat( DIST_SIDE_IMAGE_TO_MID , 10.0 );
+    SetPropertyBool( DIST_SIDE_IMAGE_TO_MID NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( DIST_SIDE_IMAGE_TO_MID NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( DIST_SIDE_IMAGE_TO_MID NSSUBPROP_MAXIMUM  , 320.0 );
 }
 
 /**
@@ -158,6 +201,7 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
     else if (eStage == StageNormal)
     {
         // fetch the algorithmic parameters
+        _resultImageScaleFactor = GetPropertyFloat(RESULTVID_SCALE);
         _resultImageOffsetVector = cv::Point(GetPropertyInt(RESULTVID_OFFSET_X),GetPropertyInt(RESULTVID_OFFSET_Y));
         _widthFactor = GetPropertyFloat(WIDTH_FACTOR);
         _middleDistanceHighThreshold = GetPropertyFloat(MIDDLE_DISTANCE_HIGH_THRESHOLD);
@@ -165,11 +209,17 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         _minOuterBoundaryLength = GetPropertyFloat(MIN_OUTER_BOUNDARY_LENGTH);
         _heightThresh = GetPropertyInt(HEIGHT_THRESHOLD);
         _draw = GetPropertyBool(DRAW_IMAGES),
-                _CountStdDevs = GetPropertyInt(COUNT_OF_STDDEVS);
+        _CountStdDevs = GetPropertyInt(COUNT_OF_STDDEVS);
         _lowerAreaThreshold = GetPropertyFloat(LOWER_AREA_THRESHOLD);
         _startHeight = GetPropertyInt(START_HEIGHT);
         _principalAxisLengthRatioThreshold = GetPropertyFloat(PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD);
         _splineSearchWidth = GetPropertyInt(SPLINE_SEARCH_WIDTH);
+        _minLengthMiddleBoundary = GetPropertyFloat(MIN_LENGTH_MIDDLE_BOUNDARY);
+        _maxLengthMiddleBoundary = GetPropertyFloat(MAX_LENGTH_MIDDLE_BOUNDARY);
+        _ambigousAngle = GetPropertyFloat(AMBIGOUSANGLE);
+        _distFrontToWarpedImageBottom = GetPropertyFloat(DIST_FRONT_TO_WARPED_IMAGE_BOTTOM);
+        _distFrontToFrontAxis = GetPropertyFloat(DIST_FRONT_TO_FRONT_AXIS);
+        _distSideImageToMid = GetPropertyFloat(DIST_SIDE_IMAGE_TO_MID);
 
         // read the parameters from a file and setup a transformation matrix
         InitTransformationMatrices( GetPropertyStr( CORRESPONDING_POINTS_XML ) );
@@ -197,10 +247,10 @@ tResult cSWE_LaneDetection::InitPinFormats()
     _sColorBitMapOutputFormat.nBitsPerPixel = 24;
     _sColorBitMapOutputFormat.nPixelFormat = cImage::PF_RGB_888;
     _sColorBitMapOutputFormat.nPaletteSize = 0;
-    _sColorBitMapOutputFormat.nWidth = 640;
-    _sColorBitMapOutputFormat.nHeight = 480;
-    _sColorBitMapOutputFormat.nBytesPerLine = 640 * 3;
-    _sColorBitMapOutputFormat.nSize = _sColorBitMapOutputFormat.nBytesPerLine * 480;
+    _sColorBitMapOutputFormat.nWidth = IMAGE_WIDTH;
+    _sColorBitMapOutputFormat.nHeight = _imageHeight;
+    _sColorBitMapOutputFormat.nBytesPerLine = IMAGE_WIDTH * 3;
+    _sColorBitMapOutputFormat.nSize = _sColorBitMapOutputFormat.nBytesPerLine * _imageHeight;
 
     // setup the constant parameters of the GreyScale outputformat
     _sInternRepresentationBitMapOutputFormat.nBitsPerPixel = 24;
@@ -316,6 +366,11 @@ bool sort_yVal( const cv::Point& point1, const cv::Point& point2 )
     return point1.y > point2.y;
 }
 
+bool sort_yVal_double(const cv::Point2d& point1, const cv::Point2d& point2)
+{
+    return point1.y > point2.y;
+}
+
 bool sort_xVal( const cv::Point& point1, const cv::Point& point2)
 {
     return point1.x < point2.x;
@@ -323,41 +378,51 @@ bool sort_xVal( const cv::Point& point1, const cv::Point& point2)
 
 /**
      * \brief A convenience overload to project a BlobDescriptors contour and update it's orientation parameters by passing the BlobDescriptor.
-     * @param blob the BlobDescriptor which should be transformed
+     * @param inputBlob the BlobDescriptor which should be transformed
+     * @param outputBlob the BlobDescriptor which will receive the transformed coordinates
      * @param projectionMatrix the transformation Matrix to be used
      * @param offset an optional parameter to reverse the effect of cropped images
      */
-void cSWE_LaneDetection::project(BlobDescriptor& blob, const cv::Mat& projectionMatrix, int offset)
+void cSWE_LaneDetection::project(const BlobDescriptor& inputBlob, BlobDescriptor& outputBlob , const cv::Mat& projectionMatrix, int offset)
 {
-    project(blob.contour, projectionMatrix, offset);
+    //transform the points into a double vector
+    std::vector< cv::Point2d > points;
+    for(size_t i = 0 ; i < inputBlob.contour.size() ; i++ )
+    {
+        points.push_back( static_cast<cv::Point2d>( inputBlob.contour[ i ] ) );
+    }
+    project(points, points, projectionMatrix, offset);
+
+    outputBlob.contour.clear();
+    for(size_t i = 0 ; i < points.size() ; i++ )
+    {
+        outputBlob.contour.push_back( static_cast<cv::Point>( points[ i ] ) );
+    }
+
     // update the orientation parameters
-    getOrientation(blob);
+    getOrientation(outputBlob);
 }
 
 /**
     * \brief A function to apply a projection to a contour.
-    * @param contour the contour which should be transformed
+    * @param inputContour the contour which should be transformed
+    * @param outputContour the contour which should be used for output
     * @param projectionMatrix the transformation Matrix to be used
     * @param offset an optional parameter to reverse the effect of cropped images
     */
-void cSWE_LaneDetection::project(std::vector< cv::Point >& contour, const cv::Mat& projectionMatrix, int offset)
+void cSWE_LaneDetection::project(const std::vector< cv::Point2d >& inputContour, std::vector< cv::Point2d >& outputContour , const cv::Mat& projectionMatrix, int offset)
 {
-    // transform the points into a double vector and add the offset
-    std::vector< cv::Point2d > vec;
-    for (size_t j = 0; j < contour.size(); j++)
-    {
-        contour[j].y += offset;
-        vec.push_back(contour[j]);
-    }
-    // project
-    perspectiveTransform(vec, vec, projectionMatrix);
+    std::vector< cv::Point2d > points;
 
-    // write back the results
-    contour.clear();
-    for (size_t j = 0; j < vec.size(); j++)
+    // add the offset
+    for (size_t j = 0; j < inputContour.size(); j++)
     {
-        contour.push_back(vec[j]);
+        points.push_back(inputContour[j]);
+        points[j].y += offset;
     }
+
+    // project
+    perspectiveTransform(points, outputContour, projectionMatrix);
 }
 
 /**
@@ -441,7 +506,8 @@ void cSWE_LaneDetection::getBlobDescriptions( cv::Mat& image , const std::vector
         int contourElements = 0;
         for (size_t j = 0; j < contours[i].size(); j++)
         {
-            if (contours[i][j].y > _heightThresh)
+            int yIncrement = floor(( static_cast<double>(contours[i][j].x) - 320.0) * 0.1 );
+            if (contours[i][j].y > _heightThresh + yIncrement )
             {
                 contourElements++;
             }
@@ -452,7 +518,16 @@ void cSWE_LaneDetection::getBlobDescriptions( cv::Mat& image , const std::vector
             // create a descriptor and reduce the points of the contour
             BlobDescriptor descriptor;
             std::vector< cv::Point >& contour = descriptor.contour;
-            approxPolyDP(Mat(contours[i]), contour , arcLength(Mat(contours[i]), true)*0.005, true);
+
+            double perspArcLength = arcLength(Mat(contours[i]), true);
+            if( perspArcLength > 400 )
+            {
+                approxPolyDP(Mat(contours[i]), contour , perspArcLength*0.004, true);
+            }
+            else
+            {
+                approxPolyDP(Mat(contours[i]), contour , perspArcLength*0.04, true);
+            }
 
             // calculate the orientation parameters of the contour
             getOrientation(descriptor);
@@ -460,11 +535,11 @@ void cSWE_LaneDetection::getBlobDescriptions( cv::Mat& image , const std::vector
             bool elongated = descriptor.principalAxisLengthRatio > _principalAxisLengthRatioThreshold;
 
             // decide on which side the object lies
-            if (descriptor.angleOfMainDirection < -0.1)
+            if (descriptor.angleOfMainDirection < -_ambigousAngle)
             {
                 descriptor.side = LEFT;
             }
-            else if (descriptor.angleOfMainDirection > 0.1)
+            else if (descriptor.angleOfMainDirection >_ambigousAngle)
             {
                 descriptor.side = RIGHT;
             }
@@ -474,9 +549,7 @@ void cSWE_LaneDetection::getBlobDescriptions( cv::Mat& image , const std::vector
             }
 
             // take the contour to the inverse perspective and recalculate it's orientation parameters
-            project( descriptor , _projectionMatrix , _startHeight );
-
-            calculateDirectionHistogram(image,descriptor);
+            project( descriptor , descriptor , _projectionMatrix , _startHeight );
 
             // calculate the length of the contour
             descriptor.lengthContour = arcLength(contour, true);
@@ -496,16 +569,12 @@ void cSWE_LaneDetection::getBlobDescriptions( cv::Mat& image , const std::vector
             bool large = descriptor.areaContour > _lowerAreaThreshold;
 
             // if it could be a roadboundary write it to our set
-            if  ( elongated && lineLike && large )
+            if  ( elongated && lineLike && large && ( !(descriptor.side == AMBIGOUS) || descriptor.lengthContour < _minOuterBoundaryLength) )
             {
                 blobs.push_back(descriptor);
             }
         }
     }
-
-    // sort blobs depending on their arc_length in decreasing order
-    sort(blobs.begin(), blobs.end(), sort_arcLength);
-}
 
 /**
      * \brief A function calculating the perpendicular distance of a point to a line.
@@ -538,6 +607,9 @@ int cSWE_LaneDetection::getOuterLaneBoundaries( std::vector< BlobDescriptor >& b
 
     if (blobs.size() > 0)
     {
+        // check if we have at least two candidates
+        int endIndex = min(2, (int)blobs.size());
+
         BlobDescriptor& firstBlob = blobs[0];
 
         // if the contour is larger than our threshold accept it as a outer lane boundary
@@ -555,6 +627,11 @@ int cSWE_LaneDetection::getOuterLaneBoundaries( std::vector< BlobDescriptor >& b
 
             // calculate the perpendicular distance of the first principal axis of the first blob to the second blob
             double distance = getPerpendicularDistance(firstBlob.eigen_vecs[0], firstBlob.centerOfGravity, secondBlob.centerOfGravity);
+
+            if(secondBlob.side == RIGHT)
+            {
+                distance *= -1;
+            }
 
             // calculated indicators if the candidate lies correctly
             bool aboveLowThreshold = distance > 2 * _middleDistanceLowThreshold;
@@ -657,21 +734,21 @@ std::pair< size_t, size_t > cSWE_LaneDetection::contourToSpline(const std::vecto
 void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobDescriptor>& blobs, const int outerLaneBoundariesIndicator,
                                          const std::vector< BlobDescriptor* > middleLaneBoundary)
 {
-    vector<Vec4i> hierarchy;
+    std::vector<Vec4i> hierarchy;
 
     // draw the orientation properties for every plausible blob
     for (size_t i = 0; i < blobs.size(); ++i)
     {
         const BlobDescriptor& blob = blobs[i];
-        cv::Point currentCenterOfGravity = blob.centerOfGravity + _resultImageOffsetVector;
+        cv::Point currentCenterOfGravity = ( _resultImageScaleFactor * blob.centerOfGravity ) + _resultImageOffsetVector;
 
         circle(image, currentCenterOfGravity, 3, CV_RGB(255, 0, 255), 2);
-        line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[0].x * blob.eigen_vals[0], blob.eigen_vecs[0].y * blob.eigen_vals[0]), CV_RGB(255, 255, 0));
-        line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[1].x * blob.eigen_vals[1], blob.eigen_vecs[1].y * blob.eigen_vals[1]), CV_RGB(255, 255, 0));
+        line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[0].x * _resultImageScaleFactor * blob.eigen_vals[0], blob.eigen_vecs[0].y * _resultImageScaleFactor * blob.eigen_vals[0]), CV_RGB(255, 255, 0));
+        line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[1].x * _resultImageScaleFactor * blob.eigen_vals[1], blob.eigen_vecs[1].y * _resultImageScaleFactor * blob.eigen_vals[1]), CV_RGB(255, 255, 0));
     }
 
     // draw the outer lane boundaries
-    for (int i = 0; i < outerLaneBoundariesIndicator; ++i)
+    for (size_t i = 0; i < outerLaneBoundariesIndicator; i++)
     {
         std::vector< std::vector< cv::Point > > contourToPaint;
 
@@ -696,6 +773,7 @@ void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobD
         contourToPaint.push_back(blob.contour);
         for (size_t j = 0; j < contourToPaint[0].size(); ++j)
         {
+            contourToPaint[0][j] *= _resultImageScaleFactor;
             contourToPaint[0][j] += _resultImageOffsetVector;
         }
         drawContours(image, contourToPaint, 0, color, 2, 8, hierarchy, 0, Point());
@@ -711,6 +789,7 @@ void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobD
         // offset the contours to fit nicely into the resultImage
         for (size_t j = 0; j < contourToDraw[i].size(); ++j)
         {
+            contourToDraw[i][j] *= _resultImageScaleFactor;
             contourToDraw[i][j] += _resultImageOffsetVector;
         }
     }
@@ -727,9 +806,12 @@ void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobD
      * @param splinePoints the points for the spline
      * @param color the color for the spline
      */
-void cSWE_LaneDetection::drawSpline( cv::Mat& image , const std::vector< cv::Point >& splinePoints , const cv::Scalar& color )
+void cSWE_LaneDetection::drawSpline( cv::Mat& image , const std::vector< cv::Point2d >& splinePoints , const cv::Scalar& color )
 {
-    CatMullRomSpline CRspline(splinePoints);
+    std::vector< cv::Point2d > points;
+    project(splinePoints , points , _backProjectionMatrix );
+
+    SWE::CatMullRomSpline CRspline(points);
 
     size_t keyPoints = 500;
     double step = CRspline.getNumberOfPoints() / (double)(keyPoints - 1);
@@ -753,13 +835,6 @@ bool cSWE_LaneDetection::calculateDirectionHistogram( cv::Mat& image , const Blo
     std::vector< double > angles;
     std::vector< double > curvature;
     size_t ninetyDegree = 0;
-
-    //size_t bins = 20;
-    //double binSize = (2 * CV_PI) / static_cast<double>(bins);
-    //std::vector< int > directionHistogram(bins);
-
-    //int sum = 0;
-    //double entropy = 0;
 
     if (contour.size() > 1)
     {
@@ -785,40 +860,28 @@ bool cSWE_LaneDetection::calculateDirectionHistogram( cv::Mat& image , const Blo
             lengths.push_back(length);
             double angle = std::acos(directionVectors[i].x / length);
             angles.push_back(angle);
-
-            //int binIndex = floor(angle / binSize);
-            //directionHistogram[binIndex]++;
-            //sum++;
         }
 
         for (size_t i = 1; i < angles.size(); i++)
         {
             double localCurvature = fabs(angles[i - 1] - angles[i]);
             curvature.push_back( localCurvature );
+
             double lengthTresh = 30;
             double curvatureThresh = 0.15;
+
             double higherCurvatureThresh = 0.5 * CV_PI + curvatureThresh;
             double lowerCurvatureThresh = 0.5 * CV_PI - curvatureThresh;
+
             bool bigLengths = lengths[i - 1] > lengthTresh && lengths[i] > lengthTresh;
             bool bigCurvature = localCurvature > lowerCurvatureThresh && localCurvature < higherCurvatureThresh;
+
             if ( bigCurvature && bigLengths )
             {
                 ninetyDegree++;
             }
         }
-
-        /*
-            for (size_t i = 0; i < bins; ++i)
-            {
-                double p = static_cast< double >( directionHistogram[i] ) / static_cast< double >( sum );
-                if (p > 0)
-                {
-                    entropy += p * log2(p);
-                }
-            }
-            */
     }
-
 
     if (ninetyDegree > 1 && _draw)
     {
@@ -833,18 +896,12 @@ bool cSWE_LaneDetection::calculateDirectionHistogram( cv::Mat& image , const Blo
     return true;
 }
 
-void transformToCarCoords( std::vector< cv::Point2d >& spline )
+void cSWE_LaneDetection::transformToCarCoords( std::vector< cv::Point2d >& spline )
 {
-    double picHeight = 480;
-    double picWidth = 640;
-    double distFrontToWarpedImageBottom = 310;
-    double distFrontToFrontAxis = 120;
-    double distSideImageToMid = 10;
-
     for( size_t i = 0; i < spline.size(); i++ )
     {
-        spline[i].x = (-1.0)*( spline[i].x - picWidth/2 - distSideImageToMid );
-        spline[i].y = (-1.0)*( spline[i].y - picHeight - distFrontToWarpedImageBottom - distFrontToFrontAxis );
+        spline[i].x = (-1.0)*( spline[i].x - static_cast< double >(IMAGE_WIDTH)/2.0 - distSideImageToMid );
+        spline[i].y = (-1.0)*( spline[i].y - static_cast< double >(_imageHeight) - distFrontToWarpedImageBottom - distFrontToFrontAxis );
 
         double temp = spline[i].x;
 
@@ -854,6 +911,102 @@ void transformToCarCoords( std::vector< cv::Point2d >& spline )
     }
 }
 
+void cSWE_LaneDetection::transformFromCarCoords( std::vector< cv::Point2d >& spline )
+{
+    for( size_t i = 0; i < spline.size(); i++ )
+    {
+        spline[i].x = (-1.0 * point.x) + static_cast< double >(_imageHeight) + distFrontToWarpedImageBottom + distFrontToFrontAxis ;
+        spline[i].y = (-1.0 * point.y) + static_cast< double >(IMAGE_WIDTH)/2.0 + distSideImageToMid;
+
+        double temp = spline[i].x;
+
+        spline[i].x = spline[i].y;
+        spline[i].y = temp;
+    }
+}
+
+void cSWE_LaneDetection::serializeLane( cObjectPtr<IMediaCoder>& pCoder , std::string lane , const std::vector< Point2d >& spline )
+{
+    stringstream elementSetter;
+    size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( spline.size() ) );
+    for(size_t j=0; j < end; j++)
+    {
+        elementSetter << lane + ".Points[" << j << "].xCoord";
+        pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(spline.at(j).x));
+        elementSetter.str(std::string());
+
+        elementSetter << lane + ".Points[" << j << "].yCoord";
+        pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(spline.at(j).y));
+        elementSetter.str(std::string());
+    }
+
+    tInt8 BoundaryArrayCountTemp = static_cast<tInt8>(end);
+    pCoder->Set("rightBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
+}
+
+void cSWE_LaneDetection::transmitLanes( const std::vector< Point2d >& leftSpline , const std::vector< Point2d >& middleSpline , const std::vector< Point2d >& rightSpline )
+{
+    {
+        cObjectPtr<IMediaCoder> pCoder;
+
+        //create new media sample
+        cObjectPtr<IMediaSample> pMediaSampleOutput;
+        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+        //allocate memory with the size given by the descriptor
+        cObjectPtr<IMediaSerializer> pSerializer;
+        m_pCoderDescSplines->GetMediaSampleSerializer(&pSerializer);
+        tInt nSize = pSerializer->GetDeserializedSize();
+        pMediaSampleOutput->AllocBuffer(nSize);
+
+        //write date to the media sample with the coder of the descriptor
+        RETURN_IF_FAILED(m_pCoderDescSplines->WriteLock(pMediaSampleOutput, &pCoder));
+
+        serializeLane( pCoder , "rightBoundary" , rightSpline );
+        serializeLane( pCoder , "middleBoundary" , middleSpline );
+        serializeLane( pCoer , "leftBoundary" , leftSpline );
+
+        m_pCoderDescSplines->Unlock(pCoder);
+
+        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oSplinesPin.Transmit(pMediaSampleOutput));
+    }
+}
+
+/**
+ *
+ */
+void cSWE_LaneDetection::transmitCrossingIndicator( bool isRealStopLine , int crossingType , cv::Point firstStoplinePoint , cv::Point secondStopLinePoint )
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleCrossIndicator;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleCrossIndicator));
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescCrossingIndicator->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleCrossIndicator->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    RETURN_IF_FAILED(m_pCoderDescCrossingIndicator->WriteLock(pMediaSampleCrossIndicator, &pCoder));
+
+    pCoder->Set("isRealStopLine", (tVoid*)&(isRealStopLine));
+    pCoder->Set("crossingType", (tVoid*)&(crossingType));
+    pCoder->Set("StopLinePoint1.xCoord", (tVoid*)&(StopLinePoint1.x));
+    pCoder->Set("StopLinePoint1.yCoord", (tVoid*)&(StopLinePoint1.y));
+    pCoder->Set("StopLinePoint2.xCoord", (tVoid*)&(StopLinePoint2.x));
+    pCoder->Set("StopLinePoint2.yCoord", (tVoid*)&(StopLinePoint2.y));
+
+    m_pCoderDescCrossingIndicator->Unlock(pCoder);
+
+    //transmit media sample over output pin
+
+    RETURN_IF_FAILED(pMediaSampleCrossIndicator->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_CrossingIndicatorPin.Transmit(pMediaSampleCrossIndicator));
+}
 
 /**
  * @brief cSWE_LaneDetection::ProcessInput The actual image processing of the LaneDetection
@@ -883,28 +1036,28 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
 
     // threshold the image to remove objects which don't necessary represent lane markings
     Mat thresholdedImage;
-    double thresh = mean[0] + 2 * stdDev[0];
+    double thresh = mean[0] + _CountStdDevs * stdDev[0];
     cv::threshold(greyScaleImage, thresholdedImage, thresh , 255, cv::THRESH_TOZERO);
 
     // extract contours from the image
-    vector<vector<Point> > contours;
-    vector<Vec4i> hierarchy;
+    std::vector<std::vector<Point> > contours;
+    std::vector<Vec4i> hierarchy;
     findContours(thresholdedImage, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 
     cv::Mat result = cv::Mat( 2 * image.rows, 2 * image.cols, CV_8UC3, cv::Scalar(0, 0, 0));
 
     // get enhanced Descriptions of the blobs with basic removal of candidates
     std::vector< BlobDescriptor > blobs;
-    getBlobDescriptions(image, contours, blobs);
+    getBlobDescriptions( image , contours, blobs);
 
     // get the outer Lane Boundaries
     int outerLaneBoundariesIndicator = getOuterLaneBoundaries( blobs );
 
-    std::vector< cv::Point > rightSpline;
-    std::vector< cv::Point > leftSpline;
+    std::vector< cv::Point2d > rightSpline;
+    std::vector< cv::Point2d > leftSpline;
 
     // commit to decisions what we have found
-    for (int i = 0; i < outerLaneBoundariesIndicator; ++i)
+    for (size_t i = 0; i < outerLaneBoundariesIndicator; ++i)
     {
         BlobDescriptor& blob = blobs[i];
         // only accept the candidate if we didn't already find a better
@@ -916,7 +1069,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
             {
                 for (size_t i = indices.first; i <= indices.second; ++i)
                 {
-                    rightSpline.push_back(blob.contour[i]);
+                    rightSpline.push_back( static_cast< cv::Point2d >( blob.contour[i] ));
                 }
             }
         }
@@ -928,7 +1081,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
             {
                 for (size_t i = indices.first; i <= indices.second; ++i)
                 {
-                    leftSpline.push_back(blob.contour[i]);
+                    leftSpline.push_back( static_cast< cv::Point2d >( blob.contour[i] ));
                 }
             }
         }
@@ -940,7 +1093,12 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     for (size_t i = 1; i < blobs.size(); ++i)
     {
         // calculate the perpendicular distance to the found outer lane boundary
-        distances.push_back(getPerpendicularDistance(blobs[0].eigen_vecs[0],blobs[ 0 ].centerOfGravity , blobs[ i ].centerOfGravity));
+        double distance = getPerpendicularDistance(blobs[0].eigen_vecs[0],blobs[ 0 ].centerOfGravity , blobs[ i ].centerOfGravity);
+        if(blobs[0].side == LEFT)
+        {
+            distance *= -1;
+        }
+        distances.push_back(distance);
     }
 
     // pick all the blobs with an appropriate distance
@@ -948,7 +1106,8 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     {
         bool aboveLowThreshold = distances[i - 1] > _middleDistanceLowThreshold;
         bool belowHighThreshold = distances[i - 1] < _middleDistanceHighThreshold;
-        if ( belowHighThreshold && aboveLowThreshold )
+        bool sensibleLength = blobs[i].lengthContour > _minLengthMiddleBoundary && blobs[i].lengthContour < _maxLengthMiddleBoundary;
+        if ( belowHighThreshold && aboveLowThreshold && sensibleLength)
         {
             middleLaneBoundary.push_back(&blobs[i]);
         }
@@ -960,7 +1119,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     }
 
     // concatentate the blobs for the middle lane boundary to a single lane boundary and form a spline from it
-    std::vector< cv::Point > middleSpline;
+    std::vector< cv::Point2d > middleSpline;
     if (middleLaneBoundary.size() > 0)
     {
         std::vector< std::pair< size_t, size_t > > indicesVector;
@@ -981,11 +1140,11 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
             {
                 for (int j = second; j >= first; --j)
                 {
-                    middleSpline.push_back(middleLaneBoundary[ i ]->contour[j]);
+                    middleSpline.push_back( static_cast< cv::Point2d >( middleLaneBoundary[ i ]->contour[j] ));
                 }
             }
         }
-        sort(middleSpline.begin(), middleSpline.end(), sort_yVal);
+        sort(middleSpline.begin(), middleSpline.end(), sort_yVal_double);
     }
 
     // draw the results on the original image;
@@ -993,171 +1152,26 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     {
         if (leftSpline.size() > 0)
         {
-            project(leftSpline, _backProjectionMatrix );
             drawSpline(image, leftSpline, cv::Scalar(255, 0, 0));
         }
         if (rightSpline.size() > 0)
         {
-            project(rightSpline, _backProjectionMatrix );
             drawSpline(image, rightSpline, cv::Scalar(0, 255, 0));
         }
         if (middleSpline.size() > 0)
         {
-            project(middleSpline, _backProjectionMatrix );
             drawSpline(image, middleSpline, cv::Scalar(255, 0, 255));
         }
     }
 
-    // OUTPUT SPLINES NEW-----------------------------------------------------------
-    {
-        cObjectPtr<IMediaCoder> pCoder;
+    transformToCarCoords(rightSpline);
+    transformToCarCoords(leftSpline);
+    transformToCarCoords(middleSpline);
 
-        //create new media sample
-        cObjectPtr<IMediaSample> pMediaSampleOutput;
-        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+    transmitLanes(leftSpline,middleSpline,rightSpline);
 
-        //allocate memory with the size given by the descriptor
-        cObjectPtr<IMediaSerializer> pSerializer;
-        m_pCoderDescSplines->GetMediaSampleSerializer(&pSerializer);
-        tInt nSize = pSerializer->GetDeserializedSize();
-        pMediaSampleOutput->AllocBuffer(nSize);
-
-        //write date to the media sample with the coder of the descriptor
-        RETURN_IF_FAILED(m_pCoderDescSplines->WriteLock(pMediaSampleOutput, &pCoder));
-
-
-        std::vector< cv::Point2d > rightBoundary;
-        for(size_t i = 0 ; i < rightSpline.size();i++)
-        {
-            rightBoundary.push_back(rightSpline[i]);
-        }
-        std::vector< cv::Point2d > middleBoundary;
-        for(size_t i = 0 ; i < middleSpline.size();i++)
-        {
-            middleBoundary.push_back(middleSpline[i]);
-        }
-        std::vector< cv::Point2d > leftBoundary;
-        for(size_t i = 0 ; i < leftSpline.size();i++)
-        {
-            leftBoundary.push_back(leftSpline[i]);
-        }
-
-        transformToCarCoords(rightBoundary);
-        transformToCarCoords(leftBoundary);
-        transformToCarCoords(middleBoundary);
-
-        {
-            stringstream elementSetter;
-            size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( rightBoundary.size() ) );
-            for(size_t j=0; j < end; j++)
-            {
-                elementSetter << "rightBoundary.Points[" << j << "].xCoord";
-                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(rightBoundary.at(j).x));
-                elementSetter.str(std::string());
-
-                elementSetter << "rightBoundary.Points[" << j << "].yCoord";
-                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(rightBoundary.at(j).y));
-                elementSetter.str(std::string());
-            }
-
-            tInt8 BoundaryArrayCountTemp = static_cast<tInt8>(end);
-            pCoder->Set("rightBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
-        }
-
-        {
-            stringstream elementSetter;
-            size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( leftBoundary.size() ) );
-            for(size_t j=0; j < end; j++)
-            {
-                elementSetter << "leftBoundary.Points[" << j << "].xCoord";
-
-                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(leftBoundary.at(j).x));
-                elementSetter.str(std::string());
-
-                elementSetter << "leftBoundary.Points[" << j << "].yCoord";
-
-                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(leftBoundary.at(j).y));
-                elementSetter.str(std::string());
-            }
-
-            tInt8 BoundaryArrayCountTemp = static_cast<tInt8>(end);
-            pCoder->Set("leftBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
-            elementSetter.str(std::string());
-        }
-
-        {
-            stringstream elementSetter;
-            size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( middleBoundary.size() ) );
-            for(size_t j=0; j < end; j++)
-            {
-                elementSetter << "middleBoundary.Points[" << j << "].xCoord";
-
-                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(middleBoundary.at(j).x));
-                elementSetter.str(std::string());
-
-                elementSetter << "middleBoundary.Points[" << j << "].yCoord";
-
-                pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(middleBoundary.at(j).y));
-                elementSetter.str(std::string());
-            }
-
-            tInt8 BoundaryArrayCountTemp = static_cast<tInt8>(end);
-            pCoder->Set("middleBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
-            elementSetter.str(std::string());
-        }
-
-        m_pCoderDescSplines->Unlock(pCoder);
-
-        //transmit media sample over output pin
-        // ADAPT: m_oIntersectionPointLeft
-        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-        RETURN_IF_FAILED(m_oSplinesPin.Transmit(pMediaSampleOutput));
-    }
-    // OUTPUT SPLINES  NEW-----------------------------------------------------------
-
-    // OUTPUT CROSSING INDICATOR -----------------------------------------------------------
-    {
-
-        cObjectPtr<IMediaCoder> pCoder;
-
-        //create new media sample
-        cObjectPtr<IMediaSample> pMediaSampleCrossIndicator;
-        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleCrossIndicator));
-
-        //allocate memory with the size given by the descriptor
-        cObjectPtr<IMediaSerializer> pSerializer;
-        m_pCoderDescCrossingIndicator->GetMediaSampleSerializer(&pSerializer);
-        tInt nSize = pSerializer->GetDeserializedSize();
-        pMediaSampleCrossIndicator->AllocBuffer(nSize);
-
-        //write date to the media sample with the coder of the descriptor
-        RETURN_IF_FAILED(m_pCoderDescCrossingIndicator->WriteLock(pMediaSampleCrossIndicator, &pCoder));
-
-        // TO DELETE!!!!!!!!!!!!!!!!!!!!
-        tBool isRealStopLine = true;
-        tInt8 crossingType = 5;
-        cv::Point2d StopLinePoint1(5,6), StopLinePoint2(7,8);
-        // !!!!!!!!!!!!!!!!!!!!
-
-        pCoder->Set("isRealStopLine", (tVoid*)&(isRealStopLine));
-        pCoder->Set("crossingType", (tVoid*)&(crossingType));
-        pCoder->Set("StopLinePoint1.xCoord", (tVoid*)&(StopLinePoint1.x));
-        pCoder->Set("StopLinePoint1.yCoord", (tVoid*)&(StopLinePoint1.y));
-        pCoder->Set("StopLinePoint2.xCoord", (tVoid*)&(StopLinePoint2.x));
-        pCoder->Set("StopLinePoint2.yCoord", (tVoid*)&(StopLinePoint2.y));
-
-        m_pCoderDescCrossingIndicator->Unlock(pCoder);
-
-        //transmit media sample over output pin
-        // ADAPT: m_oIntersectionPointLeft
-        RETURN_IF_FAILED(pMediaSampleCrossIndicator->SetTime(_clock->GetStreamTime()));
-        //RETURN_IF_FAILED(m_CrossingIndicatorPin.Transmit(pMediaSampleCrossIndicator));
-        // OUTPUT CROSSING INDICATOR -----------------------------------------------------------
-    }
-
-//    cv::Mat warpedImage;
-//    cv::warpPerspective(image,warpedImage,_projectionMatrix,image.size());
-
+    //TODO: STILL crashes;
+    //transmitCrossingIndicator();
 
     // transmit a video of the current result to the video outputpin
     if (_oColorVideoOutputPin.IsConnected())
