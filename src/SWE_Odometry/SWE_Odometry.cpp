@@ -896,8 +896,8 @@ tResult SWE_Odometry::SendVelocity()
     //write date to the media sample with the coder of the descriptor
     m_pCoderVelocityOut->WriteLock(pMediaSample, &pCoder);
 
-    //pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
-    pCoder->Set("f32Value", (tVoid*)&(debugvar));
+    pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
+    //pCoder->Set("f32Value", (tVoid*)&(debugvar));
 
 
     pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&m_lastPinEvent);
