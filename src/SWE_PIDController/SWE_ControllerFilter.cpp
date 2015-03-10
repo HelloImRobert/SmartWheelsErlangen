@@ -169,8 +169,8 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
             //DEBUG
             //LOG_ERROR(cString("PID: wait time " + cString::FromFloat64((GetTime() - m_lastOutputTime))));
 
-            if((GetTime() - m_lastOutputTime) >= MINIMUM_TIME_BETWEEN_OUTPUTS) //prevent output spamming wich can lead to crashes
-            {
+           // if((GetTime() - m_lastOutputTime) >= MINIMUM_TIME_BETWEEN_OUTPUTS) //prevent output spamming wich can lead to crashes
+           // {
                 m_lastOutputTime = GetTime();
 
                 //create new media sample
@@ -193,7 +193,7 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
                 //transmit media sample over output pin
                 RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
                 RETURN_IF_FAILED(m_oOutputManipulated.Transmit(pMediaSample));
-            }
+            //}
 
         }
         else if (pSource == &m_oInputSetPoint)
@@ -274,7 +274,7 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
         //y = Kp * e + Ki * Ta * esum
         m_accumulatedVariable += sampleTime*(m_setPoint-measuredValue);
 
-        LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
+        m_accumulatedVariable = LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
 
         returnvalue = m_Kp*(m_setPoint-measuredValue) + m_Ki*m_accumulatedVariable;
     }
@@ -285,7 +285,7 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
         //ealt = e
         m_accumulatedVariable += sampleTime*(m_setPoint-measuredValue);
 
-        LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
+        m_accumulatedVariable = LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
 
         returnvalue =  m_Kp*(m_setPoint-measuredValue) + m_Ki*m_accumulatedVariable + m_Kd*((m_setPoint-measuredValue)-m_lastMeasuredError)/sampleTime;
 
@@ -294,11 +294,13 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
     else //off
         returnvalue = 0;
 
+    returnvalue = LimitValue(returnvalue, m_maxInfluence_upper, m_maxInfluence_lower);
+
     if(m_useFF)
         returnvalue += m_feedForward;
 
     // keep within boundries
-    LimitValue(returnvalue, m_maxOutput, m_minOutput);
+    returnvalue = LimitValue(returnvalue, m_maxOutput, m_minOutput);
 
     //DEBUG
     //LOG_ERROR(cString("PID: controller output " + cString::FromFloat64(returnvalue)));

@@ -2,14 +2,13 @@
 
 #define WHEELBASE 359.0f
 #define CARWIDTH  260.0f //wheel center to wheel center
-#define WHEELPULSE_PER_TURN 8.75f //# of black and white bars in a wheel + average amount of unfilterable wrong pulses
 #define TIMESTAMP_RESOLUTION 1000.0f // for the Arduino timestamps
 #define TIMESTAMP_RESOLUTION_ADTF 1000000.0f //ADTF uses microseconds
 #define MAX_TICK_FILTER_VELOCITY 1000.0f //in mm/s
 #define MY_PI 3.14159265358979f
 #define MINIMUM_TURNING_RADIUS 600.0f // in mm -> actually ~ 680-ish ?
 #define PITCH_COMPENSATION_STRENGTH 9810.0f //gravity in mm/s2
-#define ACCELEROMETER_INPUT_SCALING 1000.0f //with this factor the values will be in mm/s2
+#define ACCELEROMETER_INPUT_SCALING 1000.0f //with this factor the values will be in mm/s2 -> further scaling with property
 
 
 
@@ -20,7 +19,7 @@ ADTF_FILTER_PLUGIN("SWE_Odometry", OID_ADTF_SWE_ODOMETRY, SWE_Odometry)
 //                                                   Init ADTF Filter
 // ****************************************************************************************************************
 
-SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWindowCntLeftWheel(21, (0.33 * TIMESTAMP_RESOLUTION)), m_SlidingWindowCntRightWheel(21, (0.33 * TIMESTAMP_RESOLUTION)), m_yawSlidingWindow(3), m_mutex()  //TODO
+SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWindowCntLeftWheel(21, (0.4 * TIMESTAMP_RESOLUTION)), m_SlidingWindowCntRightWheel(21, (0.4 * TIMESTAMP_RESOLUTION)), m_yawSlidingWindow(3), m_mutex()
 {
 
     m_velocityLeft = 0;
@@ -68,16 +67,19 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     m_pitch_now = 0;
 
     SetPropertyFloat("Velocity Filter Strength 0-1",0.3);                                   //filter strength for the velocity smoothing filter
-    SetPropertyFloat("Accelerometer Velocity weighting 0-1",0.9);
-    SetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",50.0);
+    SetPropertyFloat("Accelerometer Velocity weighting 0-1",0.95);
+    SetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",200.0);
     SetPropertyFloat("Wheel circumfence in mm",327);
-    SetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",10);
+    SetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",5);
     SetPropertyFloat("Accelerometer value offset in mm/s2",0.0);
-    SetPropertyFloat("Gravity for pitch compensation in mm/s2",10000.0);                     //strength of pitch compensation
+    SetPropertyFloat("Gravity for pitch compensation in mm/s2",9900.0);                     //strength of pitch compensation
     SetPropertyBool("Use high-res distance measurement (based on velocity)", true);
     SetPropertyBool("Use Accelerometer", true);                                             //calculate velocity based on accelerometer data? (you want to turn this off when testing on a bench)
     SetPropertyBool("Show compensated accelerometer value", false);                         //show the value of the accelerometer after pitch compensation for adjustment of the offset
     SetPropertyBool("SetDirection to 1", false);
+    SetPropertyFloat("Accelerometer Scaling", 1.0);
+    SetPropertyFloat("Pulses per wheel revolution", 8.6);                                   //it should be 8.0 but you have to compensate a little for all those errors
+    SetPropertyFloat("HighresDistanceDriftCompensation", 0.001);
 }
 
 SWE_Odometry::~SWE_Odometry()
@@ -220,15 +222,18 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 
         m_filterStrength = (tFloat32)GetPropertyFloat("Velocity Filter Strength 0-1", 0.3);
         m_wheelCircumfence = (tFloat32)GetPropertyFloat("Wheel circumfence in mm",327);
-        m_velocityResolution = (tFloat32)GetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",15);
+        m_velocityResolution = (tFloat32)GetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",5);
         m_acceleromter_weight = (tFloat32)GetPropertyFloat("Accelerometer Velocity weighting 0-1",0.9);
-        m_accelerometer_compensation = (tFloat32)GetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",50.0);
+        m_accelerometer_compensation = (tFloat32)GetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",200.0);
         m_useHighresDist = (tBool)GetPropertyBool("Use high-res distance measurement (based on velocity)", true);
         m_accelOffsetValue = (tFloat32)GetPropertyFloat("Accelerometer value offset in mm/s2",0.0);
         m_useAccelerometer = (tBool)GetPropertyBool("Use Accelerometer", true);
         m_showAccel = (tBool)GetPropertyBool("Show compensated accelerometer value", false);
-        m_pitchCompensation = (tFloat32)GetPropertyFloat("Gravity for pitch compensation in mm/s2",10000.0);
+        m_pitchCompensation = (tFloat32)GetPropertyFloat("Gravity for pitch compensation in mm/s2",9900.0);
         m_setdirectionone = (tBool)GetPropertyBool("SetDirection to 1", false);
+        m_accelScaling = (tFloat32)GetPropertyFloat("Accelerometer Scaling", 1.0);
+        m_tickPerTurn = (tFloat32)GetPropertyFloat("Pulses per wheel revolution", 8.6);
+        m_distanceDriftCompensation = (tFloat32)GetPropertyFloat("HighresDistanceDriftCompensation", 0.001);
 
         if(m_setdirectionone)
             m_currentDirection = 1;
@@ -524,12 +529,12 @@ tFloat32  SWE_Odometry::CompensatePitchInfluence(tFloat32 accel_value)
 {
     tFloat32 outputval;
 
-    outputval = accel_value - ((sin(m_pitch_now) * m_pitchCompensation)) + m_accelOffsetValue;
+    outputval = (accel_value - ((sin(m_pitch_now) * m_pitchCompensation)) + m_accelOffsetValue)*m_accelScaling;
 
     if(m_showAccel)
     {
         LOG_ERROR(cString("OD:raw accelerometer value: " + cString::FromFloat64((tFloat64)accel_value) + cString(" mm/s2")));
-        LOG_ERROR(cString("OD: Pitch compensated accelerometer value: " + cString::FromFloat64((tFloat64)outputval) + cString(" mm/s2")));
+        LOG_ERROR(cString("OD: Pitch compensated + scaled accelerometer value: " + cString::FromFloat64((tFloat64)outputval) + cString(" mm/s2")));
     }
 
     return outputval;
@@ -545,11 +550,11 @@ tResult  SWE_Odometry::CalcCombinedVelocity()
     if (intervall < 0)
         intervall = 0;
 
-    m_velocityAccelerometer = intervall * ((m_accelerometerValue_now + m_accelerometerValue_old) / 2.0); //the change in velocity since the last sample
+    m_velocityAccelerometer = intervall * ((m_accelerometerValue_now + m_accelerometerValue_old) / 2.0); //the delta in velocity since the last sample
 
     //DEBUG
     //debugvar = m_velocityAccelerometer;
-    //debugvar = m_velocityWheelSensors;
+    debugvar = m_velocityWheelSensors;
     //debugvar = debugvar + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
     //SendVelocity();
 
@@ -607,7 +612,7 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
     {
         tFloat compensation;
         //compensate the drift, but only when moving and more when moving fast (the wheelsensor distance is defined as ground truth -> that is, well our naive hope at least.... ;-)
-        compensation = 0.0003 * fabs(m_velocityCombined) * ((tFloat32)(timeStamp - m_lastTimeStamp_wheels)/ TIMESTAMP_RESOLUTION);
+        compensation = m_distanceDriftCompensation * fabs(m_velocityCombined) * ((tFloat32)(timeStamp - m_lastTimeStamp_wheels)/ TIMESTAMP_RESOLUTION);
 
         if ((m_distanceAllSum_wheel - m_distanceAllSum_acc) >= 0)
         {
@@ -639,12 +644,12 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
 tResult SWE_Odometry::CalcVelocity()
 {
     if (m_SlidingWindowCntLeftWheel.GetTime() > 0)
-        m_velocityLeft = (((tFloat32)m_SlidingWindowCntLeftWheel.GetPulses() / m_SlidingWindowCntLeftWheel.GetTime() ) / WHEELPULSE_PER_TURN) * m_wheelCircumfence * TIMESTAMP_RESOLUTION * m_currentDirection;
+        m_velocityLeft = (((tFloat32)m_SlidingWindowCntLeftWheel.GetPulses() / m_SlidingWindowCntLeftWheel.GetTime() ) / m_tickPerTurn) * m_wheelCircumfence * TIMESTAMP_RESOLUTION * m_currentDirection;
     else
         m_velocityLeft = 0.0;
 
     if (m_SlidingWindowCntRightWheel.GetTime() > 0)
-        m_velocityRight = (((tFloat32)m_SlidingWindowCntRightWheel.GetPulses() / m_SlidingWindowCntRightWheel.GetTime() ) / WHEELPULSE_PER_TURN) * m_wheelCircumfence * TIMESTAMP_RESOLUTION * m_currentDirection;
+        m_velocityRight = (((tFloat32)m_SlidingWindowCntRightWheel.GetPulses() / m_SlidingWindowCntRightWheel.GetTime() ) / m_tickPerTurn) * m_wheelCircumfence * TIMESTAMP_RESOLUTION * m_currentDirection;
     else
         m_velocityRight = 0.0;
 
@@ -829,7 +834,7 @@ tFloat32 SWE_Odometry::CalcDistance(tInt32 direction, tFloat32 pulses)
 {
     tFloat32 outputdata;
 
-    outputdata = (pulses / WHEELPULSE_PER_TURN) * m_wheelCircumfence * direction;
+    outputdata = (pulses / m_tickPerTurn) * m_wheelCircumfence * direction;
 
     return outputdata;
 }
@@ -929,8 +934,8 @@ tResult SWE_Odometry::SendVelocity()
     //write date to the media sample with the coder of the descriptor
     m_pCoderVelocityOut->WriteLock(pMediaSample, &pCoder);
 
-    pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
-    //pCoder->Set("f32Value", (tVoid*)&(debugvar));
+    //pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
+    pCoder->Set("f32Value", (tVoid*)&(debugvar));
 
     pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&m_lastPinEvent);
     m_pCoderVelocityOut->Unlock(pCoder);

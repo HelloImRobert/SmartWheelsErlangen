@@ -233,8 +233,8 @@ tResult SpeedControl::Start(__exception)
     m_timerStart = 0;
     m_no_wait = true;
     m_last_pwm = 0;
-    //m_last_brakeLights = 0;
-    //m_last_reverseLights = 0;
+
+
     //m_last_DirectionSent = 0;
 
     m_initRun = 0;
@@ -243,6 +243,9 @@ tResult SpeedControl::Start(__exception)
     m_testState = -1;
 
     SetPWM(0);
+
+    SetBrakeLights(true);
+    SetReverseLights(false);
     //m_timerStart_init = GetTime();
 
 }
