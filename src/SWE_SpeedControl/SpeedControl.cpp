@@ -123,6 +123,12 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     tFloat32 thresholdWindow_0 = (tFloat32)GetPropertyFloat("Gear 0 speed window", 60);
 
+    if (thresholdWindow_0 < 10)
+    {
+        thresholdWindow_0 = 10;
+        LOG_ERROR(cString("SC: SpeedControl: !!BAD PROPERTY CONFIG!! I tried to make it work but you better fix it"));
+    }
+
     tFloat32 boostValue = (tFloat32)GetPropertyFloat("acceleration boost", 1.1);
 
     m_pwm_p3 = (tFloat32)GetPropertyFloat("Gear 3 PWM value",20);
@@ -137,7 +143,6 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
     m_pwm_boost_p1 = (m_pwm_p1 ) * boostValue;
     m_threshold_p1 = (tFloat32)GetPropertyFloat("Gear 1 speed threshold",300);
 
-
     m_pwm_0 = 0;
     m_threshold_p0 = 0 + thresholdWindow_0;
     m_threshold_n0 = 0 - thresholdWindow_0;
@@ -151,6 +156,37 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
     m_pwm_boost_n2 = (m_pwm_n2) * boostValue;
     m_threshold_n2 = (tFloat32)GetPropertyFloat("Gear -2 speed threshold",-600);
 
+    // save yourself from bad configurations
+    if(m_threshold_p1 <= m_threshold_p0)
+    {
+        m_threshold_p1 = m_threshold_p0 * 1.1;
+        LOG_ERROR(cString("SC: SpeedControl: !!BAD PROPERTY CONFIG!! I tried to make it work but you better fix it"));
+    }
+
+    if(m_threshold_p2 <= m_threshold_p1)
+    {
+        m_threshold_p2 = m_threshold_p1 * 1.1;
+        LOG_ERROR(cString("SC: SpeedControl: !!BAD PROPERTY CONFIG!! I tried to make it work but you better fix it"));
+    }
+
+    if(m_threshold_p3 <= m_threshold_p2)
+    {
+        m_threshold_p3 = m_threshold_p2 * 1.1;
+        LOG_ERROR(cString("SC: SpeedControl: !!BAD PROPERTY CONFIG!! I tried to make it work but you better fix it"));
+    }
+
+    if(m_threshold_n1 >= m_threshold_n0)
+    {
+        m_threshold_n1 = m_threshold_n0 * 1.1;
+        LOG_ERROR(cString("SC: SpeedControl: !!BAD PROPERTY CONFIG!! I tried to make it work but you better fix it"));
+    }
+
+    if(m_threshold_n2 >= m_threshold_n1)
+    {
+        m_threshold_n2 = m_threshold_n1 * 1.1;
+        LOG_ERROR(cString("SC: SpeedControl: !!BAD PROPERTY CONFIG!! I tried to make it work but you better fix it"));
+    }
+
 
     m_setPoint_p3 = (m_threshold_p3 - m_threshold_p2) * 0.5 + m_threshold_p2;
     m_setPoint_p2 = (m_threshold_p2 - m_threshold_p1) * 0.5 + m_threshold_p1;
@@ -160,11 +196,11 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
     m_setPoint_n2 = (m_threshold_n2 - m_threshold_n1) * 0.5 + m_threshold_n1;
 
 
-    m_lightBrake = - 100*(tFloat32)GetPropertyFloat("light brake strength", 0.05);
+    m_lightBrake = -100*(tFloat32)GetPropertyFloat("light brake strength", 0.05);
     m_inv_lightBrake = 100*(tFloat32)GetPropertyFloat("light brake strength", 0.05);
 
-    m_lightBrake = -100*(tFloat32)GetPropertyFloat("strong brake strength",0.1);
-    m_inv_lightBrake = 100*(tFloat32)GetPropertyFloat("strong brake strength",0.1);
+    m_strongBrake = -100*(tFloat32)GetPropertyFloat("strong brake strength",0.1);
+    m_inv_strongBrake = 100*(tFloat32)GetPropertyFloat("strong brake strength",0.1);
 
     m_pwmScaler = (tFloat32)GetPropertyFloat("PWM scaler", 1.0);
 
@@ -248,7 +284,6 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 m_initRun++;
 
             SetPWM(outputData);
-
         }
         else if (pSource == &m_oInputSetPoint)
         {
@@ -281,7 +316,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 m_gear = (tInt32)value;
 
                 //DEBUG
-                LOG_ERROR(cString("PP: SpeedControl: gear set to " + cString::FromInt32(m_gear)));
+                LOG_ERROR(cString("SC: SpeedControl: gear set to " + cString::FromInt32(m_gear)));
 
                 if ( m_initRun > 80 )
                 {
@@ -293,7 +328,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 SetPWM(outputData);
 
                 //DEBUG
-                LOG_ERROR(cString("PP: SpeedControl: finished setting gear to " + cString::FromInt32(m_gear)));
+                LOG_ERROR(cString("SC: SpeedControl: finished setting gear to " + cString::FromInt32(m_gear)));
             }
 
         }
@@ -336,6 +371,7 @@ tResult SpeedControl::UpdateState()
 tFloat32 SpeedControl::GetControllerValue()
 {
     tFloat32 outputData = m_pwm_0;
+    tFloat32 outputSetPoint = m_setPoint_0;
 
     //update current state
     UpdateState();
@@ -356,12 +392,12 @@ tFloat32 SpeedControl::GetControllerValue()
         SetDirection(0);
     }
 
-    m_lastState = m_currentState;
+
+
+    //-------------------- decision tree for acceleration and braking + lights -------------------------
 
     if (m_no_wait)
     {
-        //-------------------- rules for acceleration and braking + lights -------------------------
-
         if (m_currentState == 3)
         {
             SetReverseLights(false);
@@ -372,14 +408,26 @@ tFloat32 SpeedControl::GetControllerValue()
             case 3:
                 SetBrakeLights(false);
                 outputData = m_pwm_p3;
+                outputSetPoint = m_setPoint_p3;
                 break;
             case 2:
                 SetBrakeLights(true);
                 outputData = m_lightBrake;
+                outputSetPoint = m_setPoint_p2;
                 break;
+            case 1:
+                SetBrakeLights(true);
+                outputData = m_lightBrake;
+                outputSetPoint = m_setPoint_p1;
+                break;
+            case 0:
+                SetBrakeLights(true);
+                outputData = m_strongBrake;
+                outputSetPoint = m_setPoint_0;
             default:
                 SetBrakeLights(true);
                 outputData = m_strongBrake;
+                outputSetPoint = m_setPoint_0;
             }
         }
         else if (m_currentState == 2)
@@ -392,18 +440,26 @@ tFloat32 SpeedControl::GetControllerValue()
             case 3:
                 SetBrakeLights(false);
                 outputData = m_pwm_boost_p3;
+                outputSetPoint = m_setPoint_p3;
                 break;
             case 2:
                 SetBrakeLights(false);
                 outputData = m_pwm_p2;
+                outputSetPoint = m_setPoint_p2;
                 break;
             case 1:
                 SetBrakeLights(true);
                 outputData = m_lightBrake;
+                outputSetPoint = m_setPoint_p1;
                 break;
+            case 0:
+                SetBrakeLights(true);
+                outputData = m_strongBrake;
+                outputSetPoint = m_setPoint_0;
             default:
                 SetBrakeLights(true);
                 outputData = m_strongBrake;
+                outputSetPoint = m_setPoint_0;
             }
         }
         else if (m_currentState == 1)
@@ -416,22 +472,27 @@ tFloat32 SpeedControl::GetControllerValue()
             case 3:
                 SetBrakeLights(false);
                 outputData = m_pwm_boost_p3;
+                outputSetPoint = m_setPoint_p2;
                 break;
             case 2:
                 SetBrakeLights(false);
                 outputData = m_pwm_boost_p2;
+                outputSetPoint = m_setPoint_p2;
                 break;
             case 1:
                 SetBrakeLights(false);
                 outputData = m_pwm_p1;
+                outputSetPoint = m_setPoint_p1;
                 break;
             case 0:
                 SetBrakeLights(true);
                 outputData = m_lightBrake;
+                outputSetPoint = m_setPoint_0;
                 break;
             default:
                 SetBrakeLights(true);
                 outputData = m_lightBrake;
+                outputSetPoint = m_setPoint_0;
             }
         }
         else if (m_currentState == 0)
@@ -443,36 +504,42 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetBrakeLights(false);
                 SetDirection(1);
                 outputData = m_pwm_boost_p3;
+                outputSetPoint = m_setPoint_p3;
                 break;
             case 2:
                 SetReverseLights(false);
                 SetBrakeLights(false);
                 SetDirection(1);
                 outputData = m_pwm_boost_p2;
+                outputSetPoint = m_setPoint_p2;
                 break;
             case 1:
                 SetReverseLights(false);
                 SetBrakeLights(false);
                 SetDirection(1);
                 outputData = m_pwm_boost_p1;
+                outputSetPoint = m_setPoint_p1;
                 break;
             case 0:
                 SetReverseLights(false);
                 SetBrakeLights(true);
                 SetDirection(0);
                 outputData = m_pwm_0;
+                outputSetPoint = m_setPoint_0;
                 break;
             case -1:
                 SetReverseLights(true);
                 SetBrakeLights(false);
                 SetDirection(-1);
                 outputData = m_pwm_boost_n1;
+                outputSetPoint = m_setPoint_n1;
                 break;
             case -2:
                 SetReverseLights(true);
                 SetBrakeLights(false);
                 SetDirection(-1);
                 outputData = m_pwm_boost_n2;
+                outputSetPoint = m_setPoint_n2;
                 break;
             }
         }
@@ -486,29 +553,34 @@ tFloat32 SpeedControl::GetControllerValue()
             case 3:
                 SetBrakeLights(true);
                 outputData = m_inv_lightBrake;
+                outputSetPoint = m_setPoint_0;
                 break;
             case 2:
                 SetBrakeLights(true);
                 outputData = m_inv_lightBrake;
+                outputSetPoint = m_setPoint_0;
                 break;
             case 1:
                 SetBrakeLights(true);
                 outputData = m_inv_lightBrake;
+                outputSetPoint = m_setPoint_0;
                 break;
             case 0:
                 SetBrakeLights(true);
-                outputData = m_inv_lightBrake;;
+                outputData = m_inv_lightBrake;
+                outputSetPoint = m_setPoint_0;
                 break;
             case -1:
                 SetBrakeLights(false);
                 outputData = m_pwm_n1;
+                outputSetPoint = m_setPoint_n1;
                 break;
             case -2:
                 SetBrakeLights(false);
                 outputData = m_pwm_boost_n2;
+                outputSetPoint = m_setPoint_n2;
                 break;
             }
-
         }
         else if (m_currentState == -2)
         {
@@ -520,32 +592,39 @@ tFloat32 SpeedControl::GetControllerValue()
             case 3:
                 SetBrakeLights(true);
                 outputData = m_inv_strongBrake;
+                outputSetPoint = m_setPoint_0;
                 break;
             case 2:
                 SetBrakeLights(true);
                 outputData = m_inv_strongBrake;
+                outputSetPoint = m_setPoint_0;
                 break;
             case 1:
                 SetBrakeLights(true);
                 outputData = m_inv_strongBrake;
+                outputSetPoint = m_setPoint_0;
                 break;
             case 0:
                 SetBrakeLights(true);
-                outputData = m_inv_strongBrake;;
+                outputData = m_inv_strongBrake;
+                outputSetPoint = m_setPoint_0;
                 break;
             case -1:
                 SetBrakeLights(true);
                 outputData = m_inv_lightBrake;
+                outputSetPoint = m_setPoint_n1;
                 break;
             case -2:
                 SetBrakeLights(false);
                 outputData = m_pwm_n2;
+                outputSetPoint = m_setPoint_n2;
                 break;
             }
         }
     }
 
     outputData = outputData * m_pwmScaler;
+    outputSetPoint = outputSetPoint * m_pwmScaler;
 
     // prevent erratic values (e.g. due to a stupid configuration)
     if ( outputData < MIN_OUTPUT )
@@ -556,6 +635,10 @@ tFloat32 SpeedControl::GetControllerValue()
     {
         outputData = MAX_OUTPUT;
     }
+
+    // remember current states
+    m_lastState = m_currentState;
+    m_last_pwm = outputData;
 
     return outputData;
 }
@@ -738,7 +821,7 @@ tResult SpeedControl::SetPWM(tFloat32 pwm_value)
 
 
     //DEBUG
-    LOG_ERROR(cString("PP: SpeedControl: set PWM to " + cString::FromInt32(pwm_value)));
+    LOG_ERROR(cString("SC: SpeedControl: set PWM to " + cString::FromInt32(pwm_value)));
 
     RETURN_NOERROR;
 }

@@ -36,7 +36,7 @@ SWE_ControllerFilter::SWE_ControllerFilter(const tChar* __info) : cFilter(__info
     SetPropertyInt("Sample Interval [msec]",1);
     SetPropertyBool("use automatically calculated sample interval",1);
     SetPropertyInt("Controller Type", 1);
-    SetPropertyStr("Controller Type" NSSUBPROP_VALUELISTNOEDIT, "1@P|2@PI|3@PID");
+    SetPropertyStr("Controller Type" NSSUBPROP_VALUELISTNOEDIT, "0@OFF|1@P|2@PI|3@PID");
 }
 
 SWE_ControllerFilter::~SWE_ControllerFilter()
@@ -240,11 +240,8 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
     }
     else if (m_type == 1)
     {
-        //P-Regler y = Kp * e
+        //y = Kp * e
         returnvalue = m_Kp*(m_setPoint-measuredValue);
-
-        if(m_useFF)
-            returnvalue += m_feedForward;
     }
     else if(m_type == 2) //PI- Regler
     {
@@ -255,9 +252,6 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
         LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
 
         returnvalue = m_Kp*(m_setPoint-measuredValue) + m_Ki*sampleTime*m_accumulatedVariable;
-
-        if(m_useFF)
-            returnvalue += m_feedForward;
     }
 
     else if(m_type == 3)
@@ -271,14 +265,13 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
 
         returnvalue =  m_Kp*(m_setPoint-measuredValue) + m_Ki*sampleTime*m_accumulatedVariable + m_Kd*((m_setPoint-measuredValue)-m_lastMeasuredError)/sampleTime;
 
-        if(m_useFF)
-            returnvalue += m_feedForward;
-
         m_lastMeasuredError = (m_setPoint-measuredValue);
     }
-    else
+    else //off
         returnvalue = 0;
 
+    if(m_useFF)
+        returnvalue += m_feedForward;
 
     // keep within boundries
     LimitValue(returnvalue, m_maxOutput, m_minOutput);
