@@ -18,7 +18,7 @@
 #define PULL_RIGHT 4
 
 /*! Lot sizes */
-#define ALONGSIDE_SIZE 500.0f   // DEBUG, true value = 765.0f         // minimum size of parking lot
+#define ALONGSIDE_SIZE 250.0f   // DEBUG, true value = 765.0f         // minimum size of parking lot
 #define CROSS_SIZE 450.0f             // minimum size of parking lot
 #define EASY_ALONGSIDE 40.0f          // buffer for easy S-curve maneuver
 
@@ -106,9 +106,9 @@ tResult cSWE_ParkPilot::CreateInputPins(__exception)
 
 
     // PARK TRIGGER INPUT
-    tChar const * strDescParkTrigger = pDescManager->GetMediaDescription("tInt8SignalValue");
+    tChar const * strDescParkTrigger = pDescManager->GetMediaDescription("tSignalValue");
     RETURN_IF_POINTER_NULL(strDescParkTrigger);
-    cObjectPtr<IMediaType> pTypeParkTrigger = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescParkTrigger,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    cObjectPtr<IMediaType> pTypeParkTrigger = new cMediaType(0, 0, 0, "tSignalValue", strDescParkTrigger,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
     RETURN_IF_FAILED(pTypeParkTrigger->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderParkTrigger));
 
     RETURN_IF_FAILED(m_inputParkTrigger.Create("Park_Trigger", pTypeParkTrigger, static_cast<IPinEventSink*> (this)));
@@ -307,11 +307,14 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         RETURN_IF_POINTER_NULL( pMediaSample);
         if(pSource == &m_inputParkTrigger)
         {
+            tFloat32 buffer;
            // save the park trigger: alongside or cross
            cObjectPtr<IMediaCoder> pCoder;
            RETURN_IF_FAILED(m_pCoderParkTrigger->Lock(pMediaSample, &pCoder));
-           pCoder->Get("tInt8SignalValue", (tVoid*)&m_parkTrigger);
+           pCoder->Get("f32Value", (tVoid*)&buffer);
            m_pCoderParkTrigger->Unlock(pCoder);
+
+           m_parkTrigger = (tInt8)buffer;
 
         }
         else if(pSource == &m_pin_input_ir)
@@ -330,16 +333,22 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             //FOR TESTING
             if(m_debug_bool == false)
             {
+                LOG_ERROR(cString("PP: Sent speed 1" ));
                 sendSpeed( 1.0 );
+                LOG_ERROR(cString("PP: Sent speed 1 return" ));
+
                 m_debug_bool = true;
             }
             //FOR TESTING
 
+
+
+            // Check whether we have passed the first car, then activate the search
             if(m_searchState == 0)
             {
                 tFloat32 nextElem;
 
-                if(m_initTest_vect.size() < 20)
+                if(m_initTest_vect.size() < 25)
                 {
                     m_initTest_vect.push_back(nextElem);
                     m_initTest_vect.back() = m_IRFrontRightCur;
@@ -361,6 +370,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                         else
                         {
                             m_searchState = 1;
+                            m_lastIRshort = m_initTest_vect.at(i);
                             //LOG_ERROR(cString("PP: Search Active" ));
                         }
                     }
@@ -540,12 +550,12 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
     {
         pullOutCrossRight();
     }
-    else if( (m_parkTrigger == PULL_LEFT && m_parkState == 206) || (m_parkTrigger == PULL_LEFT && m_parkState == 307) )
+    else if( (m_parkTrigger == PULL_LEFT && m_parkState == 205) || (m_parkTrigger == PULL_LEFT && m_parkState == 307) )
     {
         // TODO
         pullOutAlongsideLeft();
     }
-    else if( (m_parkTrigger == PULL_RIGHT && m_parkState == 206) || (m_parkTrigger == PULL_RIGHT && m_parkState == 307) )
+    else if( (m_parkTrigger == PULL_RIGHT && m_parkState == 205) || (m_parkTrigger == PULL_RIGHT && m_parkState == 307) )
     {
         // TODO
         pullOutAlongsideRight();
@@ -568,7 +578,6 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
         case 101: // search for possible beginning
             if( m_IRFrontRightCur >= TH_LONG_ALONGSIDE )
             {
-                //LOG_ERROR(cString("PP: IR Sensor" + cString::FromFloat64(m_IRFrontRightCur)));
                 m_distEntry = m_odometryData.distance_sum;
                 m_searchState = 102;
             }
@@ -631,71 +640,60 @@ tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
     switch(m_parkState)
     {  
         case 201: // drive forward until position for starting the park maneuver is reached and break
-            LOG_ERROR(cString("PP: ALONGSIDE HERE !!! with parkState: " + cString::FromInt(m_parkState)));
 // ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //------------------------------------------- WORKS FINE UNTIL HERE -----------------------------------------------------------------------------------------------------------
-            m_centralAngle = atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
-            m_distStart = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( m_centralAngle ) );
+            //m_centralAngle = (tFloat32)atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
+            //m_distStart = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( m_centralAngle ) );
+            // DEBUG
+            LOG_ERROR(cString("PP: 201"));
+            m_centralAngle = 0.7;
+            m_distStart = 100;
+            sendSpeed( -1.0 );
+            //DEBUG
 
+//            LOG_ERROR(cString("PP: CA: " + cString::FromFloat64(m_centralAngle) + "; DE:  " + cString::FromFloat64(m_distEntry) + "; DS: " + cString::FromFloat64(m_distStart) + "; T: " + cString::FromFloat64(test)));
 
-            if( m_odometryData.distance_sum - m_distEntry >= m_distStart )
-            {   
-                //DEBUG Start
-                //sendSteeringAngle( STEER_NEUTRAL );
-                //DEBUG ende
+//            if( m_odometryData.distance_sum - m_distEntry >= m_distStart )
+//            {
+//                sendSpeed( -1.0 );
+//                LOG_ERROR(cString("PP: Speed sent -1"));
 
-                // UEBERLEGEN, OB GLEICH RUECKWAERTSGANG REINBALLERN
-                //DEBUG Start
-                LOG_ERROR(cString("PP: HAs Stopped: " + cString::FromBool(m_carStopped)));
-                //sendSpeed( -1 );
-                LOG_ERROR(cString("PP: Speed sent"));
-                //DEBUG ende
-
-                m_headingAtStart = m_odometryData.angle_heading;
-                m_parkState = 202;
-            }
-            LOG_ERROR(cString("PP: 201 Next State" + cString::FromInt(m_parkState) + "; Travelled: " + cString::FromFloat64(test) ));
+//                m_headingAtStart = m_odometryData.angle_heading;
+//                m_parkState = 202;
+//            }
+//            LOG_ERROR(cString("PP: 201 Next State" + cString::FromInt(m_parkState) ));
             break;
 
-        case 202: // wait until we have stopped and drive backwards...
-            if( m_carStopped == true )
-            {
-                //Denkhilfe
-                //distStop = m_odometryData.distance_sum;
-                //overshoot = distStop - m_distStart;
-                m_parkState = 203;
-                sendSpeed( -1 );
-            }
-            LOG_ERROR(cString("PP: 202 Next State" + cString::FromInt(m_parkState) + "; Stopped: " + cString::FromBool(m_carStopped)));
-            break;
-
-        case 203: // ...drive backwards until overshoot is killed and steer max right...
+        case 202: // ...drive backwards until overshoot is killed and steer max right...
             //Denkhilfe
             // fahre rueckwaerts bis distStop - overshoot = m_distStart
-            if( m_odometryData.distance_sum <= m_distStart )
+            if( m_odometryData.distance_sum <= (m_distStart + m_distEntry) )
             {
-                m_parkState = 204;
+                m_parkState = 203;
                 sendSteeringAngle(STEER_RIGHT_MAX);
             }
             break;
+            LOG_ERROR(cString("PP: 202 Next State" + cString::FromInt(m_parkState) ));
 
-        case 204: // ... steer max right until central angle is reached and steer max left...
+        case 203: // ... steer max right until central angle is reached and steer max left...
             if( m_odometryData.angle_heading >= (m_headingAtStart + m_centralAngle) )
             {
-                m_parkState = 205;
+                m_parkState = 204;
                 sendSteeringAngle(STEER_LEFT_MAX);
             }
             break;
+            LOG_ERROR(cString("PP: 203 Next State" + cString::FromInt(m_parkState) ));
 
-        case 205: // ... steer max left until m_headingAtStart is reached again
+        case 204: // ... steer max left until m_headingAtStart is reached again
             if( m_odometryData.angle_heading <= m_headingAtStart )
             {
-                m_parkState = 206;
+                m_parkState = 205;
                 sendSpeed( 0 );
                 sendParkState ( 1 );
                 m_rememberDist = m_odometryData.distance_sum;
                 //Stop blinking
             }
+            break;
 
         default:
             break;
