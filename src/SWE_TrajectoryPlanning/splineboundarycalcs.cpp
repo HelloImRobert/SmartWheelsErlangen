@@ -133,10 +133,10 @@ std::vector< cv::Point2d > splineBoundaryCalcs::calcSplineZeros( const std::vect
                 }
             }
         }
-        LOG_ERROR(cString::Format( "MBMT: test11.1.0"));
+
         // calculate roots
         ySplineSegment.FindRoots(realRootsPtr, imagRootsPtr, &rootCount);
-        LOG_ERROR(cString::Format( "MBMT: test11.1.1"));
+
         // if polynomial degenerates to lower order, exclude corresponding zeros
         if( fabs( splineCoeffs[i][3].y ) < 1e-8 )
         {
@@ -150,7 +150,6 @@ std::vector< cv::Point2d > splineBoundaryCalcs::calcSplineZeros( const std::vect
                 }
             }
         }
-        LOG_ERROR(cString::Format( "MBMT: test11.1.2"));
 
         // for 3 possible roots of 3rd order polynomial
         for( int j = 0; j < degree; j++ )
@@ -173,11 +172,8 @@ std::vector< cv::Point2d > splineBoundaryCalcs::calcSplineZeros( const std::vect
                 }
             }
         }
-        LOG_ERROR(cString::Format( "MBMT: test11.1.3"));
     }
 
-
-    LOG_ERROR(cString::Format( "MBMT: test11.1.4"));
     return splineZeros;
 }
 
@@ -239,7 +235,6 @@ std::vector< cv::Point2d > splineBoundaryCalcs::insertPoints( std::vector< std::
 
     // final size of return value
     size_t absoluteSize = srcSpline.size();
-    LOG_ERROR(cString::Format( "MBMT: test2.1"));
 
     // store for number of points to insert in corresponding segments
     std::vector < unsigned int > insertCount;
@@ -285,8 +280,6 @@ std::vector< cv::Point2d > splineBoundaryCalcs::insertPoints( std::vector< std::
         {
             insertCount[i] = 0;
         }
-        LOG_ERROR(cString::Format( "MBMT: test2.2"));
-        LOG_ERROR(cString::FromInt32( static_cast< int >( insertCount[i] ) ));
     }
 
     // allocate memory for return values

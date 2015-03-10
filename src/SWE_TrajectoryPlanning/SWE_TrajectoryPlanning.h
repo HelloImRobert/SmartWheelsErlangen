@@ -45,9 +45,6 @@ private:
     cv::Point2d m_referencePoint;
 
     int processing(cv::Point2d& returnedPoint,
-                   const bool hasRightBoundary,
-                   const bool hasLeftBoundary,
-                   const bool hasMiddleBoundary,
                    const std::vector< cv::Point2d >& rightBoundary,
                    const std::vector< cv::Point2d >& leftBoundary,
                    const std::vector< cv::Point2d >& middleBoundary);

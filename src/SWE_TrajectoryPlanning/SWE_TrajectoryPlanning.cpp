@@ -118,8 +118,6 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
 
         if (pSource == &m_oLines)
         {
-
-
             // READ INPUT VALUES -------------------------------------------------------------------
             /*
             // init temporary objects
@@ -196,7 +194,6 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
         }
         else if (pSource == &m_oSplines)
         {
-            LOG_ERROR(cString::Format( "MBMT: test0"));
             // READ INPUT VALUES -------------------------------------------------------------------
 
             // generate Coder object
@@ -242,8 +239,6 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
                 }
             }
 
-
-
             std::vector< cv::Point2d > middleBoundary;
             {
                 tInt8 BoundaryArrayCountTemp = 0;
@@ -263,67 +258,15 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
                 }
             }
 
-
             m_pCoderDescInputMeasured->Unlock(pCoder);
-
-
-
 
             // CALCUALTIONS -------------------------------------------------------------------
 
-            bool hasRightBoundary = rightBoundary.size() > 1;
-            bool hasLeftBoundary = leftBoundary.size() > 1;
-            bool hasMiddleBoundary = middleBoundary.size() > 1;
-
-//            std::ofstream file("/home/odroid/Desktop/Ausgabe/ausgabe4.txt");
-//            file << rightBoundary.size() << endl;
-//            if(!rightBoundary.empty())
-//            {
-//                file << endl << rightBoundary[0] << endl << rightBoundary[1] << endl << rightBoundary[2] << endl << endl;
-//            }
-//            file << leftBoundary.size() << endl;
-//            if(!leftBoundary.empty())
-//            {
-//                file << leftBoundary[0] << endl << leftBoundary[1] << endl << leftBoundary[2] << endl << endl;
-//            }
-//            file << middleBoundary.size() << endl;
-//            if(!middleBoundary.empty())
-//            {
-//                file << middleBoundary[0] << endl << middleBoundary[1] << endl << middleBoundary[2] << endl << endl;
-//            }
-//            file.close();
-
-//            double picHeight = 480;
-//            double picWidth = 640;
-//            double distFrontToWarpedImageBottom = 310;
-//            double distFrontToFrontAxis = 120;
-//            double distSideImageToMid = 10;
-
-//            for( size_t i = 0; i < rightBoundary.size(); i++ )
-//            {
-//                rightBoundary[i].x = (-1.0)*( rightBoundary[i].x - picWidth/2 - distSideImageToMid );
-//                rightBoundary[i].y = (-1.0)*( rightBoundary[i].y - picHeight - distFrontToWarpedImageBottom - distFrontToFrontAxis );
-
-//                 double temp = rightBoundary[i].x;
-
-//                rightBoundary[i].x = rightBoundary[i].y;
-//                rightBoundary[i].y = temp;
-
-//            }
-
-            LOG_ERROR(cString::Format( "MBMT: test1"));
-
             // calculate intersection points with boundaries
             cv::Point2d intersectionPoint;
-            tInt8 intersectionIndicator = processing( intersectionPoint,
-                                                    hasRightBoundary, hasLeftBoundary, hasMiddleBoundary,
-                                                    rightBoundary, leftBoundary, middleBoundary );
-
-
-
+            tInt8 intersectionIndicator = processing( intersectionPoint, rightBoundary, leftBoundary, middleBoundary );
 
             // TRANSMIT OUTPUT VALUES -------------------------------------------------------------------
-
 
             //create new media sample
             cObjectPtr<IMediaSample> pMediaSampleOutput;
@@ -365,14 +308,16 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
 }
 
 int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
-                                         const bool hasRightBoundary,
-                                         const bool hasLeftBoundary,
-                                         const bool hasMiddleBoundary,
                                          const std::vector< cv::Point2d >& rightBoundary,
                                          const std::vector< cv::Point2d >& leftBoundary,
                                          const std::vector< cv::Point2d >& middleBoundary)
 
 {
+
+    bool hasRightBoundary = rightBoundary.size() > 1;
+    bool hasLeftBoundary = leftBoundary.size() > 1;
+    bool hasMiddleBoundary = middleBoundary.size() > 1;
+
     // check if right and left boundary are not empty
     if( !hasRightBoundary && !hasLeftBoundary )
     {
@@ -381,16 +326,12 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
         return 0;
     }
 
-    LOG_ERROR(cString::Format( "MBMT: test2.0"));
-
     // insert points in fixed distance on boundaries for intersection point calculation
     std::vector< std::pair< size_t, double > > segmentLengths;
     std::vector< cv::Point2d > extendedRightBoundary( splineBoundaryCalcs::insertPoints( segmentLengths, rightBoundary, _insertionDistance ));
     std::vector< cv::Point2d > extendedLeftBoundary( splineBoundaryCalcs::insertPoints( segmentLengths, leftBoundary, _insertionDistance) );
     std::vector< cv::Point2d > extendedMiddleBoundary( splineBoundaryCalcs::insertPoints( segmentLengths, middleBoundary, _insertionDistance) );
     segmentLengths.clear();
-    LOG_ERROR(cString::Format( "MBMT: test3"));
-
 
     // calculate most plausible segment for every non-empty boundary
     std::vector< cv::Point2d > plausibleRightSegment;
@@ -399,8 +340,6 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
     splineBoundaryCalcs::extractPlausibleSegment( plausibleLeftSegment, extendedLeftBoundary, _breakAngle, _maxDirectionAngle, _maxDistance );
     std::vector< cv::Point2d > plausibleMiddleSegment;
     splineBoundaryCalcs::extractPlausibleSegment( plausibleMiddleSegment, extendedMiddleBoundary, _breakAngle, _maxDirectionAngle, _maxDistance );
-
-    LOG_ERROR(cString::Format( "MBMT: test4"));
 
     // check if there is no plausible segment usable and return if this is the case
     if( plausibleRightSegment.empty() && plausibleLeftSegment.empty() )
@@ -423,8 +362,6 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
     {
         splineBoundaryCalcs::correctSplineDirection( plausibleMiddleSegment );
     }
-    LOG_ERROR(cString::Format( "MBMT: test5"));
-
 
     // calculate lengthes of left and right plausible segment
     double rightSegmentLength = 0.0;
@@ -438,8 +375,6 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
     {
         leftSegmentLength += cv::norm( plausibleLeftSegment[i] - plausibleLeftSegment[i-1] );
     }
-    LOG_ERROR(cString::Format( "MBMT: test6"));
-
 
     // get the longer plausible segment
     bool longestSegmentIsRight = true;
@@ -458,8 +393,6 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
     {
         normals.push_back( splineBoundaryCalcs::getNormal2dVector( tangents.at( i ) ) );
     }
-    LOG_ERROR(cString::Format( "MBMT: test7"));
-
 
     // calucalte trajectory ( assuming that normals close to vehicle look to the left )
     std::vector< cv::Point2d > trajectory;
@@ -478,7 +411,6 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
             trajectory.push_back( longestPlausibleSegment.at( i ) + ( ( -1.0 ) * normals.at( i ) * ( _roadWidth * 3 / 4 ) ) );
         }
     }
-    LOG_ERROR(cString::Format( "MBMT: test8"));
 
     // if there is a middle boundary
     if( hasMiddleBoundary && !middleBoundary.empty() )
@@ -498,7 +430,7 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
                                                                              middleBoundary,
                                                                              longestPlausibleSegment[i],
                                                                              normals[i]);
-            LOG_ERROR(cString::Format( "MBMT: test9"));
+
             // if there is an intersection with current point on longest plausible segment ...
             if( hasIntersection == true )
             {
@@ -527,7 +459,6 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
                 }
             }
         }
-        LOG_ERROR(cString::Format( "MBMT: test10"));
 
         // if all intersection points found with middle boundary are valid ...
         if ( middleBoundaryDistanceOK == true )
@@ -544,7 +475,6 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
             }
         }
     }
-    LOG_ERROR(cString::Format( "MBMT: test11"));
 
     // checking wether first point on trajectory is closer than the distance we want to calculate
     // the track control point (_trackingPointDistance)
@@ -557,13 +487,12 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
             std::vector< cv::Point2d > trajectory_il( splineBoundaryCalcs::ilTv( trajectory, -_intersectionAngle, _trackingPointDistance ) );
             // calculate c-spline coefficients of transformed trajectory
             std::vector< std::vector < cv::Point2d > > coeffsTrajectory_il( splineBoundaryCalcs::calcSplineCoeffs( trajectory_il, 0.5 ) );
-            LOG_ERROR(cString::Format( "MBMT: test11.1"));
+
             // calculate zeros of c-spline in intersection line coo-sys
             std::vector < cv::Point2d > zerosTrajectory_il( splineBoundaryCalcs::calcSplineZeros( coeffsTrajectory_il ) );
-            LOG_ERROR(cString::Format( "MBMT: test11.2"));
+
             // back-transform calculated zeros in front axis coo-sys
             std::vector < cv::Point2d > zerosTrajectory( splineBoundaryCalcs::vTil( zerosTrajectory_il, -_intersectionAngle, _trackingPointDistance ) );
-            LOG_ERROR(cString::Format( "MBMT: test12"));
 
             // indicate that two boundaries were found
             intersectionIndicator = 1;
@@ -590,7 +519,7 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
             // return closest point of trajectory
             returnedPoint = trajectory[0];
         }
-        LOG_ERROR(cString::Format( "MBMT: test13"));
+
     }
     else
     {
@@ -599,11 +528,8 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
 
         // return no tracking point was found
         intersectionIndicator = 0;
-        LOG_ERROR(cString::Format( "MBMT: test14"));
     }
 
-
-    LOG_ERROR(cString::Format( "MBMT: test15"));
     return intersectionIndicator;
 }
 
