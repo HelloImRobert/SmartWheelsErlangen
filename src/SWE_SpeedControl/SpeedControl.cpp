@@ -3,6 +3,8 @@
 ADTF_FILTER_PLUGIN("SWE Motor Speed Controller", OID_ADTF_SWE_SPEEDCONTROL, SpeedControl)
 
 #define TIMER_RESOLUTION 1000000.0f
+#define MAX_OUTPUT 100.0f
+#define MIN_OUTPUT -100.0f
 
 SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0), m_gear(0), m_currentState(0), m_lastState(0), m_goingForwards(0), m_lastSampleTime(0),m_timerStart(0), m_no_wait(true), m_last_pwm(0), m_last_brakeLights(0), m_last_reverseLights(0), m_last_DirectionSent(0), m_initRun(0)
 {
@@ -279,7 +281,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 m_gear = (tInt32)value;
 
                 //DEBUG
-                LOG_ERROR(cString("PP: gear set to " + cString::FromInt32(m_gear)));
+                LOG_ERROR(cString("PP: SpeedControl: gear set to " + cString::FromInt32(m_gear)));
 
                 if ( m_initRun > 80 )
                 {
@@ -291,7 +293,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 SetPWM(outputData);
 
                 //DEBUG
-                LOG_ERROR(cString("PP: finished setting gear to " + cString::FromInt32(m_gear)));
+                LOG_ERROR(cString("PP: SpeedControl: finished setting gear to " + cString::FromInt32(m_gear)));
             }
 
         }
@@ -302,7 +304,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// +++++++++++++++++++++++++++++++++++++++++++++ determine current driving state +++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++ Determine Current Driving State +++++++++++++++++++++++++++++++++++++++++++++++++++++
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 tResult SpeedControl::UpdateState()
@@ -328,9 +330,8 @@ tResult SpeedControl::UpdateState()
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// ++++++++++++++++++++++++++++++++++++++++++++++++++ Here the magic happens +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// ++++++++++++++++++++++++++++++++++++++++++++++++++ Here the Magic Happens +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 
 tFloat32 SpeedControl::GetControllerValue()
 {
@@ -341,19 +342,21 @@ tFloat32 SpeedControl::GetControllerValue()
 
 
     //------------ make sure that the car really stops before driving again----------------
-    if (( (( m_last_pwm <= m_pwm_0 ) && ( m_lastState > 0 ) && ( m_currentState == 0 ))
-          ||  (( m_last_pwm >= m_pwm_0 ) && ( m_lastState < 0 ) && ( m_currentState == 0 )) ) && (m_no_wait)  )//has car just stopped (willingly)?
+    if (( (( m_last_pwm <= m_pwm_0 ) && ( m_lastState > 0 ) && ( m_currentState <= 0 ))
+          ||  (( m_last_pwm >= m_pwm_0 ) && ( m_lastState < 0 ) && ( m_currentState >= 0 )) ) && (m_no_wait)  )//has car just stopped (willingly)?
     {
         SetPWM(m_pwm_0);
-        m_no_wait = false;  //wait until standing completly still (=> to make sure that the new direction sent to the odometry is only sent when standing completely still....)
+        m_no_wait = false;   //wait until standing completly still (=> to make sure that the new direction sent to the odometry is only sent when standing completely still....)
         m_timerStart = GetTime();
     }
     else if (( !m_no_wait ) && (( GetTime() - m_timerStart ) >= m_stopTime )) //if stopping time passed...
     {
-        m_no_wait = true; //... allow new acceleration values...
+        m_no_wait = true;    //... allow new acceleration values...
         SetCarStopped(true); // ... and tell other filters that the car has just stopped
         SetDirection(0);
     }
+
+    m_lastState = m_currentState;
 
     if (m_no_wait)
     {
@@ -542,29 +545,29 @@ tFloat32 SpeedControl::GetControllerValue()
         }
     }
 
-    m_lastState = m_currentState;
-
     outputData = outputData * m_pwmScaler;
-    //DEBUG
 
-    /*
     // prevent erratic values (e.g. due to a stupid configuration)
-    if ( outputData < -100 )
+    if ( outputData < MIN_OUTPUT )
     {
-        outputData = -100;
+        outputData = MIN_OUTPUT;
     }
-    else if ( outputData > 100)
+    else if ( outputData > MAX_OUTPUT)
     {
-        outputData = 100;
+        outputData = MAX_OUTPUT;
     }
-    */
 
     return outputData;
 }
 
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++ Send Data +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 tResult SpeedControl::SetBrakeLights(tBool state)
 {
-
+    //DEBUG
+    /*
     if(state != m_last_brakeLights) //prevent unneccessary messages
     {
         cObjectPtr<IMediaCoder> pCoder;
@@ -595,13 +598,16 @@ tResult SpeedControl::SetBrakeLights(tBool state)
     }
 
     m_last_brakeLights = state;
+    */
 
     RETURN_NOERROR;
 }
 
 tResult SpeedControl::SetReverseLights(tBool state)
 {
-
+    //DEBUG
+    /*
+     *
     if(state != m_last_reverseLights)
     {
         cObjectPtr<IMediaCoder> pCoder;
@@ -632,6 +638,8 @@ tResult SpeedControl::SetReverseLights(tBool state)
     }
 
     m_last_reverseLights = state;
+
+    */
 
     RETURN_NOERROR;
 }
@@ -730,40 +738,50 @@ tResult SpeedControl::SetPWM(tFloat32 pwm_value)
 
 
     //DEBUG
-    /*!
-//    if (pwm_value != m_last_pwm)
-//    {
-        cObjectPtr<IMediaCoder> pCoder;
-        tUInt32 timeStamp = 0;
+    LOG_ERROR(cString("PP: SpeedControl: set PWM to " + cString::FromInt32(pwm_value)));
 
-        timeStamp = GetTime();
-
-        //create new media sample
-        cObjectPtr<IMediaSample> pMediaSample;
-        AllocMediaSample((tVoid**)&pMediaSample);
-
-        //allocate memory with the size given by the descriptor
-        cObjectPtr<IMediaSerializer> pSerializer;
-        m_pCoderDescSignal_pwm->GetMediaSampleSerializer(&pSerializer);
-        tInt nSize = pSerializer->GetDeserializedSize();
-        pMediaSample->AllocBuffer(nSize);
-
-        //write date to the media sample with the coder of the descriptor
-        m_pCoderDescSignal_pwm->WriteLock(pMediaSample, &pCoder);
-
-        pCoder->Set("f32Value", (tVoid*)&(pwm_value));
-        pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
-        m_pCoderDescSignal_pwm->Unlock(pCoder);
-
-        //transmit media sample over output pin
-        RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-        RETURN_IF_FAILED(m_oOutputPWM.Transmit(pMediaSample));
- //   }
-
-//    m_last_pwm = pwm_value;
-*/
     RETURN_NOERROR;
 }
+
+tResult SpeedControl::SetSetPoint(tFloat32 value)
+{
+
+    //DEBUG
+    /*
+    cObjectPtr<IMediaCoder> pCoder;
+    //tUInt32 timeStamp = 0;
+
+    //timeStamp = GetTime();
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSample;
+    AllocMediaSample((tVoid**)&pMediaSample);
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescSignal_direction->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSample->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    m_pCoderDescSignal_direction->WriteLock(pMediaSample, &pCoder);
+
+    pCoder->Set("f32Value", (tVoid*)&(value));
+    //pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+    m_pCoderDescSignal_direction->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputSetPoint.Transmit(pMediaSample));
+    */
+
+    RETURN_NOERROR;
+}
+
+
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++ Helpers ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 tResult SpeedControl::WaitIdle(tUInt32 idletime)
 {
@@ -784,8 +802,3 @@ tTimeStamp SpeedControl::GetTime()
     return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
 }
 
-tResult SpeedControl::SetSetPoint(tFloat32 value)
-{
-
-    RETURN_NOERROR;
-}
