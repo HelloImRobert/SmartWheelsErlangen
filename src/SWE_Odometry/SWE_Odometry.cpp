@@ -561,7 +561,7 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
 
     FilterPulses();
 
-    m_distanceAllSum_wheel = m_distanceAllSum + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
+    m_distanceAllSum_wheel = m_distanceAllSum_wheel + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
 
     //calculate absolute distance moved
     if(m_useHighresDist)
