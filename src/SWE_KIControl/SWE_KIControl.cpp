@@ -167,12 +167,13 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
 		parking=false;
         adminstopp=false; //Wenn Wettkampf, auf True setzen
         status=0;
+        Parksteuerung=0;
         for(int a=0;a<10;a++)
         {
-            points[a].x=0;
-            points[a].y=2000+a;
-            objecte[a].x=0;
-            objecte[a].y=2000+a;
+            points[a].x=2000+a;
+            points[a].y=0;
+            objecte[a].x=2000+a;
+            objecte[a].y=0;
         }
 
         signsize=0;
@@ -347,20 +348,51 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
 
-           pCoder->Get("tPoint", (tVoid*)&objecte); //Werte auslesen
-           for(int a=0;a<10;a++)
-           {
-               if(objecte[a].x==0 && objecte[a].y==2000+a)
-                      LOG_ERROR("Standard wert nicht gut");
-           }
+            stringstream elementGetter;
+            for( size_t j = 0; j < 10; j++)
+            {
+                elementGetter << "tPoint[" << j << "].xCoord";
+                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(objecte[j].x));
+                elementGetter.str(std::string());
+
+                elementGetter << "tPoint[" << j << "].yCoord";
+                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(objecte[j].y));
+                 elementGetter.str(std::string());
+            }
+              m_pCoderDescInputMeasured->Unlock(pCoder);
+
+     //      pCoder->Get("tPoint", (tVoid*)&objecte); //Werte auslesen
+          // pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+//           for(int a=0;a<10;a++)
+//           {
+
+//              // if(objecte[a].x==0 && objecte[a].y==2000+a)
+//                    //  LOG_ERROR("Standard wert nicht gut");
+//               string currentDestinationName , currentSourceName;
+//               {
+//                   // convoluted way to concatenate the arrayName with an integer, but standard C++
+//                   std::stringstream stringStream;
+//                   stringStream << "DestinationPointsiii" << a;
+//                   currentDestinationName = stringStream.str();
+//               }
+//               {
+//                   std::stringstream stringStream;
+//                   stringStream << "Sensor " << a << "xwert: "<<objecte[a].x <<" ywert: "<<objecte[a].y;
+//                   currentSourceName = stringStream.str();
+//               }
+//               LOG_ERROR(currentSourceName.c_str());
+
+      //     }
 
 
-
-            m_pCoderDescInputMeasured->Unlock(pCoder);
             //Hier die Objekte auslesen, und in eigene Vecor bauen
             if( adminstopp!=true)
             {
-                ObjectAvoidance();
+                if(parking==false)
+                {
+                    ObjectAvoidance();
+
+                }
 
                 DriverCalc();
             }
@@ -375,9 +407,28 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         {
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
-            pCoder->Get("tPoint", (tVoid*)&points); //Werte auslesen
-            m_pCoderDescInputMeasured->Unlock(pCoder);
+           // pCoder->Get("tPoint", (tVoid*)&points); //Werte auslesen
+
             //Punkte liste fuellen
+
+
+
+            stringstream elementGetter;
+            for( size_t j = 0; j < 10; j++)
+            {
+                elementGetter << "tPoint[" << j << "].xCoord";
+                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
+                elementGetter.str(std::string());
+
+                elementGetter << "tPoint[" << j << "].yCoord";
+                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
+                elementGetter.str(std::string());
+            }
+
+        m_pCoderDescInputMeasured->Unlock(pCoder);
+
+
+
 
 
         }
@@ -462,6 +513,10 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             pCoder->Get("int8Value", (tVoid*)&value);
             m_pCoderDescInputMeasured->Unlock(pCoder);
 
+            // value
+            // 1= einparken fertig
+            //2= ausparken fertig
+            //3= bin bereit Steuerung zu ¨¹bernehmen
             if(value==1 && (Commands[CommandCounter]==4 ||Commands[CommandCounter]==5))
             {
                 if(CommandCounter!=CommandCountermax)
@@ -478,12 +533,17 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                 if(CommandCounter!=CommandCountermax)
                 {
                    CommandCounter++;
+                    Parksteuerung=0;
                 }
                 else
                 {
                     status=3;
                 }
              }
+            else if(value==3)
+            {
+                Parksteuerung=3;
+            }
         }
 
         //--------------------------------------------------------------Daten vom JuryModul einlesen----------------------------------------------------------------------------------------
@@ -512,7 +572,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                        else if (i8ActionID==0)
                        {
                            //Ready anforderung
-
+//TODO:: einf¨¹gen was tut Jury
                           // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Request Ready with maneuver ID %d",i16entry));
                            //emit sendRequestReady((int)i16entry);
                        }
@@ -524,7 +584,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                            //emit sendRun((int)i16entry);
                        }
         }
-
+//TODO:: auch Markus schicken, das es Notbremsung gibt
 
 
         //--------------------------------------------------------------Daten vom TC einlesen----------------------------------------------------------------------------------------
@@ -565,7 +625,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
 
 
-//Modul fuer Juroren einbauen
+
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------Parken-------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -588,7 +648,7 @@ tResult cSWE_KIControl::Parkroutine(tInt8 value)
     //write date to the media sample with the coder of the descriptor
     // ADAPT: m_pCoderDescPointLeft
     //cObjectPtr<IMediaCoder> pCoder;
-    //---------------------------------------Front scheinwerfer-----------------------------------------------------------------------------------------
+    //---------------------------------------parkwert----------------------------------------------------------------------------------------
     RETURN_IF_FAILED(m_pCoderDescParkOutput->WriteLock(pMediaSampleOutput, &pCoder));
     pCoder->Set("int8Value", (tVoid*)&(value));
     m_pCoderDescParkOutput->Unlock(pCoder);
@@ -607,9 +667,9 @@ void cSWE_KIControl::ObjectAvoidance()
 {
 
 	float carwidth=450;
-	float site=carwidth/2;
-    float Notbrems= 500;
-    float Slowdist=1000;
+    double site=carwidth/2;
+    float Notbrems= 700;
+    float Slowdist=1500;
     double distline=0;
 
     cv::Point2d pointtocheck;
@@ -617,13 +677,13 @@ void cSWE_KIControl::ObjectAvoidance()
 //Die werte für das Objekt array
         int t=10;
         int i=0;
-
+        int noObject=10;
 //Alle Objekte durchlaufen
         for( i=0;i<t;i++)
 		{
 
 //Wenn objekte gleich 0,0 oder 9999,9999 nicht beachten
-          if((objecte[i].x!=0 && objecte[i].y!=0) &&(objecte[i].x!=9999 && objecte[i].y!=9999))
+          if((objecte[i].x!=0 && objecte[i].y!=0) &&(objecte[i].x!=9999 && objecte[i].y!=9999) && i!=9 && i!=8 && i!=7 && i!=3 && i!=2)
           {
 
 			if(halteLinie)
@@ -661,7 +721,7 @@ void cSWE_KIControl::ObjectAvoidance()
 							//links und gerad aus prüfen
                             m_boundary.first.x=0;
                             m_boundary.first.y=0;
-
+//TODO:: richtige werte f¨¹r zweiten Punkt
                             m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
                             m_boundary.second.y=0;
 
@@ -813,6 +873,7 @@ void cSWE_KIControl::ObjectAvoidance()
 			}
 			else
 			{
+
                 //Straßenpunkte  auf 10 setzen
                     int ti=10;
                     int ia=0;
@@ -841,13 +902,18 @@ void cSWE_KIControl::ObjectAvoidance()
                         if(distline<0)
                             distline*=-1;
 
+
+
+
                         if(distline<=site)
                         {
 
-                            double distanz=sqrt(objecte[i].x*objecte[i].x+objecte[i].y*objecte[i].y);
+                            double distanz;//=sqrt(objecte[i].x*objecte[i].x+objecte[i].y*objecte[i].y);
+                            distanz=cv::norm(objecte[i]);
 
-                            if(distanz<=Notbrems)
+                            if(distanz<=Notbrems)// && distanz>3
                             {
+
                                  //Notbremsung
                                 SpeedControl=0;
                                 sendTC(0,0);
@@ -864,12 +930,12 @@ void cSWE_KIControl::ObjectAvoidance()
                                 }
                                 {
                                     std::stringstream stringStream;
-                                    stringStream << "Sensor " << i << " Distanz "<< distanz;
+                                    stringStream << "Sensor " << i << " Distanz "<< distanz << "xwert: "<<objecte[i].x <<" ywert: "<<objecte[i].y ;
                                     currentSourceName = stringStream.str();
                                 }
 
 
-                              LOG_ERROR(currentSourceName.c_str());
+                             // LOG_ERROR(currentSourceName.c_str());
 
 
                                 return;
@@ -890,10 +956,21 @@ void cSWE_KIControl::ObjectAvoidance()
 
 
                         }
+                        else
+                        {
+
+                            SpeedControl=2;
+                        }
 
                     }
 
 			}
+          }
+          else
+          {
+              noObject--;
+              if(noObject==0)
+                     SpeedControl=2;
           }
         }
 
@@ -914,12 +991,18 @@ tResult cSWE_KIControl::sendTC(int speed, int type)
     3=rechtsabbiegen
     4=ueberholen
     5=Kreuzung gerade aus
+    6=Parking(Steurung aus)
     Speed:
     Stufen: 2,1,0,-1,-2
     
     */
-if(speed==0)
-    type=0;
+    if(speed==0)
+    {
+        type=0;
+    }
+
+
+
     cObjectPtr<IMediaCoder> pCoder;
 
     //create new media sample
@@ -1073,7 +1156,7 @@ void cSWE_KIControl::DriverCalc()
                     if(hlsearch)
                         ControlHL();
 
-                    sendTC(SpeedControl,1);
+                    sendTC(SpeedControl,1);//1
                      ControlLight(1);
                 }
             }
@@ -1252,12 +1335,17 @@ void cSWE_KIControl::DriverCalc()
 
                     parking=true;
                     //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das größte schild ist das erkannt wird
-                    if(SecondSigntype==4)
+                    if(Parksteuerung==3)
                     {
-                         Parkroutine(1);
+                         Parkroutine(5);
+                          sendTC(SpeedControl,6);
                     }
                     else
                     {
+                        if(SecondSigntype==4)
+                        {
+                             Parkroutine(1);
+                        }
                         if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
                         {
                              sendTC(SpeedControl,1);
@@ -1345,12 +1433,17 @@ void cSWE_KIControl::DriverCalc()
 
              parking=true;
              //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das größte schild ist das erkannt wird
+             if(Parksteuerung==3)
+             {
+                  Parkroutine(5);
+                   sendTC(SpeedControl,6);
+             }
+             else
+             {
                  if(SecondSigntype==4)
                  {
-                      Parkroutine(2);
+                      Parkroutine(1);
                  }
-                 else
-                 {
                      if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
                      {
                           sendTC(SpeedControl,1);
