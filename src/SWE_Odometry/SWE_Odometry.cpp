@@ -71,10 +71,10 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     m_pitch_now = 0;
 
     SetPropertyFloat("Velocity Filter Strength 0-1",0.3);
-    SetPropertyFloat("Accelerometer Velocity weighting 0-1",0.85);
+    SetPropertyFloat("Accelerometer Velocity weighting 0-1",0.9);
     SetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",50.0);
     SetPropertyFloat("Wheel circumfence in mm",329);
-    SetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",15);
+    SetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",10);
     SetPropertyFloat("Accelerometer value offset in mm/s2",0.0);
     SetPropertyBool("Use high-res distance measurement (based on velocity)", true);
 
@@ -100,6 +100,8 @@ tResult SWE_Odometry::Start(__exception)
     m_wheelsync = false;
 
     m_distanceAllSum = 0;
+    m_distanceAllSum_acc = 0;
+    m_distanceAllSum_wheel = 0;
     m_distanceX_sum = 0;
     m_distanceY_sum = 0;
     m_heading_sum = 0;
@@ -118,6 +120,7 @@ tResult SWE_Odometry::Start(__exception)
     m_velocityAccelerometer = 0;
     m_velocityCombined = 0;
 
+    m_accelerometerValue_now = 0;
     m_accelerometerValue_old = 0;
 
 }
@@ -218,7 +221,7 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
         m_filterStrength = (tFloat32)GetPropertyFloat("Velocity Filter Strength 0-1", 0.3);
         m_wheelCircumfence = (tFloat32)GetPropertyFloat("Wheel circumfence in mm",329);
         m_velocityResolution = (tFloat32)GetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",15);
-        m_acceleromter_weight = (tFloat32)GetPropertyFloat("Accelerometer Velocity weighting 0-1",0.85);
+        m_acceleromter_weight = (tFloat32)GetPropertyFloat("Accelerometer Velocity weighting 0-1",0.9);
         m_accelerometer_compensation = (tFloat32)GetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",50.0);
         m_useHighresDist = (tBool)GetPropertyBool("Use high-res distance measurement (based on velocity)", true);
         m_accelOffsetValue = (tFloat32)GetPropertyFloat("Accelerometer value offset in mm/s2",0.0);
@@ -507,7 +510,7 @@ tResult  SWE_Odometry::CalcCombinedVelocity()
     tFloat32 compensation_value;
     tFloat32 intervall;
 
-    intervall = ((m_accelerometerTimestamp_now - m_accelerometerTimestamp_last)/ TIMESTAMP_RESOLUTION); //time intervall in seconds
+    intervall = ((tFloat32)(m_accelerometerTimestamp_now - m_accelerometerTimestamp_last)/ TIMESTAMP_RESOLUTION); //time intervall in seconds
 
     if (intervall < 0)
         intervall = 0;
@@ -567,8 +570,8 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
     if(m_useHighresDist)
     {
         tFloat compensation;
-        //compensate the drift, but only when moving (the wheelsensor distance is defined as ground truth -> that is, well some kind of hope at least.... ;-)
-        compensation = 0.02 * fabs(m_velocityCombined) * ((tFloat32)(timeStamp - m_lastTimeStamp_wheels)/ TIMESTAMP_RESOLUTION);
+        //compensate the drift, but only when moving and more when moving fast (the wheelsensor distance is defined as ground truth -> that is, well some kind of hope at least.... ;-)
+        compensation = 0.0003 * fabs(m_velocityCombined) * ((tFloat32)(timeStamp - m_lastTimeStamp_wheels)/ TIMESTAMP_RESOLUTION);
 
         if ((m_distanceAllSum_wheel - m_distanceAllSum_acc) >= 0)
         {
@@ -591,7 +594,7 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
 
     //DEBUG
     //debugvar = m_velocityWheelSensors;
-    debugvar = m_distanceAllSum_wheel;
+    //debugvar = m_velocityWheelSensors;
     //debugvar = debugvar + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
     //SendVelocity();
 
@@ -635,14 +638,12 @@ tResult SWE_Odometry::FilterPulses()
 
     // if the delta of pulses between both wheels differs by more than the allowed relative delta + 1 pulse then its probably a pulse-burst (sensor error) and that usually happens when only one pulse should be registered.
     // if car is stopped don't accept pulses at all
+    //DEBUG
     if(m_currentDirection == 0)
     {
         m_wheelDelta_left = 0;
         m_wheelDelta_right = 0;
     }
-
-    //DEBUG
-    /*
     else if((m_current_turning_radius < 0) && ( (m_wheelDelta_left) > (1 + ( ((relativeDelta) + 0.1) * m_wheelDelta_right )) )) //left wheel too fast?
     {
         m_wheelDelta_left = floor(1 + ( ((relativeDelta) + 0.1) * m_wheelDelta_right ));
@@ -659,7 +660,6 @@ tResult SWE_Odometry::FilterPulses()
     {
         m_wheelDelta_left = floor(1 + (m_wheelDelta_right / (relativeDelta - 0.1)));
     }
-    */
 
     RETURN_NOERROR;
 }

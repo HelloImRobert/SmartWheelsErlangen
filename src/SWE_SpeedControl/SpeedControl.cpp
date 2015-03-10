@@ -245,17 +245,19 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
             SetPWM(outputData);
 
+
+
         }
         else if (pSource == &m_oInputSetPoint)
         {
-
-            cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
 
             //write values with zero
             tFloat32 value = 0;
             tUInt32 timeStamp = 0;
             tFloat32 outputData = 0;
+
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
 
             //get values from media sample
             pCoder->Get("f32Value", (tVoid*)&value);
@@ -274,14 +276,24 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
             m_gear = (tInt32)value;
 
+            //DEBUG
+            LOG_ERROR(cString("PP: gear set to " + cString::FromInt32(m_gear)));
+
             if ( m_initRun > 80 )
             {
                 outputData = GetControllerValue();
             }
+            else
+                m_initRun++;
 
             SetPWM(outputData);
+
+            //DEBUG
+            LOG_ERROR(cString("PP: finished setting gear to " + cString::FromInt32(m_gear)));
+
         }
         else
+
             RETURN_NOERROR;
     }
     RETURN_NOERROR;

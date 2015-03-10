@@ -12,8 +12,6 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS -AS IS- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL AUDI AG OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-#include "stdafx.h"
 #include "SWE_ControllerFilter.h"
 
 #define TIME_RESOLUTION_ADTF 1000000.0f 
@@ -29,13 +27,16 @@ SWE_ControllerFilter::SWE_ControllerFilter(const tChar* __info) : cFilter(__info
     SetPropertyFloat("max output",100);
     SetPropertyFloat("min output",-100);
 
+    SetPropertyFloat("max controller influence upper",10);
+    SetPropertyFloat("max controller influence lower",-10);
+
     SetPropertyBool("Use Feed Forward", true);
     SetPropertyBool("Feed-Forward = 0 => output = 0", true); //off means off e.g. when used as second/cascaded controller controlling the motor to ensure safe stopping
 
     SetPropertyInt("Sample Interval [msec]",1);
     SetPropertyBool("use automatically calculated sample interval",1);
-    SetPropertyInt("Controller Typ", 1);
-    SetPropertyStr("Controller Typ" NSSUBPROP_VALUELISTNOEDIT, "1@P|2@PI|3@PID");
+    SetPropertyInt("Controller Type", 1);
+    SetPropertyStr("Controller Type" NSSUBPROP_VALUELISTNOEDIT, "1@P|2@PI|3@PID");
 }
 
 SWE_ControllerFilter::~SWE_ControllerFilter()
@@ -85,10 +86,13 @@ tResult SWE_ControllerFilter::Init(tInitStage eStage, __exception)
         m_maxOutput = (tFloat32)GetPropertyFloat("max output",100);
         m_minOutput = (tFloat32)GetPropertyFloat("min output",-100);
 
+        m_maxInfluence_upper = (tFloat32)GetPropertyFloat("max controller influence upper",10);
+        m_maxInfluence_lower = (tFloat32)GetPropertyFloat("max controller influence lower",-10);
+
         m_useFF = (tBool)GetPropertyBool("Use Feed Forward", true);
         m_offMeansOff = (tBool)GetPropertyBool("Feed-Forward = 0 => output = 0", true);
 
-        m_type = (tInt32)GetPropertyInt("Controller Typ", 1);
+        m_type = (tInt32)GetPropertyInt("Controller Type", 1);
 
         m_sampleIntervall = (tFloat32)GetPropertyInt("Sample Interval [msec]",1);
         m_useAutoSampleTime = (tBool)GetPropertyBool("use automatically calculated sample interval",1);
@@ -280,4 +284,18 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
 tTimeStamp SWE_ControllerFilter::GetTime()
 {
     return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
+}
+
+tFloat32 SWE_ControllerFilter::LimitValue(tFloat32 inputVar, tFloat32 upperBound, tFloat32 lowerBound)
+{
+    tFloat32 outputVar;
+
+    if(inputVar > upperBound)
+        outputVar = upperBound;
+    else if (inputVar < lowerBound)
+        outputVar = lowerBound;
+    else
+        outputVar = inputVar;
+
+    return outputVar;
 }
