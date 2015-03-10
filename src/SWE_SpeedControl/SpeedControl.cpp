@@ -1,27 +1,28 @@
-#include "stdafx.h"
 #include "SpeedControl.h"
 
 ADTF_FILTER_PLUGIN("SWE Motor Speed Controller", OID_ADTF_SWE_SPEEDCONTROL, SpeedControl)
 
-SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0), m_setPoint(0), m_currentState(0), m_lastState(0), m_goingForwards(0), m_lastSampleTime(0),m_timerStart(0), m_no_wait(true), m_last_pwm(0), m_last_brakeLights(0), m_last_reverseLights(0), m_last_DirectionSent(0), m_initRun(0)
+#define TIMER_RESOLUTION 1000000.0f
+
+SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0), m_gear(0), m_currentState(0), m_lastState(0), m_goingForwards(0), m_lastSampleTime(0),m_timerStart(0), m_no_wait(true), m_last_pwm(0), m_last_brakeLights(0), m_last_reverseLights(0), m_last_DirectionSent(0), m_initRun(0)
 {
-    SetPropertyFloat("Gear 3 PWM value",20); //the pwm value sent to the car motor when driving in this gear. In percent 0 = stop/neutral
-    SetPropertyFloat("Gear 3 speed threshold",150); // the speed in mm/s (measured) at which the controller decides it has reached the desired gear/speed
+    SetPropertyFloat("Gear 3 PWM value",20); //the forward control pwm value sent to the car motor when driving in this gear. In percent 0 = stop/neutral
+    SetPropertyFloat("Gear 3 speed threshold",1200); // the speed in mm/s (measured) at which the controller decides it has left this speed window => the upper limit of this speed window, the actual speed will be between this and the limit of the gear below this
 
     SetPropertyFloat("Gear 2 PWM value",15);
-    SetPropertyFloat("Gear 2 speed threshold",100);
+    SetPropertyFloat("Gear 2 speed threshold",600);
 
     SetPropertyFloat("Gear 1 PWM value",10);
-    SetPropertyFloat("Gear 1 speed threshold",50);
+    SetPropertyFloat("Gear 1 speed threshold",300);
 
-    SetPropertyFloat("Gear -1 PWM value", -10);
-    SetPropertyFloat("Gear -1 speed threshold",-50);
+    SetPropertyFloat("Gear -1 PWM value", -10); //reverse gear
+    SetPropertyFloat("Gear -1 speed threshold",-300);
 
     SetPropertyFloat("Gear -2 PWM value", -15);
-    SetPropertyFloat("Gear -2 speed threshold",-100);
+    SetPropertyFloat("Gear -2 speed threshold",-600);
 
     SetPropertyFloat("light brake strength", 0.03); //pwm value for light braking
-    SetPropertyFloat("strong brake strength",0.1);
+    SetPropertyFloat("strong brake strength",0.1);  //pwm value for strong braking
 
     SetPropertyFloat("acceleration boost", 1.1); //pwm boost value for acceleration 1.0 = no boost
 
@@ -47,10 +48,10 @@ tResult SpeedControl::CreateInputPins(__exception)
     cObjectPtr<IMediaType> pTypeSignalValue = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
     RETURN_IF_FAILED(pTypeSignalValue->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSignal));
 
-    RETURN_IF_FAILED(m_oInputVelocity.Create("car_velocity_odometry", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oInputVelocity.Create("car_velocity", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputVelocity));
 
-    RETURN_IF_FAILED(m_oInputSetPoint.Create("set_speed", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oInputSetPoint.Create("set_gear", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputSetPoint));
     RETURN_NOERROR;
 }
@@ -75,8 +76,11 @@ tResult SpeedControl::CreateOutputPins(__exception)
     cObjectPtr<IMediaType> pTypeSignalValue_direction = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue_direction,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
     RETURN_IF_FAILED(pTypeSignalValue_direction->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescSignal_direction));
 
-    RETURN_IF_FAILED(m_oOutputDirection.Create("Direction", pTypeSignalValue_direction, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oOutputDirection.Create("Direction_for_odometry", pTypeSignalValue_direction, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputDirection));
+
+    RETURN_IF_FAILED(m_oOutputSetPoint.Create("SetPoint_Speed", pTypeSignalValue_direction, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputSetPoint));
 
 
     // Struct for brake
@@ -121,15 +125,15 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     m_pwm_p3 = (tFloat32)GetPropertyFloat("Gear 3 PWM value",20);
     m_pwm_boost_p3 = (m_pwm_p3) * boostValue;
-    m_threshold_p3 = (tFloat32)GetPropertyFloat("Gear 3 speed threshold",150);
+    m_threshold_p3 = (tFloat32)GetPropertyFloat("Gear 3 speed threshold",1200);
 
     m_pwm_p2 = (tFloat32)GetPropertyFloat("Gear 2 PWM value",15);
     m_pwm_boost_p2 = (m_pwm_p2 ) * boostValue;
-    m_threshold_p2 = (tFloat32)GetPropertyFloat("Gear 2 speed threshold",100);
+    m_threshold_p2 = (tFloat32)GetPropertyFloat("Gear 2 speed threshold",600);
 
     m_pwm_p1 = (tFloat32)GetPropertyFloat("Gear 1 PWM value",10);
     m_pwm_boost_p1 = (m_pwm_p1 ) * boostValue;
-    m_threshold_p1 = (tFloat32)GetPropertyFloat("Gear 1 speed threshold",50);
+    m_threshold_p1 = (tFloat32)GetPropertyFloat("Gear 1 speed threshold",300);
 
 
     m_pwm_0 = 0;
@@ -139,12 +143,19 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     m_pwm_n1 = (tFloat32)GetPropertyFloat("Gear -1 PWM value",-10);
     m_pwm_boost_n1 = (m_pwm_n1) * boostValue;
-    m_threshold_n1 = (tFloat32)GetPropertyFloat("Gear -1 speed threshold",-50);
+    m_threshold_n1 = (tFloat32)GetPropertyFloat("Gear -1 speed threshold",-300);
 
     m_pwm_n2 = (tFloat32)GetPropertyFloat("Gear -2 PWM value",-15);
     m_pwm_boost_n2 = (m_pwm_n2) * boostValue;
-    m_threshold_n2 = (tFloat32)GetPropertyFloat("Gear -2 speed threshold",-100);
+    m_threshold_n2 = (tFloat32)GetPropertyFloat("Gear -2 speed threshold",-600);
 
+
+    m_setPoint_p3 = (m_threshold_p3 - m_threshold_p2) * 0.5 + m_threshold_p2;
+    m_setPoint_p2 = (m_threshold_p2 - m_threshold_p1) * 0.5 + m_threshold_p1;
+    m_setPoint_p1 = (m_threshold_p1 - m_threshold_p0) * 0.5 + m_threshold_p0;
+    m_setPoint_0  = 0;
+    m_setPoint_n1 = (m_threshold_n1 - m_threshold_n0) * 0.5 + m_threshold_n0;
+    m_setPoint_n2 = (m_threshold_n2 - m_threshold_n1) * 0.5 + m_threshold_n1;
 
 
     m_lightBrake = - 100*(tFloat32)GetPropertyFloat("light brake strength", 0.05);
@@ -155,7 +166,7 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     m_pwmScaler = (tFloat32)GetPropertyFloat("PWM scaler", 1.0);
 
-    m_stopTime =  (tInt32)GetPropertyInt("Stop Time in ms", 500) * 1000; //in ms
+    m_stopTime =  (tInt32)GetPropertyInt("Stop Time in ms", 500) * (TIMER_RESOLUTION / 1000.0) ; //in us
 
     m_initRun = 0;
     //m_timerStart_init = GetTime();
@@ -168,7 +179,7 @@ tResult SpeedControl::Start(__exception)
     return cFilter::Start(__exception_ptr);
     
     m_velocity = 0;
-    m_setPoint = 0;
+    m_gear = 0;
     m_currentState = 0;
     m_lastState = 0;
     m_goingForwards = 0;
@@ -181,6 +192,7 @@ tResult SpeedControl::Start(__exception)
     //m_last_DirectionSent = 0;
 
     m_initRun = 0;
+
     SetPWM(0);
     //m_timerStart_init = GetTime();
 
@@ -224,13 +236,12 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             //execute controller
             m_velocity = value;
 
-            if ( m_initRun > 200 )
+            if ( m_initRun > 80 )
             {
                 outputData = GetControllerValue();
             }
             else
                 m_initRun++;
-
 
             SetPWM(outputData);
 
@@ -261,9 +272,9 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 value = 3;
             }
 
-            m_setPoint = (tInt32)value;
+            m_gear = (tInt32)value;
 
-            if ( m_initRun > 200 )
+            if ( m_initRun > 80 )
             {
                 outputData = GetControllerValue();
             }
@@ -285,31 +296,19 @@ tResult SpeedControl::UpdateState()
     m_currentState = 0;
 
     if (m_velocity > m_threshold_p2) //is the car going forwards?
-    {
         m_currentState = 3;
-    }
     else if (m_velocity > m_threshold_p1)
-    {
         m_currentState = 2;
-    }
     else if (m_velocity > m_threshold_p0)
-    {
         m_currentState = 1;
-    }
 
     if ((m_velocity > m_threshold_n0) && (m_velocity < m_threshold_p0)) //has it stopped?
-    {
         m_currentState = 0;
-    }
 
     if (m_velocity < m_threshold_n0) //is it going backwards?
-    {
         m_currentState = -1;
-    }
     else if (m_velocity < m_threshold_n1)
-    {
         m_currentState = -2;
-    }
 
     RETURN_NOERROR;
 }
@@ -351,7 +350,7 @@ tFloat32 SpeedControl::GetControllerValue()
             SetReverseLights(false);
             SetDirection(1);
 
-            switch(m_setPoint)
+            switch(m_gear)
             {
             case 3:
                 SetBrakeLights(false);
@@ -371,7 +370,7 @@ tFloat32 SpeedControl::GetControllerValue()
             SetReverseLights(false);
             SetDirection(1);
 
-            switch(m_setPoint)
+            switch(m_gear)
             {
             case 3:
                 SetBrakeLights(false);
@@ -395,7 +394,7 @@ tFloat32 SpeedControl::GetControllerValue()
             SetReverseLights(false);
             SetDirection(1);
 
-            switch(m_setPoint)
+            switch(m_gear)
             {
             case 3:
                 SetBrakeLights(false);
@@ -420,7 +419,7 @@ tFloat32 SpeedControl::GetControllerValue()
         }
         else if (m_currentState == 0)
         {
-            switch(m_setPoint)
+            switch(m_gear)
             {
             case 3:
                 SetReverseLights(false);
@@ -465,7 +464,7 @@ tFloat32 SpeedControl::GetControllerValue()
             SetReverseLights(true);
             SetDirection(-1);
 
-            switch(m_setPoint)
+            switch(m_gear)
             {
             case 3:
                 SetBrakeLights(true);
@@ -499,7 +498,7 @@ tFloat32 SpeedControl::GetControllerValue()
             SetReverseLights(true);
             SetDirection(-1);
 
-            switch(m_setPoint)
+            switch(m_gear)
             {
             case 3:
                 SetBrakeLights(true);

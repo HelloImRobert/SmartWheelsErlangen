@@ -13,8 +13,8 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR I
 */
 
 
-#ifndef _ATTITUDECONV_H_
-#define _ATTITUDECONV_H_
+#ifndef _SWE_ATTITUDECONV_H_
+#define _SWE_ATTITUDECONV_H_
 
 #define OID_ADTF_SWE_ATTITUDECONV "adtf.swe.attitudeconv"
 
@@ -67,4 +67,4 @@ class SWE_AttitudeConverter : public adtf::cFilter
 
 //*************************************************************************************************
 
-#endif // _ATTITUDECONV_H_
+#endif // _SWE_ATTITUDECONV_H_

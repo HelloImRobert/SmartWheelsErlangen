@@ -7,12 +7,13 @@
 #include "math.h"
 #include "SWE_cSmartSlidingWindow.h"
 #include "cSlidingWindow.h"
+#include "cmath"
 /*!
-* SmartWheels-Erlangen (Robert de Temple) bei Fragen => robert punkt detemple kringel gmail punkt com (the code is a mess, we know it, but it works very well)
-* Odometry based on bicycle model. Uses mainly gyro and wheel sensors.
+* Advanced Odometry implementing sensor fusion of gyro, accelerometer and wheel sensors.
+* SmartWheels-Erlangen (Robert de Temple) If you have any questions => robert punkt detemple kringel gmail punkt com (the code is a mess, we know it, but it works very well)
 * The relative position and heading are internally updated whenever a new data sample arrives.
 * Output of the accumulated position change in position and heading every time a trigger signal arrives (accumulated since last trigger).
-* All data sent out has the timestamp of the trigger signal.
+* All data sent has the timestamp of the trigger signal causing the output. This allows for synchonisation with image data (SWE_birdeyetrafo generates the trigger signals for us)
 
 -> odometry data contains the odometry data.
 -> velocity continuously sends the current (estimated) car speed, its value is smoothed for the speed controller.
@@ -104,8 +105,6 @@ class SWE_Odometry : public adtf::cFilter
         tResult OnPinEvent(IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample);
 	
     private:
-	/*!gets the actual time as a tTimeStamp */
-	tTimeStamp GetTime();
 		
     /*! Coder Descriptor for the pins, you usually need one for every outpit pin and one for every type of input pin*/
         cObjectPtr<IMediaTypeDescription>  m_pCoderDescSignal;
@@ -132,6 +131,7 @@ class SWE_Odometry : public adtf::cFilter
     tTimeStamp m_yawSampleTime_now;
     tTimeStamp m_accelerometerTimestamp_last;
     tTimeStamp m_accelerometerTimestamp_now;
+    tTimeStamp m_lastTimeStamp_wheels;
 
     tFloat32 m_heading_lastStep;        //heading after last odometry step
     tFloat32 m_heading_now;             //current reported heading (by sensor)
@@ -144,26 +144,29 @@ class SWE_Odometry : public adtf::cFilter
 	
     /*! other variables */
     //tFloat32 m_slippageAngle;
-    tFloat32 m_velocityLeft;         // current velocities measured on each wheel
+    tFloat32 m_velocityLeft;          // current velocities measured on each wheel
     tFloat32 m_velocityRight;
     tFloat32 m_velocityWheelSensors;  //current velocity of car (wheel measurements)
-    tFloat32 m_velocityCombined;        //current velocity of car (combined measurements)
-    tFloat32 m_velocityFiltered;    //velocity low-pass filtered for speed control
+    tFloat32 m_velocityCombined;      //current velocity of car (combined measurements)
+    tFloat32 m_velocityFiltered;      //velocity low-pass filtered for speed control
     tFloat32 m_velocityAccelerometer; //current (last step) velocity gain estimated by accelerometer values in mm/s
-    tFloat32 m_distanceX_sum;       //translation change since last trigger
-    tFloat32 m_distanceY_sum;       // """"
-    tFloat32 m_heading_sum;         //rotation change since last trigger
-    tFloat32 m_distanceAllSum;
-    tInt32   m_velocityResolution; //resolution of the velocity calculation 10 ~ max 10% error, 5 ~ max 20% error etc.
+    tFloat32 m_distanceX_sum;         //translation change since last trigger
+    tFloat32 m_distanceY_sum;         // """"
+    tFloat32 m_heading_sum;           //rotation change since last trigger
+    tFloat32 m_distanceAllSum;        //accumulated distance (counts backwards when driving backwards)
+    tFloat32 m_distanceAllSum_acc;    // "            "       derived from the combined velocity data
+    tFloat32 m_distanceAllSum_wheel;  // "            "       derived from the wheel speed sensors
+    tInt32   m_velocityResolution;    //resolution of the velocity calculation 10 ~ max 10% error, 5 ~ max 20% error etc.
+    tFloat32 m_current_turning_radius;//the current turning radius of the car
+    tBool    m_wheelsync;             //has the other wheel data arrived yet?
 
-    tFloat32 m_filterStrength;
+    // definable parameters
+    tFloat32 m_filterStrength;              //how strong should the velocity value on the velocity output pin be smoothed?
     tFloat32 m_wheelCircumfence;
-    tFloat32 m_acceleromter_weight;
-    tFloat32 m_accelerometer_compensation;
-    tFloat32 m_accelOffsetValue;
-
-    tBool m_wheelsync;
-    tBool m_useHighresDist;
+    tFloat32 m_acceleromter_weight;         //how much does the accelerometer data influence the output?
+    tFloat32 m_accelerometer_compensation;  //constant magnitude drift compensation value
+    tFloat32 m_accelOffsetValue;            //constant offset to the accelerometer data
+    tBool    m_useHighresDist;              //use distance estimation based on velocity? (instead based on wheel sensor data) -> much higher resolution but prone to some small drift
 
     /*! sliding window filter for the left wheel*/
     SWE_cSmartSlidingWindow m_SlidingWindowCntLeftWheel;
@@ -182,22 +185,21 @@ class SWE_Odometry : public adtf::cFilter
     /*! calc and send odometry */
     tResult CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last); // a single integration step //TODO
     tResult SendOdometry(tTimeStamp timestamp);
+    tFloat32  GetExtrapolatedHeadingDiff(tTimeStamp time_now);      //extrapolate heading from last known heading sample to this moment
 
     /*! helpers */
-    tFloat32 GetAngleDiff(tFloat32 angle_new, tFloat32 angle_old); //get the smaller difference in heading angle. Angles: +PI.....-PI
+    tFloat32 GetAngleDiff(tFloat32 angle_new, tFloat32 angle_old);  //get the smaller difference in heading angle. Angles: +PI.....-PI
     tFloat32 CalcDistance(tInt32 direction, tFloat32 pulses);       //get the distance between the wheelpulses
-    tFloat32 CompensatePitchInfluence(tFloat32 accel_value); //comensate the influence of gravity due to non-zero pitching angles on the accelerometer values
+    tFloat32 CompensatePitchInfluence(tFloat32 accel_value);        //comensate the influence of gravity due to non-zero pitching angles on the accelerometer values
+    tTimeStamp GetTime();                                           //returns the current time in microseconds
 
     /*! calculate and send velocity */
-    tResult  ProcessPulses(tTimeStamp timeStamp);               //does everything that needs to be done when a new sample of wheelsensor data arrived
-    tResult  CalcVelocity();                                    //calculate velocity from accumulated wheelsensor data
-    tResult  CalcCombinedVelocity();                                   //do sensor fusion on velocities to gain a stable, more dynamic velocity value
+    tResult  ProcessPulses(tTimeStamp timeStamp);                   //does everything that needs to be done when a new sample of wheelsensor data arrived
+    tResult  CalcVelocity();                                        //calculate velocity from accumulated wheelsensor data
+    tResult  CalcCombinedVelocity();                                //do sensor fusion on velocities to gain a stable, more dynamic velocity value
     tFloat32 FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity); //simple low pass filtering
     tResult  SendVelocity();
-
-    tResult  FilterPulses();                                   // heuristic filter for multiple hits at slow speeds due to jittery sensors
-
-    tFloat32  GetExtrapolatedHeadingDiff(tTimeStamp time_now); //extrapolate heading from last known heading sample to this moment
+    tResult  FilterPulses();                                        // heuristic filter to filter out false multiple hits at slow speeds due to jittery sensors
 };
 
 

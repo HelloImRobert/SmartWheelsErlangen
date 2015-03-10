@@ -1,14 +1,13 @@
 #include "SWE_Odometry.h"
-#include "SWE_cSmartSlidingWindow.h"
-#include "cSlidingWindow.h"
 
 #define WHEELBASE 359.0f
+#define CARWIDTH  260.0f //wheel center to wheel center
 #define WHEELPULSE_PER_TURN 16.0f //# of black and white bars in a wheel
 #define TIMESTAMP_RESOLUTION 1000.0f // for the Arduino timestamps
 #define TIMESTAMP_RESOLUTION_ADTF 1000000.0f //ADTF uses microseconds
 #define MAX_TICK_FILTER_VELOCITY 1000.0f //in mm/s
 #define MY_PI 3.14159265358979f
-#define MINIMUM_TURNING_RADIUS 600f // in mm -> actually ~ 680-ish ?
+#define MINIMUM_TURNING_RADIUS 600.0f // in mm -> actually ~ 680-ish ?
 #define LOCAL_GRAVITY 9810.0f //gravity in mm/s²
 #define ACCELEROMETER_INPUT_SCALING 1.2757f //with this factor the values will be in mm/s² !!important!! : the values shown in the AUDI GUI are already scaled, better look up the values in a signal view. You can also use a calibration filter.
 
@@ -32,12 +31,16 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     m_velocityCombined = 0;
 
     m_lastPinEvent = GetTime();
-    m_lastTriggerTime = GetTime();
+    m_lastTriggerTime = 0;
 
     m_distanceX_sum = 0;
     m_distanceY_sum = 0;
     m_heading_sum = 0;
     m_distanceAllSum = 0;
+    m_distanceAllSum_acc = 0;
+    m_distanceAllSum_wheel = 0;
+    m_current_turning_radius = 0;
+
 
     m_wheelDelta_left = 0;
     m_wheelDelta_right = 0;
@@ -51,10 +54,13 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     m_accelerometerTimestamp_last = 0;
     m_accelerometerTimestamp_now = 0;
 
+    m_lastTimeStamp_wheels = 0;
+
 
     //DEBUG:
     //m_currentDirection = 0;
     m_currentDirection = 1;
+
     debugvar = 0;
 
     m_wheelsync = false;
@@ -99,7 +105,6 @@ tResult SWE_Odometry::Start(__exception)
     m_heading_sum = 0;
 
     m_lastPinEvent = GetTime();
-    m_lastTriggerTime = GetTime();
 
 
     //DEBUG:
@@ -284,6 +289,9 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             tFloat32 buffer;
             tUInt32 delta;
 
+            if(!m_wheelsync)
+                m_lastTimeStamp_wheels = timeStamp;
+
             // read-out the incoming Media Sample
             cObjectPtr<IMediaCoder> pCoderInput;
             RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoderInput));
@@ -314,6 +322,9 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             tTimeStamp timeStamp;
             tFloat32 buffer;
             tUInt32 delta;
+
+            if(!m_wheelsync)
+                m_lastTimeStamp_wheels = timeStamp;
 
             // read-out the incoming Media Sample
             cObjectPtr<IMediaCoder> pCoderInput;
@@ -441,11 +452,6 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             //calc odometry step
             CalcOdometryStep(current_time,  m_lastPinEvent);
 
-            //DEBUG
-            //debugvar = m_velocityWheelSensors;
-            //debugvar = m_pitch_now;
-            //debugvar = m_accelerometerValue_now;
-            //SendVelocity();
             SendVelocity();
 
             m_lastPinEvent = current_time;
@@ -506,7 +512,7 @@ tResult  SWE_Odometry::CalcCombinedVelocity()
     if (intervall < 0)
         intervall = 0;
 
-    m_velocityAccelerometer = intervall * ((m_accelerometerValue_now )); //OPTION: + m_accelerometerValue_old) / 2.0); //the change in velocity since the last sample
+    m_velocityAccelerometer = intervall * ((m_accelerometerValue_now )); //OPTIONAL: + m_accelerometerValue_old) / 2.0); //the change in velocity since the last sample
 
     // apply new acceleration value
     m_velocityCombined = m_velocityCombined  +  m_velocityAccelerometer;
@@ -542,8 +548,7 @@ tResult  SWE_Odometry::CalcCombinedVelocity()
     if (m_currentDirection == 0)
         m_velocityCombined = 0;
 
-    if(m_useHighresDist)
-        m_distanceAllSum = m_distanceAllSum + (intervall * m_velocityCombined);
+    m_distanceAllSum_acc = m_distanceAllSum + (intervall * m_velocityCombined);
 
     //calc filtered velocity
     m_velocityFiltered = FilterVelocity(m_filterStrength, m_velocityFiltered, m_velocityCombined );
@@ -556,8 +561,37 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
 
     FilterPulses();
 
-    if(!m_useHighresDist)
-        m_distanceAllSum = m_distanceAllSum + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
+    m_distanceAllSum_wheel = m_distanceAllSum + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
+
+    //calculate absolute distance moved
+    if(m_useHighresDist)
+    {
+        tFloat compensation;
+        //compensate the drift, but only when moving (the wheelsensor distance is defined as ground truth -> that is, well some kind of hope at least.... ;-)
+        compensation = 0.01 * fabs(m_velocityCombined) * ((tFloat32)(timeStamp - m_lastTimeStamp_wheels)/ TIMESTAMP_RESOLUTION);
+
+        if ((m_distanceAllSum_wheel - m_distanceAllSum_acc) >= 0)
+        {
+            if((m_distanceAllSum_wheel - m_distanceAllSum_acc) < compensation) //when very close to each other
+                compensation = (m_distanceAllSum_wheel - m_distanceAllSum_acc);
+        }
+        else
+        {
+            compensation = -compensation;
+
+            if((m_distanceAllSum_wheel - m_distanceAllSum_acc) > compensation)
+                compensation = (m_distanceAllSum_wheel - m_distanceAllSum_acc);
+        }
+        m_distanceAllSum = m_distanceAllSum_acc + compensation;
+    }
+    else
+        m_distanceAllSum = m_distanceAllSum_wheel;
+
+    //DEBUG
+    //debugvar = m_velocityWheelSensors;
+    //debugvar = 666;
+    //debugvar = debugvar + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
+    //SendVelocity();
 
     m_SlidingWindowCntLeftWheel.AddNewValue(m_wheelDelta_left, timeStamp);
     m_SlidingWindowCntRightWheel.AddNewValue(m_wheelDelta_right, timeStamp);
@@ -570,22 +604,14 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
 tResult SWE_Odometry::CalcVelocity()
 {
     if (m_SlidingWindowCntLeftWheel.GetTime() > 0)
-    {
         m_velocityLeft = (((tFloat32)m_SlidingWindowCntLeftWheel.GetPulses() / m_SlidingWindowCntLeftWheel.GetTime() ) / WHEELPULSE_PER_TURN) * m_wheelCircumfence * TIMESTAMP_RESOLUTION * m_currentDirection;
-    }
     else
-    {
         m_velocityLeft = 0.0;
-    }
 
     if (m_SlidingWindowCntRightWheel.GetTime() > 0)
-    {
         m_velocityRight = (((tFloat32)m_SlidingWindowCntRightWheel.GetPulses() / m_SlidingWindowCntRightWheel.GetTime() ) / WHEELPULSE_PER_TURN) * m_wheelCircumfence * TIMESTAMP_RESOLUTION * m_currentDirection;
-    }
     else
-    {
         m_velocityRight = 0.0;
-    }
 
     m_velocityWheelSensors = ((m_velocityLeft + m_velocityRight) / 2.0);
 
@@ -595,28 +621,43 @@ tResult SWE_Odometry::CalcVelocity()
 tResult SWE_Odometry::FilterPulses()
 {
     tFloat32 relativeDelta;
+    tFloat32 turningRadius;
 
-    relativeDelta = 1.0;
+    turningRadius = fabs(m_current_turning_radius); //positive turning radius = left wheel turns slower
 
-    //if the delta of pulses between both wheels differs by more than 1 pulse + 100% then its probably a pulse-burst (sensor error)
+    // keep turning radius within possible values (can be estimated to be lower due to quantization and other measurement errors)
+    if (turningRadius < MINIMUM_TURNING_RADIUS)
+        turningRadius = MINIMUM_TURNING_RADIUS;
+
+    relativeDelta = (turningRadius / (turningRadius - CARWIDTH)); //the wheelpulses can differ by this much at this turning radius
+
+    // if the delta of pulses between both wheels differs by more than the allowed relative delta + 1 pulse then its probably a pulse-burst (sensor error) and that usually happens when only one pulse should be registered.
     // if car is stopped don't accept pulses at all
-    // possible improvement: make relativeDelta (the worst-case 100%) dependend on current turning radius
     if(m_currentDirection == 0)
     {
         m_wheelDelta_left = 0;
         m_wheelDelta_right = 0;
     }
-    else if( (tInt32)(m_wheelDelta_left - m_wheelDelta_right) > (1 + ( relativeDelta * m_wheelDelta_right )) )
+    else if((m_current_turning_radius < 0) && ( (m_wheelDelta_left) > (1 + ( ((relativeDelta) + 0.1) * m_wheelDelta_right )) )) //left wheel too fast?
     {
-        m_wheelDelta_left = m_wheelDelta_right;
+        m_wheelDelta_left = floor(1 + ( ((relativeDelta) + 0.1) * m_wheelDelta_right ));
     }
-    else if( (tInt32)(m_wheelDelta_right - m_wheelDelta_left) > (1 + ( relativeDelta * m_wheelDelta_left )) )
+    else if((m_current_turning_radius < 0) && ( (1 + (m_wheelDelta_left / (relativeDelta - 0.1))) < (m_wheelDelta_right ) ))    //right wheel too fast?
     {
-        m_wheelDelta_right = m_wheelDelta_left;
+        m_wheelDelta_right = floor(1 + (m_wheelDelta_left / (relativeDelta - 0.1)));
+    }
+    else if ((m_current_turning_radius >= 0) && ( (m_wheelDelta_right) > (1 + ( (relativeDelta + 0.1) * m_wheelDelta_left )) )) //right wheel too fast?
+    {
+        m_wheelDelta_right = floor(1 + ( (relativeDelta + 0.1) * m_wheelDelta_left ));
+    }
+    else if ((m_current_turning_radius >= 0) && ( (1 + (m_wheelDelta_right / (relativeDelta - 0.1))) < ( m_wheelDelta_left ) )) //left wheel too fast?
+    {
+        m_wheelDelta_left = floor(1 + (m_wheelDelta_right / (relativeDelta - 0.1)));
     }
 
     RETURN_NOERROR;
 }
+
 
 // ****************************************************************************************************************
 //                                          Odometry Main calculations
@@ -648,7 +689,6 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
         distance_driven = 0;
     }
 
-
     // ------ calculate current turning radius ---------
 
     if (heading_diff != 0)
@@ -660,9 +700,11 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
         radius = 1000000;
     }
 
+    //smoothed radius
+    m_current_turning_radius = 0.33 * radius + 0.67 * m_current_turning_radius;
+
     //absolute value...
-    if(radius < 0)
-        radius *= (-1);
+    radius = fabs(radius);
 
 
     // -------- calculate relative movement -------
@@ -755,7 +797,7 @@ tFloat32 SWE_Odometry::CalcDistance(tInt32 direction, tFloat32 pulses)
 
 tTimeStamp SWE_Odometry::GetTime()
 {
-    return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
+    return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime(); // in microseconds
 }
 
 tFloat32  SWE_Odometry::FilterVelocity(tFloat32 filter_strength, tFloat32 old_velocity, tFloat32 new_velocity)
