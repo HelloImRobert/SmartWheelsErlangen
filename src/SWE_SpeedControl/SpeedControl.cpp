@@ -217,6 +217,8 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
         RETURN_IF_POINTER_NULL( pMediaSample);
 
+        m_mutex.Enter(); //serialize the whole filter for data consistency
+
         if (pSource == &m_oInputVelocity)
         {
             cObjectPtr<IMediaCoder> pCoder;
@@ -245,8 +247,6 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
             SetPWM(outputData);
 
-
-
         }
         else if (pSource == &m_oInputSetPoint)
         {
@@ -274,27 +274,29 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 value = 3;
             }
 
-            m_gear = (tInt32)value;
-
-            //DEBUG
-            LOG_ERROR(cString("PP: gear set to " + cString::FromInt32(m_gear)));
-
-            if ( m_initRun > 80 )
+            if (m_gear != (tInt32)value) //keep from spamming the pwm output
             {
-                outputData = GetControllerValue();
+                m_gear = (tInt32)value;
+
+                //DEBUG
+                LOG_ERROR(cString("PP: gear set to " + cString::FromInt32(m_gear)));
+
+                if ( m_initRun > 80 )
+                {
+                    outputData = GetControllerValue();
+                }
+                else
+                    m_initRun++;
+
+                SetPWM(outputData);
+
+                //DEBUG
+                LOG_ERROR(cString("PP: finished setting gear to " + cString::FromInt32(m_gear)));
             }
-            else
-                m_initRun++;
-
-            SetPWM(outputData);
-
-            //DEBUG
-            LOG_ERROR(cString("PP: finished setting gear to " + cString::FromInt32(m_gear)));
 
         }
-        else
 
-            RETURN_NOERROR;
+        m_mutex.Leave();
     }
     RETURN_NOERROR;
 }
@@ -340,7 +342,7 @@ tFloat32 SpeedControl::GetControllerValue()
 
     //------------ make sure that the car really stops before driving again----------------
     if (( (( m_last_pwm <= m_pwm_0 ) && ( m_lastState > 0 ) && ( m_currentState == 0 ))
-         ||  (( m_last_pwm >= m_pwm_0 ) && ( m_lastState < 0 ) && ( m_currentState == 0 )) ) && (m_no_wait)  )//has car just stopped (willingly)?
+          ||  (( m_last_pwm >= m_pwm_0 ) && ( m_lastState < 0 ) && ( m_currentState == 0 )) ) && (m_no_wait)  )//has car just stopped (willingly)?
     {
         SetPWM(m_pwm_0);
         m_no_wait = false;  //wait until standing completly still (=> to make sure that the new direction sent to the odometry is only sent when standing completely still....)
@@ -348,9 +350,9 @@ tFloat32 SpeedControl::GetControllerValue()
     }
     else if (( !m_no_wait ) && (( GetTime() - m_timerStart ) >= m_stopTime )) //if stopping time passed...
     {
-            m_no_wait = true; //... allow new acceleration values...
-            SetCarStopped(true); // ... and tell other filters that the car has just stopped
-            SetDirection(0);
+        m_no_wait = true; //... allow new acceleration values...
+        SetCarStopped(true); // ... and tell other filters that the car has just stopped
+        SetDirection(0);
     }
 
     if (m_no_wait)
@@ -780,4 +782,10 @@ tResult SpeedControl::WaitIdle(tUInt32 idletime)
 tTimeStamp SpeedControl::GetTime()
 {
     return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
+}
+
+tResult SpeedControl::SetSetPoint(tFloat32 value)
+{
+
+    RETURN_NOERROR;
 }

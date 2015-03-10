@@ -27,8 +27,8 @@ SWE_ControllerFilter::SWE_ControllerFilter(const tChar* __info) : cFilter(__info
     SetPropertyFloat("max output",100);
     SetPropertyFloat("min output",-100);
 
-    SetPropertyFloat("max controller influence upper",10);
-    SetPropertyFloat("max controller influence lower",-10);
+    SetPropertyFloat("max controller influence upper",15);
+    SetPropertyFloat("max controller influence lower",-15);
 
     SetPropertyBool("Use Feed Forward", true);
     SetPropertyBool("Feed-Forward = 0 => output = 0", true); //off means off e.g. when used as second/cascaded controller controlling the motor to ensure safe stopping
@@ -86,8 +86,8 @@ tResult SWE_ControllerFilter::Init(tInitStage eStage, __exception)
         m_maxOutput = (tFloat32)GetPropertyFloat("max output",100);
         m_minOutput = (tFloat32)GetPropertyFloat("min output",-100);
 
-        m_maxInfluence_upper = (tFloat32)GetPropertyFloat("max controller influence upper",10);
-        m_maxInfluence_lower = (tFloat32)GetPropertyFloat("max controller influence lower",-10);
+        m_maxInfluence_upper = (tFloat32)GetPropertyFloat("max controller influence upper",15);
+        m_maxInfluence_lower = (tFloat32)GetPropertyFloat("max controller influence lower",-15);
 
         m_useFF = (tBool)GetPropertyBool("Use Feed Forward", true);
         m_offMeansOff = (tBool)GetPropertyBool("Feed-Forward = 0 => output = 0", true);
@@ -114,6 +114,10 @@ tResult SWE_ControllerFilter::Start(__exception)
     return cFilter::Start(__exception_ptr);
 
     m_accumulatedVariable = 0;
+    m_lastSampleTime = GetTime();
+    m_feedForward = 0;
+    m_measuredVariable = 0;
+    m_setPoint = 0;
 }
 
 tResult SWE_ControllerFilter::Stop(__exception)
@@ -248,6 +252,8 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
         //y = Kp * e + Ki * Ta * esum
         m_accumulatedVariable +=(m_setPoint-measuredValue);
 
+        LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
+
         returnvalue = m_Kp*(m_setPoint-measuredValue) + m_Ki*sampleTime*m_accumulatedVariable;
 
         if(m_useFF)
@@ -261,6 +267,8 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
         //ealt = e
         m_accumulatedVariable +=(m_setPoint-measuredValue);
 
+        LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
+
         returnvalue =  m_Kp*(m_setPoint-measuredValue) + m_Ki*sampleTime*m_accumulatedVariable + m_Kd*((m_setPoint-measuredValue)-m_lastMeasuredError)/sampleTime;
 
         if(m_useFF)
@@ -273,10 +281,7 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
 
 
     // keep within boundries
-    if(returnvalue > m_maxOutput)
-        returnvalue = m_maxOutput;
-    else if(returnvalue < m_minOutput)
-        returnvalue = m_minOutput;
+    LimitValue(returnvalue, m_maxOutput, m_minOutput);
 
     return returnvalue;
 }

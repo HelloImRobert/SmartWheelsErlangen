@@ -485,9 +485,11 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             m_distanceY_sum = 0;
             m_heading_sum = 0;
         }
+
+        m_mutex.Leave();
     }
 
-    m_mutex.Leave();
+
 
     RETURN_NOERROR;
 }

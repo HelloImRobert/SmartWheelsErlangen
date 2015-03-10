@@ -27,7 +27,7 @@ class SpeedControl : public adtf::cFilter
         cOutputPin m_oOutputbrakelight;         // output pins for brakelights and reverse lights
         cOutputPin m_oOutputreverse;            //   "     "    "       "       "     "      "
         cOutputPin m_oOutputDirection;          // the direction in wich the car currently travelles -> needed by the odometry 1, 0,-1
-        cOutputPin m_oOutputSetPoint;           // the current speed this controller expects or wishes the car to be -> used as setPoint for a cascaded secondary controller
+        cOutputPin m_oOutputSetPoint;           // the current speed this controller expects or wishes the car to be -> used as input setPoint for a cascaded secondary controller
     public:
         SpeedControl(const tChar* __info);
         virtual ~SpeedControl();
@@ -89,6 +89,10 @@ class SpeedControl : public adtf::cFilter
 
 		/*! returns the currentstreamtime*/
 		tTimeStamp GetTime();
+
+        /*! sends the current setPoint to the controller behind it */
+
+        tResult SetSetPoint(tFloat32 value);
 
 
 
@@ -166,6 +170,9 @@ class SpeedControl : public adtf::cFilter
         tFloat32 m_last_DirectionSent;
 
         tInt32 m_initRun;
+
+        /*! Lock */
+        cCriticalSection m_mutex;
 
 
 	    /*! Coder Descriptor for the pins*/
