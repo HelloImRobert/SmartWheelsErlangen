@@ -568,7 +568,7 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
     {
         tFloat compensation;
         //compensate the drift, but only when moving (the wheelsensor distance is defined as ground truth -> that is, well some kind of hope at least.... ;-)
-        compensation = 0.01 * fabs(m_velocityCombined) * ((tFloat32)(timeStamp - m_lastTimeStamp_wheels)/ TIMESTAMP_RESOLUTION);
+        compensation = 0.02 * fabs(m_velocityCombined) * ((tFloat32)(timeStamp - m_lastTimeStamp_wheels)/ TIMESTAMP_RESOLUTION);
 
         if ((m_distanceAllSum_wheel - m_distanceAllSum_acc) >= 0)
         {
@@ -582,14 +582,16 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
             if((m_distanceAllSum_wheel - m_distanceAllSum_acc) > compensation)
                 compensation = (m_distanceAllSum_wheel - m_distanceAllSum_acc);
         }
-        m_distanceAllSum = m_distanceAllSum_acc + compensation;
+        m_distanceAllSum_acc = m_distanceAllSum_acc + compensation;
+
+        m_distanceAllSum = m_distanceAllSum_acc;
     }
     else
         m_distanceAllSum = m_distanceAllSum_wheel;
 
     //DEBUG
     //debugvar = m_velocityWheelSensors;
-    //debugvar = 666;
+    debugvar = m_distanceAllSum_wheel;
     //debugvar = debugvar + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
     //SendVelocity();
 
@@ -638,6 +640,9 @@ tResult SWE_Odometry::FilterPulses()
         m_wheelDelta_left = 0;
         m_wheelDelta_right = 0;
     }
+
+    //DEBUG
+    /*
     else if((m_current_turning_radius < 0) && ( (m_wheelDelta_left) > (1 + ( ((relativeDelta) + 0.1) * m_wheelDelta_right )) )) //left wheel too fast?
     {
         m_wheelDelta_left = floor(1 + ( ((relativeDelta) + 0.1) * m_wheelDelta_right ));
@@ -654,6 +659,7 @@ tResult SWE_Odometry::FilterPulses()
     {
         m_wheelDelta_left = floor(1 + (m_wheelDelta_right / (relativeDelta - 0.1)));
     }
+    */
 
     RETURN_NOERROR;
 }
@@ -890,8 +896,8 @@ tResult SWE_Odometry::SendVelocity()
     //write date to the media sample with the coder of the descriptor
     m_pCoderVelocityOut->WriteLock(pMediaSample, &pCoder);
 
-    pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
-    //pCoder->Set("f32Value", (tVoid*)&(debugvar));
+    //pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
+    pCoder->Set("f32Value", (tVoid*)&(debugvar));
 
 
     pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&m_lastPinEvent);
