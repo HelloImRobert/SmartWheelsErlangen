@@ -204,6 +204,10 @@
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="2" name="StopLinePoint1" type="tPoint2d" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="22" name="StopLinePoint2" type="tPoint2d" />
 		</struct>
+            <struct alignment="1" name="tRoadSign" version="1">
+            <element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="fl32Imagesize" type="tFloat32"/>
+            <element alignment="1" arraysize="1"               byteorder="LE" bytepos="4" name="i8Identifier" type="tInt8"/>
+    </struct>
 	</structs>
 	<streams />
 </adtf:ddl>

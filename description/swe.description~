@@ -203,7 +203,6 @@
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1" name="crossingType" type="tInt8" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="2" name="StopLinePoint1" type="tPoint2d" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="22" name="StopLinePoint2" type="tPoint2d" />
->>>>>>> 359d6bd0c5930487169f9b3a0848f8cb46934c3a
 		</struct>
 	</structs>
 	<streams />

@@ -37,7 +37,7 @@ cSWE_KIControl::~cSWE_KIControl()
 
 tResult cSWE_KIControl::CreateInputPins(__exception)
 {
-    //MB NeuetInt8SignalValue Pins
+    //MB NeuetInt8SignalValue PinstPointstPointstPoints
 
 
     RETURN_IF_FAILED(m_oInputObjectData.Create("ObjectData", new cMediaType(0, 0, 0, "tPoints"), static_cast<IPinEventSink*> (this)));
@@ -128,6 +128,9 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
 
         //Hier XML Datei einlesen etc
         //Dummmy funktion bis xml einlesen steht
+
+
+
         CommandCounter=6;
       Commands.push_back(1);
       Commands.push_back(2);
