@@ -9,7 +9,7 @@
 #define MY_PI 3.14159265358979f
 #define MINIMUM_TURNING_RADIUS 600.0f // in mm -> actually ~ 680-ish ?
 #define PITCH_COMPENSATION_STRENGTH 9810.0f //gravity in mm/s2
-#define ACCELEROMETER_INPUT_SCALING 1000.0f //with this factor the values will be in mm/s2 !!important!! : the values shown in the AUDI GUI are already scaled, better look up the values in a signal view. You can also use a calibration filter.
+#define ACCELEROMETER_INPUT_SCALING 1000.0f //with this factor the values will be in mm/s2
 
 
 
@@ -541,6 +541,12 @@ tResult  SWE_Odometry::CalcCombinedVelocity()
 
     m_velocityAccelerometer = intervall * ((m_accelerometerValue_now )); //OPTIONAL: + m_accelerometerValue_old) / 2.0); //the change in velocity since the last sample
 
+    //DEBUG
+    //debugvar = m_velocityAccelerometer;
+    //debugvar = m_velocityWheelSensors;
+    //debugvar = debugvar + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
+    //SendVelocity();
+
     // apply new acceleration value
     m_velocityCombined = m_velocityCombined  +  m_velocityAccelerometer;
 
@@ -616,11 +622,7 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
     else
         m_distanceAllSum = m_distanceAllSum_wheel;
 
-    //DEBUG
-    //debugvar = m_velocityWheelSensors;
-    //debugvar = m_velocityWheelSensors;
-    //debugvar = debugvar + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
-    //SendVelocity();
+
 
     m_SlidingWindowCntLeftWheel.AddNewValue(m_wheelDelta_left, timeStamp);
     m_SlidingWindowCntRightWheel.AddNewValue(m_wheelDelta_right, timeStamp);
@@ -924,6 +926,7 @@ tResult SWE_Odometry::SendVelocity()
     //write date to the media sample with the coder of the descriptor
     m_pCoderVelocityOut->WriteLock(pMediaSample, &pCoder);
 
+    //DEBUG
     pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
     //pCoder->Set("f32Value", (tVoid*)&(debugvar));
 
