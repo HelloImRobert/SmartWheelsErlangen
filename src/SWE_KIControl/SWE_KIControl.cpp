@@ -40,11 +40,6 @@ tResult cSWE_KIControl::CreateInputPins(__exception)
     //MB NeuetInt8SignalValue PinstPointstPointstPoints
 
 
-    RETURN_IF_FAILED(m_oInputObjectData.Create("ObjectData", new cMediaType(0, 0, 0, "tPoints"), static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oInputObjectData));
-
-    RETURN_IF_FAILED(m_oInputRoadData.Create("RoadData", new cMediaType(0, 0, 0, "tPoints"), static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_oInputRoadData));
 
 
 
@@ -57,11 +52,18 @@ tResult cSWE_KIControl::CreateInputPins(__exception)
     RETURN_IF_FAILED(RegisterPin(&m_oInputTC));
 
 
+
+
+
     RETURN_IF_FAILED(m_oInputSignData.Create("SignData", new cMediaType(0, 0, 0, "tRoadSign"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputSignData));
 
 
+    RETURN_IF_FAILED(m_oInputObjectData.Create("ObjectData", new cMediaType(0, 0, 0, "tPointArray"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oInputObjectData));
 
+    RETURN_IF_FAILED(m_oInputRoadData.Create("RoadData", new cMediaType(0, 0, 0, "tPointArray"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oInputRoadData));
 
     RETURN_NOERROR;
 }
@@ -225,7 +227,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
 
-           pCoder->Get("PointArray", (tVoid*)&objecte); //Werte auslesen
+           pCoder->Get("tPoint", (tVoid*)&objecte); //Werte auslesen
             m_pCoderDescInputMeasured->Unlock(pCoder);
             //Hier die Objekte auslesen, und in eigene Vecor bauen
 
@@ -238,7 +240,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         {
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
-            pCoder->Get("PointArray", (tVoid*)&objecte); //Werte auslesen
+            pCoder->Get("tPoint", (tVoid*)&objecte); //Werte auslesen
             m_pCoderDescInputMeasured->Unlock(pCoder);
             //Punkte liste fuellen
 
