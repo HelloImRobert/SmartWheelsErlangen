@@ -15,11 +15,11 @@ cSWE_TrajectoryPlanning::cSWE_TrajectoryPlanning(const tChar* __info) : cFilter(
 {
     SetPropertyFloat("maximum distance",1300.0);
     SetPropertyFloat("maximum direction angle",40*CV_PI/180);
-    SetPropertyFloat("break Angle",40*CV_PI/180);
+    SetPropertyFloat("break Angle",60*CV_PI/180);
     SetPropertyFloat("insertion distance",100.0);
     SetPropertyFloat("road width",900.0);
     SetPropertyFloat("max road width deviation",100.0);
-    SetPropertyFloat("tracking point distance",400.0);
+    SetPropertyFloat("tracking point distance",500.0);
     SetPropertyFloat("intersection angle",90*CV_PI/180);
 }
 

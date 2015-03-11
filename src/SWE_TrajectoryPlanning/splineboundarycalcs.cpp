@@ -465,7 +465,7 @@ std::vector< std::pair< size_t, size_t > > splineBoundaryCalcs::extractPlausible
     }
 
     // delete segments not fullfilling maxDirectionAngle criteria
-    for( size_t i = 0; i < toErase.size(); i++ )
+    for (int i = static_cast<int>(toErase.size()) - 1 ; i >= 0; i--)
     {
         plausibleSegments.erase( plausibleSegments.begin() + toErase[i] );
     }
