@@ -785,68 +785,73 @@ void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobD
 {
     std::vector<Vec4i> hierarchy;
 
-    // draw the orientation properties for every plausible blob
-    for (size_t i = 0; i < blobs.size(); ++i)
-    {
-        const BlobDescriptor& blob = blobs[i];
-        cv::Point currentCenterOfGravity = ( _resultImageScaleFactor * blob.centerOfGravity ) + _resultImageOffsetVector;
+		// draw the orientation properties for every plausible blob
+		for (size_t i = 0; i < blobs.size(); ++i)
+		{
+			const BlobDescriptor& blob = blobs[i];
+            cv::Point currentCenterOfGravity = ( _resultImageScaleFactor * blob.centerOfGravity ) + _resultImageOffsetVector;
 
-        circle(image, currentCenterOfGravity, 3, CV_RGB(255, 0, 255), 2);
-        line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[0].x * _resultImageScaleFactor * blob.eigen_vals[0], blob.eigen_vecs[0].y * _resultImageScaleFactor * blob.eigen_vals[0]), CV_RGB(255, 255, 0));
-        line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[1].x * _resultImageScaleFactor * blob.eigen_vals[1], blob.eigen_vecs[1].y * _resultImageScaleFactor * blob.eigen_vals[1]), CV_RGB(255, 255, 0));
-    }
+            if(blob.complexBoundaryIndicator)
+            {
+                circle(image, currentCenterOfGravity, 8, CV_RGB(255, 0, 0), 2);
+            }
 
-    // draw the outer lane boundaries
-    for (int i = 0; i < outerLaneBoundariesIndicator; i++)
-    {
-        std::vector< std::vector< cv::Point > > contourToPaint;
+			circle(image, currentCenterOfGravity, 3, CV_RGB(255, 0, 255), 2);
+            line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[0].x * _resultImageScaleFactor * blob.eigen_vals[0], blob.eigen_vecs[0].y * _resultImageScaleFactor * blob.eigen_vals[0]), CV_RGB(255, 255, 0));
+            line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[1].x * _resultImageScaleFactor * blob.eigen_vals[1], blob.eigen_vecs[1].y * _resultImageScaleFactor * blob.eigen_vals[1]), CV_RGB(255, 255, 0));
+		}
 
-        const BlobDescriptor& blob = blobs[i];
+		// draw the outer lane boundaries
+		for (size_t i = 0; i < outerLaneBoundariesIndicator; i++)
+		{
+            std::vector< std::vector< cv::Point > > contourToPaint;
 
-        // choose the color depending on the recognition
-        Scalar color;
-        if (blob.side == LEFT)
-        {
-            color = cv::Scalar(255, 0, 0);
-        }
-        else if (blob.side == RIGHT)
-        {
-            color = cv::Scalar(0, 255, 0);
-        }
-        else
-        {
-            color = cv::Scalar(0, 0, 255);
-        }
+			const BlobDescriptor& blob = blobs[i];
+			
+			// choose the color depending on the recognition
+			Scalar color;
+			if (blob.side == LEFT)
+			{
+				color = cv::Scalar(255, 0, 0);
+			}
+			else if (blob.side == RIGHT)
+			{
+				color = cv::Scalar(0, 255, 0);
+			}
+			else
+			{
+				color = cv::Scalar(0, 0, 255);
+			}
 
-        // offset the contours to fit nicely into the resultImage
-        contourToPaint.push_back(blob.contour);
-        for (size_t j = 0; j < contourToPaint[0].size(); ++j)
-        {
-            contourToPaint[0][j] *= _resultImageScaleFactor;
-            contourToPaint[0][j] += _resultImageOffsetVector;
-        }
-        drawContours(image, contourToPaint, 0, color, 2, 8, hierarchy, 0, Point());
-    }
+			// offset the contours to fit nicely into the resultImage
+            contourToPaint.push_back(blob.contour);
+			for (size_t j = 0; j < contourToPaint[0].size(); ++j)
+			{
+                contourToPaint[0][j] *= _resultImageScaleFactor;
+				contourToPaint[0][j] += _resultImageOffsetVector;
+			}
+			drawContours(image, contourToPaint, 0, color, 2, 8, hierarchy, 0, Point());
+		}
 
-    // paint the middle lane boundary
-    cv::Scalar color = cv::Scalar(255, 255, 255);
-    std::vector < std::vector < cv::Point > > contourToDraw;
-    for (size_t i = 0; i < middleLaneBoundary.size(); ++i)
-    {
-        contourToDraw.push_back(middleLaneBoundary[i]->contour);
+		// paint the middle lane boundary
+		cv::Scalar color = cv::Scalar(255, 255, 255);
+		std::vector < std::vector < cv::Point > > contourToDraw;
+		for (size_t i = 0; i < middleLaneBoundary.size(); ++i)
+		{
+			contourToDraw.push_back(middleLaneBoundary[i]->contour);
+			
+			// offset the contours to fit nicely into the resultImage
+			for (size_t j = 0; j < contourToDraw[i].size(); ++j)
+			{
+                contourToDraw[i][j] *= _resultImageScaleFactor;
+				contourToDraw[i][j] += _resultImageOffsetVector;
+			}
+		}
 
-        // offset the contours to fit nicely into the resultImage
-        for (size_t j = 0; j < contourToDraw[i].size(); ++j)
-        {
-            contourToDraw[i][j] *= _resultImageScaleFactor;
-            contourToDraw[i][j] += _resultImageOffsetVector;
-        }
-    }
-
-    for (size_t i = 0; i < middleLaneBoundary.size(); ++i)
-    {
-        drawContours(image, contourToDraw, i, color, 2, 8, hierarchy, 0, Point());
-    }
+		for (size_t i = 0; i < middleLaneBoundary.size(); ++i)
+		{
+			drawContours(image, contourToDraw, i, color, 2, 8, hierarchy, 0, Point());
+		}
 }
 
 /**
