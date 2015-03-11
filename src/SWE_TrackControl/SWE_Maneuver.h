@@ -28,11 +28,11 @@ public:
     /**
      * @brief init new maneuver
      * @param maneuver the maneuver to be executed
-     * @param heading odometry: the current heading of the car
+     * @param headingSum absolute summed heading from odometry: the current heading of the car (e.g. sum of all heading changes since start -> must count more than +/- PI)
      * @param distanceSum odometry: the sum of the driven distance of the car
      * @return the neccessary steering angle
      */
-    tResult Start(maneuvers maneuver, tFloat32 heading, tInt32 distanceSum, tFloat32 stopLineDistance = 0);
+    tResult Start(maneuvers maneuver, tFloat32 headingSum, tInt32 distanceSum, tFloat32 stopLineDistance = 0);
 
     /**
      * @brief tell me if current maneuver has finished
@@ -41,7 +41,7 @@ public:
     tBool IsFinished();
 
     /**
-     * @brief tells you the currently needed gear for speed control
+     * @brief tells you the currently recommended gear for speed control
      * @return the gear
      */
     tFloat32 GetGear();
@@ -58,13 +58,27 @@ public:
      * @param distanceSum odometry: the sum of the driven distance of the car
      * @return the neccessary steering angle
      */
-    tResult CalcStep(tFloat32 heading, tInt32 distanceSum);
+     tResult CalcStep(tFloat32 heading, tInt32 distanceSum);
+
+    /**
+     * @brief reset
+     * @return success
+     */
+    tResult reset();
+
+    //DEBUG:
+    tFloat32 debugvar;
 
 
-    tInt32 StateMachine_STOPLINE(tFloat32 heading, tInt32 distanceSum, tInt32 state, tFloat32 stopLineDistance);
+private:
+
+        tResult CalcStep_p(tFloat32 heading, tInt32 distanceSum, tFloat32 stopLineDistance);
 
 
-    tResult StateMachine_GS(tFloat32 heading, tInt32 distanceSum, tInt32 state);
+    tInt32 StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFloat32 stopLineDistance);
+
+
+    tResult StateMachine_GS(tInt32 distanceSum, tInt32 state);
 
 
     tResult StateMachine_TL(tFloat32 heading, tInt32 distanceSum, tInt32 state);
@@ -84,18 +98,11 @@ public:
 
     tResult StateMachine_CR(tFloat32 heading, tInt32 distanceSum, tInt32 state);
 
-    /**
-     * @brief reset
-     * @return success
-     */
-    tResult reset();
-
-    //DEBUG:
-    tFloat32 debugvar;
+    // get difference between two heading angles
+    tFloat32 GetAngleDiff(tFloat32 angle_new, tFloat32 angle_old);
 
 
-private:
-
+    //--- member variables ---
     tInt32 m_distanceStart;
     tInt32 m_state;
 
