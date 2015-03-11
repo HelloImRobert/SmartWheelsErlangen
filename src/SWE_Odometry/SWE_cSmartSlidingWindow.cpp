@@ -77,7 +77,7 @@ tVoid SWE_cSmartSlidingWindow::AddNewValue(tInt32 inputDelta, tTimeStamp inputTi
     // ---------- shorten the queue ----------------
     //shorten until minimum resolution reached, to keep a short delay and use minimal averaging
 
-    while ( (m_myQueue.size() > 3U) &&  (  (m_myQueue.size() > m_maxLength)  ||  (GetNextRes() >= m_resolution ) )) //is cutting off the last sample OK? 1. long enough to cut sth. off AND (2. cutting off results in high enough resolution OR 3. queue is too long)
+    while ( (m_myQueue.size() > 2) &&  (  (m_myQueue.size() > m_maxLength)  ||  (GetNextRes() >= m_resolution ) )) //is cutting off the last sample OK? 1. long enough to cut sth. off AND (2. cutting off results in high enough resolution OR 3. queue is too long)
     {
             m_queueTimeSum -= GetEndTime();
             m_queueValueSum -= GetEndValue();

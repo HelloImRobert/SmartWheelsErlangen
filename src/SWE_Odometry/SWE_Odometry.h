@@ -10,10 +10,17 @@
 #include "cmath"
 /*!
 * Advanced Odometry implementing sensor fusion of gyro, accelerometer and wheel sensors.
+*
+* ----------------------------------------------------------------------------------------------------
+* !!!!! ATTENTION !!!!! When using the accelerometer with this odometry:
+* Drift is very strong at the startup of both gyro and accelerometer sensors.
+* Therefore let the sensors settle for AT LEAST 10 seconds after each reset before using the odometry.
+* ------------------------------------------------------------------------------------------------------
+*
 * SmartWheels-Erlangen (Robert de Temple) If you have any questions => robert punkt detemple kringel gmail punkt com (the code is a mess, we know it, but it works very well)
 * The relative position and heading are internally updated whenever a new data sample arrives.
 * Output of the accumulated position change in position and heading every time a trigger signal arrives (accumulated since last trigger).
-* All data sent has the timestamp of the trigger signal causing the output. This allows for synchonisation with image data (SWE_birdeyetrafo generates the trigger signals for us)
+* All data sent has the timestamp of the trigger signal causing the output. This allows for synchonisation with image data (SWE_birdeyetrafo generates the trigger signals in our case)
 
 -> odometry data contains the odometry data.
 -> velocity continuously sends the current (estimated) car speed, its value is smoothed for the speed controller.
@@ -166,7 +173,10 @@ class SWE_Odometry : public adtf::cFilter
     tFloat32 m_acceleromter_weight;         //how much does the accelerometer data influence the output?
     tFloat32 m_accelerometer_compensation;  //constant magnitude drift compensation value
     tFloat32 m_accelOffsetValue;            //constant offset to the accelerometer data
+    tFloat32 m_pitchCompensation;           //strength of pitch compensation
     tBool    m_useHighresDist;              //use distance estimation based on velocity? (instead based on wheel sensor data) -> much higher resolution but prone to some small drift
+    tBool    m_useAccelerometer;            //calculate velocity based on accelerometer data? (you want to turn this off when testing on a bench)
+    tBool    m_showAccel;
 
     /*! sliding window filter for the left wheel*/
     SWE_cSmartSlidingWindow m_SlidingWindowCntLeftWheel;

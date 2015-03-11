@@ -8,19 +8,19 @@ ADTF_FILTER_PLUGIN("SWE Motor Speed Controller", OID_ADTF_SWE_SPEEDCONTROL, Spee
 
 SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0), m_gear(0), m_currentState(0), m_lastState(0), m_goingForwards(0), m_lastSampleTime(0),m_timerStart(0), m_no_wait(true), m_last_pwm(0), m_last_brakeLights(0), m_last_reverseLights(0), m_last_DirectionSent(0), m_initRun(0)
 {
-    SetPropertyFloat("Gear 3 PWM value",20); //the forward control pwm value sent to the car motor when driving in this gear. In percent 0 = stop/neutral
+    SetPropertyFloat("Gear 3 PWM value",35); //the forward control pwm value sent to the car motor when driving in this gear. In percent 0 = stop/neutral
     SetPropertyFloat("Gear 3 speed threshold",1200); // the speed in mm/s (measured) at which the controller decides it has left this speed window => the upper limit of this speed window, the actual speed will be between this and the limit of the gear below this
 
-    SetPropertyFloat("Gear 2 PWM value",15);
+    SetPropertyFloat("Gear 2 PWM value",25);
     SetPropertyFloat("Gear 2 speed threshold",600);
 
-    SetPropertyFloat("Gear 1 PWM value",10);
+    SetPropertyFloat("Gear 1 PWM value",15);
     SetPropertyFloat("Gear 1 speed threshold",300);
 
-    SetPropertyFloat("Gear -1 PWM value", -10); //reverse gear
+    SetPropertyFloat("Gear -1 PWM value", -15); //reverse gear
     SetPropertyFloat("Gear -1 speed threshold",-300);
 
-    SetPropertyFloat("Gear -2 PWM value", -15);
+    SetPropertyFloat("Gear -2 PWM value", -25);
     SetPropertyFloat("Gear -2 speed threshold",-600);
 
     SetPropertyFloat("light brake strength", 0.03); //pwm value for light braking
@@ -28,7 +28,7 @@ SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0)
 
     SetPropertyFloat("acceleration boost", 1.1); //pwm boost value for acceleration 1.0 = no boost
 
-    SetPropertyFloat("Gear 0 speed window", 30); //threshold window for reliable stopping in mm/s
+    SetPropertyFloat("Gear 0 speed window", 50); //threshold window around zero so the controller can stop right before 0 -> for reliable stopping in mm/s
 
     SetPropertyFloat("PWM scaler", 1.0); //all pwm values are multiplied by this value
 
@@ -121,7 +121,7 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     }
 
-    tFloat32 thresholdWindow_0 = (tFloat32)GetPropertyFloat("Gear 0 speed window", 60);
+    tFloat32 thresholdWindow_0 = (tFloat32)GetPropertyFloat("Gear 0 speed window", 50);
 
     if (thresholdWindow_0 < 10)
     {
@@ -131,15 +131,15 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     tFloat32 boostValue = (tFloat32)GetPropertyFloat("acceleration boost", 1.1);
 
-    m_pwm_p3 = (tFloat32)GetPropertyFloat("Gear 3 PWM value",20);
+    m_pwm_p3 = (tFloat32)GetPropertyFloat("Gear 3 PWM value",35);
     m_pwm_boost_p3 = (m_pwm_p3) * boostValue;
     m_threshold_p3 = (tFloat32)GetPropertyFloat("Gear 3 speed threshold",1200);
 
-    m_pwm_p2 = (tFloat32)GetPropertyFloat("Gear 2 PWM value",15);
+    m_pwm_p2 = (tFloat32)GetPropertyFloat("Gear 2 PWM value",25);
     m_pwm_boost_p2 = (m_pwm_p2 ) * boostValue;
     m_threshold_p2 = (tFloat32)GetPropertyFloat("Gear 2 speed threshold",600);
 
-    m_pwm_p1 = (tFloat32)GetPropertyFloat("Gear 1 PWM value",10);
+    m_pwm_p1 = (tFloat32)GetPropertyFloat("Gear 1 PWM value",15);
     m_pwm_boost_p1 = (m_pwm_p1 ) * boostValue;
     m_threshold_p1 = (tFloat32)GetPropertyFloat("Gear 1 speed threshold",300);
 
@@ -148,11 +148,11 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
     m_threshold_n0 = 0 - thresholdWindow_0;
 
 
-    m_pwm_n1 = (tFloat32)GetPropertyFloat("Gear -1 PWM value",-10);
+    m_pwm_n1 = (tFloat32)GetPropertyFloat("Gear -1 PWM value",-15);
     m_pwm_boost_n1 = (m_pwm_n1) * boostValue;
     m_threshold_n1 = (tFloat32)GetPropertyFloat("Gear -1 speed threshold",-300);
 
-    m_pwm_n2 = (tFloat32)GetPropertyFloat("Gear -2 PWM value",-15);
+    m_pwm_n2 = (tFloat32)GetPropertyFloat("Gear -2 PWM value",-25);
     m_pwm_boost_n2 = (m_pwm_n2) * boostValue;
     m_threshold_n2 = (tFloat32)GetPropertyFloat("Gear -2 speed threshold",-600);
 
@@ -219,11 +219,11 @@ tResult SpeedControl::Start(__exception)
     m_velocity = 0;
     m_gear = 0;
     m_currentState = 0;
-    m_lastState = 0;
+    m_lastState = 1;
     m_goingForwards = 0;
     m_lastSampleTime = 0;
     m_timerStart = 0;
-    m_no_wait = false;
+    m_no_wait = true;
     m_last_pwm = 0;
     //m_last_brakeLights = 0;
     //m_last_reverseLights = 0;
@@ -316,7 +316,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 m_gear = (tInt32)value;
 
                 //DEBUG
-                LOG_ERROR(cString("SC: SpeedControl: gear set to " + cString::FromInt32(m_gear)));
+                //LOG_ERROR(cString("SC: SpeedControl: gear set to " + cString::FromInt32(m_gear)));
 
                 if ( m_initRun > 80 )
                 {
@@ -328,7 +328,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                 SetPWM(outputData);
 
                 //DEBUG
-                LOG_ERROR(cString("SC: SpeedControl: finished setting gear to " + cString::FromInt32(m_gear)));
+                //LOG_ERROR(cString("SC: SpeedControl: finished setting gear to " + cString::FromInt32(m_gear)));
             }
 
         }
@@ -390,6 +390,8 @@ tFloat32 SpeedControl::GetControllerValue()
         m_no_wait = true;    //... allow new acceleration values...
         SetCarStopped(true); // ... and tell other filters that the car has just stopped
         SetDirection(0);
+        //DEBUG
+        //LOG_ERROR(cString("SC: SpeedControl: Car has stopped"));
     }
 
 
@@ -640,6 +642,8 @@ tFloat32 SpeedControl::GetControllerValue()
     m_lastState = m_currentState;
     m_last_pwm = outputData;
 
+    SetSetPoint(outputSetPoint);
+
     return outputData;
 }
 
@@ -821,7 +825,7 @@ tResult SpeedControl::SetPWM(tFloat32 pwm_value)
 
 
     //DEBUG
-    LOG_ERROR(cString("SC: SpeedControl: set PWM to " + cString::FromInt32(pwm_value)));
+    //LOG_ERROR(cString("SC: SpeedControl: set PWM to " + cString::FromInt32(pwm_value)));
 
     RETURN_NOERROR;
 }
@@ -829,8 +833,6 @@ tResult SpeedControl::SetPWM(tFloat32 pwm_value)
 tResult SpeedControl::SetSetPoint(tFloat32 value)
 {
 
-    //DEBUG
-    /*
     cObjectPtr<IMediaCoder> pCoder;
     //tUInt32 timeStamp = 0;
 
@@ -856,7 +858,6 @@ tResult SpeedControl::SetSetPoint(tFloat32 value)
     //transmit media sample over output pin
     RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(m_oOutputSetPoint.Transmit(pMediaSample));
-    */
 
     RETURN_NOERROR;
 }

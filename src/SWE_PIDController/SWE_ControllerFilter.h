@@ -35,7 +35,7 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR I
 
 class SWE_ControllerFilter : public adtf::cFilter
 {
-    ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_PIDCONTROLLER, "SWE PID Controller", OBJCAT_DataFilter, "PID Controller", 1, 0,0, "Beta Version");
+    ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_PIDCONTROLLER, "SWE_PID_Controller", OBJCAT_DataFilter, "SWE_PID_Controller", 1, 0,0, "Beta Version");
 
     cInputPin m_oInputMeasured;                // the input pin for the measured value
     cInputPin m_oInputSetPoint;                // the input pin for the set point value
@@ -100,6 +100,12 @@ private:
     tBool m_useFF;
     tBool m_offMeansOff;
     tBool m_useAutoSampleTime;
+
+    /*! last time the output was used */
+    tTimeStamp m_lastOutputTime;
+
+    /*! Lock */
+    cCriticalSection m_mutex;
 
     /*! Coder Descriptor for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSignal;

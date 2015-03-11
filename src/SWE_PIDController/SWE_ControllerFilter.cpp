@@ -15,6 +15,7 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS -AS IS- AND ANY EXPRESS OR
 #include "SWE_ControllerFilter.h"
 
 #define TIME_RESOLUTION_ADTF 1000000.0f 
+#define MINIMUM_TIME_BETWEEN_OUTPUTS 33333 //in microseconds
 
 ADTF_FILTER_PLUGIN("SWE PID Controller", OID_ADTF_SWE_PIDCONTROLLER, SWE_ControllerFilter)
 
@@ -114,10 +115,12 @@ tResult SWE_ControllerFilter::Start(__exception)
     return cFilter::Start(__exception_ptr);
 
     m_accumulatedVariable = 0;
-    m_lastSampleTime = GetTime();
+    m_lastSampleTime = 0;
     m_feedForward = 0;
     m_measuredVariable = 0;
     m_setPoint = 0;
+    m_lastMeasuredError = 0;
+    m_lastOutputTime = 0;
 }
 
 tResult SWE_ControllerFilter::Stop(__exception)
@@ -137,16 +140,19 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
     {
 
         RETURN_IF_POINTER_NULL( pMediaSample);
+
+        m_mutex.Enter(); //serialize the whole filter for data consistency
         
         if (pSource == &m_oInputMeasured)
         {
-            cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
 
             //write values with zero
             tFloat32 value = 0;
             tUInt32 timeStamp = 0;
             tFloat32 outputData = 0;
+
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
 
             //get values from media sample
             pCoder->Get("f32Value", (tVoid*)&value);
@@ -157,37 +163,46 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
             m_measuredVariable = value;
             outputData = getControllerValue(value);
 
-            //create new media sample
-            cObjectPtr<IMediaSample> pMediaSample;
-            AllocMediaSample((tVoid**)&pMediaSample);
 
-            //allocate memory with the size given by the descriptor
-            cObjectPtr<IMediaSerializer> pSerializer;
-            m_pCoderDescSignal->GetMediaSampleSerializer(&pSerializer);
-            tInt nSize = pSerializer->GetDeserializedSize();
-            pMediaSample->AllocBuffer(nSize);
+            //DEBUG
+            //LOG_ERROR(cString("PID: wait time " + cString::FromFloat64((GetTime() - m_lastOutputTime))));
 
-            //write date to the media sample with the coder of the descriptor
-            m_pCoderDescSignal->WriteLock(pMediaSample, &pCoder);
+            if((GetTime() - m_lastOutputTime) >= MINIMUM_TIME_BETWEEN_OUTPUTS) //prevent output spamming wich can lead to crashes
+            {
+                m_lastOutputTime = GetTime();
 
-            pCoder->Set("f32Value", (tVoid*)&(outputData));
-            pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
-            m_pCoderDescSignal->Unlock(pCoder);
+                //create new media sample
+                cObjectPtr<IMediaSample> pMediaSample;
+                AllocMediaSample((tVoid**)&pMediaSample);
 
-            //transmit media sample over output pin
-            RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-            RETURN_IF_FAILED(m_oOutputManipulated.Transmit(pMediaSample));
+                //allocate memory with the size given by the descriptor
+                cObjectPtr<IMediaSerializer> pSerializer;
+                m_pCoderDescSignal->GetMediaSampleSerializer(&pSerializer);
+                tInt nSize = pSerializer->GetDeserializedSize();
+                pMediaSample->AllocBuffer(nSize);
+
+                //write date to the media sample with the coder of the descriptor
+                m_pCoderDescSignal->WriteLock(pMediaSample, &pCoder);
+
+                pCoder->Set("f32Value", (tVoid*)&(outputData));
+                pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+                m_pCoderDescSignal->Unlock(pCoder);
+
+                //transmit media sample over output pin
+                RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+                RETURN_IF_FAILED(m_oOutputManipulated.Transmit(pMediaSample));
+            }
 
         }
         else if (pSource == &m_oInputSetPoint)
         {
-            cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
-
             //write values with zero
             tFloat32 value = 0;
             tUInt32 timeStamp = 0;
-            
+
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
+
             //get values from media sample
             pCoder->Get("f32Value", (tVoid*)&value);
             pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
@@ -196,12 +211,13 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
         }
         else if (pSource == &m_oInputFeedForward)
         {
-            cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
 
             //write values with zero
             tFloat32 value = 0;
             tUInt32 timeStamp = 0;
+
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
             
             //get values from media sample
             pCoder->Get("f32Value", (tVoid*)&value);
@@ -209,8 +225,8 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
             m_pCoderDescSignal->Unlock(pCoder);
             m_feedForward = value;
         }
-        else
-            RETURN_NOERROR;
+
+        m_mutex.Leave();
         
 
     }
@@ -226,17 +242,24 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
 
     //calculate the sample time in seconds if necessary
     if (m_useAutoSampleTime)
-        sampleTime = tFloat32((GetTime() - m_lastSampleTime)/TIME_RESOLUTION_ADTF); //in seconds
+        sampleTime = (tFloat32)(GetTime() - m_lastSampleTime)/TIME_RESOLUTION_ADTF; //in seconds
     else
         sampleTime = m_sampleIntervall/1000.0;
 
     m_lastSampleTime = GetTime();
+
+    if(sampleTime <= 0)
+        sampleTime = 0.000001;
+
+    //DEBUG
+    //LOG_ERROR(cString("PID: sampletime " + cString::FromFloat64(returnvalue)));
     
 
     //the three controller algorithms
     if ((m_offMeansOff) && (m_useFF) && (m_feedForward == 0))
     {
         returnvalue = 0;
+        m_accumulatedVariable = 0;
     }
     else if (m_type == 1)
     {
@@ -247,23 +270,22 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
     {
         //esum = esum + e
         //y = Kp * e + Ki * Ta * esum
-        m_accumulatedVariable +=(m_setPoint-measuredValue);
+        m_accumulatedVariable += sampleTime*(m_setPoint-measuredValue);
 
         LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
 
-        returnvalue = m_Kp*(m_setPoint-measuredValue) + m_Ki*sampleTime*m_accumulatedVariable;
+        returnvalue = m_Kp*(m_setPoint-measuredValue) + m_Ki*m_accumulatedVariable;
     }
-
     else if(m_type == 3)
     {
         //esum = esum + e
         //y = Kp * e + Ki * Ta * esum + Kd * (e - ealt)/Ta
         //ealt = e
-        m_accumulatedVariable +=(m_setPoint-measuredValue);
+        m_accumulatedVariable += sampleTime*(m_setPoint-measuredValue);
 
         LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
 
-        returnvalue =  m_Kp*(m_setPoint-measuredValue) + m_Ki*sampleTime*m_accumulatedVariable + m_Kd*((m_setPoint-measuredValue)-m_lastMeasuredError)/sampleTime;
+        returnvalue =  m_Kp*(m_setPoint-measuredValue) + m_Ki*m_accumulatedVariable + m_Kd*((m_setPoint-measuredValue)-m_lastMeasuredError)/sampleTime;
 
         m_lastMeasuredError = (m_setPoint-measuredValue);
     }
@@ -275,6 +297,9 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
 
     // keep within boundries
     LimitValue(returnvalue, m_maxOutput, m_minOutput);
+
+    //DEBUG
+    //LOG_ERROR(cString("PID: controller output " + cString::FromFloat64(returnvalue)));
 
     return returnvalue;
 }

@@ -25,10 +25,10 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS AS IS AND ANY EXPRESS OR I
  * The datatypes are tInt32 and tTimeStamp (hoping that Audi will stop that tFloat stupidity for counting variables soon ;) )
  * It returns the amount of pulses and the timeframe in which they occured.
  * The length of the timeframe depends on the data and is dynamically adjusted to always ensure a minimum accuracy without wasting any dynamics on unneccessary averaging.
- * 1/in_resolution is the maximum allowable error in this measurement (at least theoretically).
+ * 1/in_resolution is the maximum allowable error in this measurement (with perfect data).
  * Higher values result in higher accuracy but also slower dynamics.
- * The maximum averaged window size + delay is in_resolution samples (~ in_resolution / 18 seconds) and only occurs at very low speeds.
- * At higher speeds the delay goes down to 1 samples.
+ * The maximum averaged window size + delay is "in_resolution" samples long (~ in_resolution / 18) and only occurs at very low speeds.
+ * At higher speeds the delay goes down to 2 samples.
  * Its interface and some of its code is based on code provided by Audi (cSlidingWindow)*/
 
 class SWE_cSmartSlidingWindow
