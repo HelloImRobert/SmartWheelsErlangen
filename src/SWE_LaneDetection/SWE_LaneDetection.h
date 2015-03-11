@@ -40,6 +40,7 @@ class cSWE_LaneDetection : public adtf::cFilter
             cVideoPin		_oVideoInputPin;               /**< the input pin for the video*/
             cVideoPin       _oInternRepresentationVideoOutputPin;              /**< outputpin for the debug video */
             cVideoPin       _oColorVideoOutputPin;              /**< outputpin for the debug video */
+            cInputPin       m_oIntersectionPoints;
             cOutputPin     m_oSplinesPin;
             cOutputPin     m_CrossingIndicatorPin;
 
@@ -133,6 +134,7 @@ class cSWE_LaneDetection : public adtf::cFilter
 
             cv::Mat                     _backProjectionMatrix;
             cv::Mat                     _projectionMatrix;                          /**< the projection Matrix for the inverse Perspective Mapping*/
+            cv::Mat                     _result;
 
             tBitmapFormat               _sInternRepresentationBitMapOutputFormat;              /**< the inputformat of the video*/
             tBitmapFormat               _sColorBitMapOutputFormat;                  /**< the inputformat of the video*/

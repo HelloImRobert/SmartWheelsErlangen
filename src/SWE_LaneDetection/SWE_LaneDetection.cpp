@@ -173,6 +173,9 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         RETURN_IF_FAILED(_oColorVideoOutputPin.Create("Color_Video_Output", IPin::PD_Output, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&_oColorVideoOutputPin));
 
+        RETURN_IF_FAILED(m_oIntersectionPoints.Create("tracking_Point", new cMediaType(0, 0, 0, "tIntersectionsNew"), static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&m_oIntersectionPoints));
+        RETURN_NOERROR;
 
         // Output Pin for Crossings
         // TO ADAPT for new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
@@ -352,6 +355,33 @@ tResult cSWE_LaneDetection::OnPinEvent(IPin* pSource,
         {
             ProcessInput(pMediaSample);
         }
+        if else(pSource == &m_oIntersectionPoints)
+        {
+            // init temporary objects
+            cv::Point2d trackingPoint;
+
+            // generate Coder object
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+
+            //get values from media sample (x and y exchanged to transform to front axis coo sys)
+            pCoder->Get("intersecPoint.xCoord", (tVoid*)&(trackingPoint.x));
+            pCoder->Get("intersecPoint.yCoord", (tVoid*)&(trackingPoint.y));
+            m_pCoderDescInputMeasured->Unlock(pCoder);
+
+            cv::circle(_result, trackingPoint , 8 , CV_RGB(255, 0, 0), 2);
+
+            // transmit a video of the current result to the video outputpin
+            if (_oInternRepresentationVideoOutputPin.IsConnected())
+            {
+                cObjectPtr<IMediaSample> pNewRGBSample;
+                if (IS_OK(AllocMediaSample(&pNewRGBSample)))
+                {
+                    tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
+                    pNewRGBSample->Update(tmStreamTime, result.data, _sInternRepresentationBitMapOutputFormat.nSize , 0);
+                    _oInternRepresentationVideoOutputPin.Transmit(pNewRGBSample);
+                }
+            }
     }
     RETURN_NOERROR;
 }
@@ -793,7 +823,7 @@ void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobD
 
             if(blob.complexBoundaryIndicator)
             {
-                circle(image, currentCenterOfGravity, 8, CV_RGB(255, 0, 0), 2);
+                circle(image, currentCenterOfGravity, 8, CV_RGB(255, 0, 255), 2);
             }
 
 			circle(image, currentCenterOfGravity, 3, CV_RGB(255, 0, 255), 2);
@@ -1211,17 +1241,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         }
     }
 
-    // transmit a video of the current result to the video outputpin
-    if (_oInternRepresentationVideoOutputPin.IsConnected())
-    {
-        cObjectPtr<IMediaSample> pNewRGBSample;
-        if (IS_OK(AllocMediaSample(&pNewRGBSample)))
-        {
-            tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
-            pNewRGBSample->Update(tmStreamTime, result.data, _sInternRepresentationBitMapOutputFormat.nSize , 0);
-            _oInternRepresentationVideoOutputPin.Transmit(pNewRGBSample);
-        }
-    }
+    _result = result;
 
     RETURN_NOERROR;
 }
