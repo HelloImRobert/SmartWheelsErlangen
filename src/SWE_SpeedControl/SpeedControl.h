@@ -123,6 +123,10 @@ class SpeedControl : public adtf::cFilter
         /*! tells the controller if it has to wait bc the car just stopped */
         tBool m_no_wait;
 
+        /*! test run procedure to try out different gears */
+        tResult TestRun(tInt32 code);
+
+
         /*! all other thresholds and definable variables */
         tFloat32 m_threshold_p3;
         tFloat32 m_threshold_p2;
@@ -170,6 +174,10 @@ class SpeedControl : public adtf::cFilter
         tFloat32 m_last_DirectionSent;
 
         tInt32 m_initRun;
+        tInt32 m_testRun;
+
+        tTimeStamp m_testTimer_start;
+        tInt32     m_testState;
 
         /*! Lock */
         cCriticalSection m_mutex;

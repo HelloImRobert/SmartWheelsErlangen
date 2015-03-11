@@ -81,6 +81,9 @@ private:
 
     tBool       m_debug_bool;
 
+    /*! Lock */
+    cCriticalSection m_mutex;
+
 
     /*! struct containing the odometry input data */
     typedef struct
@@ -117,6 +120,8 @@ private:
     tResult sendVelocity(tFloat32 vel);
     tResult sendSteeringAngle(tFloat32 steeringAngle);
     tResult sendParkState(tInt8 parkState);
+
+    tResult jumpIntoStates();
 
 
     // Media Descriptors

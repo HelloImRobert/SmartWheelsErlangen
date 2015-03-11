@@ -56,10 +56,8 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
 
     m_lastTimeStamp_wheels = 0;
 
-
-    //DEBUG:
-    //m_currentDirection = 0;
-    m_currentDirection = 1;
+    m_currentDirection = 0;
+    //m_currentDirection = 1;
 
     debugvar = 0;
 
@@ -111,10 +109,7 @@ tResult SWE_Odometry::Start(__exception)
 
     m_lastPinEvent = GetTime();
 
-
-    //DEBUG:
-    //m_currentDirection = 0;
-    m_currentDirection = 1;
+    m_currentDirection = 0;
 
     m_velocityLeft = 0;
     m_velocityRight = 0;
@@ -664,7 +659,6 @@ tResult SWE_Odometry::FilterPulses()
 
     // if the delta of pulses between both wheels differs by more than the allowed relative delta + 1 pulse then its probably a pulse-burst (sensor error) and that usually happens when only one pulse should be registered.
     // if car is stopped don't accept pulses at all
-    //DEBUG
     if(m_currentDirection == 0)
     {
         m_wheelDelta_left = 0;
@@ -926,10 +920,8 @@ tResult SWE_Odometry::SendVelocity()
     //write date to the media sample with the coder of the descriptor
     m_pCoderVelocityOut->WriteLock(pMediaSample, &pCoder);
 
-    //DEBUG
     pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
     //pCoder->Set("f32Value", (tVoid*)&(debugvar));
-
 
     pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&m_lastPinEvent);
     m_pCoderVelocityOut->Unlock(pCoder);

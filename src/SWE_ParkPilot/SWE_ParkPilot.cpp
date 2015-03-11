@@ -267,7 +267,7 @@ tResult cSWE_ParkPilot::Start(__exception)
     m_odometryData.velocity = 0.0;
 
 
-    //FOR TEST START
+    //FOR TEST START DEBUG
     LOG_ERROR(cString("PP: Trigger set to 1" ));
     m_parkTrigger = 1;
     //FOR TEST ENDE
@@ -291,6 +291,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
     pSource->GetMediaType(&pType);
     RETURN_IF_POINTER_NULL(pSource);
 
+    m_mutex.Enter(); //serialize the whole filter for data consistency
 
 //    if (pType != NULL)
 //    {
@@ -305,13 +306,17 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
     {
 
         RETURN_IF_POINTER_NULL( pMediaSample);
+
+
         if(pSource == &m_inputParkTrigger)
         {
             tFloat32 buffer;
+            tTimeStamp timeStamp;
            // save the park trigger: alongside or cross
            cObjectPtr<IMediaCoder> pCoder;
            RETURN_IF_FAILED(m_pCoderParkTrigger->Lock(pMediaSample, &pCoder));
            pCoder->Get("f32Value", (tVoid*)&buffer);
+           pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
            m_pCoderParkTrigger->Unlock(pCoder);
 
            m_parkTrigger = (tInt8)buffer;
@@ -319,9 +324,12 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         }
         else if(pSource == &m_pin_input_ir)
         {
+            tTimeStamp timeStamp;
+
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderIR->Lock(pMediaSample, &pCoder));
             pCoder->Get("f32Value", (tVoid*)&m_IRFrontRightCur);
+            pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderIR->Unlock(pCoder);
 
             m_IRFrontRightCur = 10 * m_IRFrontRightCur;
@@ -341,11 +349,10 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             }
             //FOR TESTING
 
-
-
             // Check whether we have passed the first car, then activate the search
             if(m_searchState == 0)
             {
+                //DEBUG (Robert) -> OK
                 tFloat32 nextElem;
 
                 if(m_initTest_vect.size() < 25)
@@ -374,10 +381,10 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                             //LOG_ERROR(cString("PP: Search Active" ));
                         }
                     }
-
                 }
             }
 
+            jumpIntoStates(); //(Robert)
 
         }
 //        else if(pSource == &m_inputObjectData)
@@ -493,77 +500,84 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         }
     }
 
-    /* INDICES:
-     * 101... search Alongside
-     * 201... park Alongside easy
-     * 301... park Alongside normal
-     * 401... pull out Alongside
-     *
-     * 501... search Cross
-     * 601... park Cross
-     * 701... pull out Cross right
-     * 801... pull out Cross left
-     */
 
-
-    // Suche Aktivieren
-    if(m_searchState == 1 && m_parkTrigger == PARK_ALONGSIDE)
-    {
-        //LOG_ERROR(cString("PP: PinEvent: reset search to 101"));
-        m_searchState = 101;
-    }
-    else if(m_searchState == 1 && m_parkTrigger == PARK_CROSS)
-    {
-        m_searchState = 501;
-    }
-
-    // DEBUG
-    //LOG_ERROR(cString("PP: On Pin: Search State" + cString::FromInt(m_searchState) + "; ParkState" + cString::FromInt(m_parkState) ));
-    // DEBUG
-
-    // Was machen wir?
-    if( m_searchState > 100 && m_searchState < 200 && m_parkState == 0)
-    {
-        searchRoutineAlongside();
-    }
-    else if( m_searchState > 500 && m_searchState < 600 && m_parkState == 0)
-    {
-        searchRoutineCross();
-    }
-    else if( m_searchState == 104 && m_parkState > 200 && m_parkState < 300 )
-    {
-        parkRoutineAlongsideEasy();
-    }
-    else if( m_searchState == 104 && m_parkState > 300 && m_parkState < 400 )
-    {
-        parkRoutineAlongsideNormal();
-    }
-    else if( m_searchState == 503 && m_parkState > 600 && m_parkState < 700 )
-    {
-        parkRoutineCross();
-    }
-    else if( m_parkTrigger == PULL_LEFT && m_parkState == 605 )
-    {
-        pullOutCrossLeft();
-    }
-    else if( m_parkTrigger == PULL_RIGHT && m_parkState == 605 )
-    {
-        pullOutCrossRight();
-    }
-    else if( (m_parkTrigger == PULL_LEFT && m_parkState == 205) || (m_parkTrigger == PULL_LEFT && m_parkState == 307) )
-    {
-        // TODO
-        pullOutAlongsideLeft();
-    }
-    else if( (m_parkTrigger == PULL_RIGHT && m_parkState == 205) || (m_parkTrigger == PULL_RIGHT && m_parkState == 307) )
-    {
-        // TODO
-        pullOutAlongsideRight();
-    }
+    m_mutex.Leave();
 
     RETURN_NOERROR;
 }
 
+
+tResult cSWE_ParkPilot::jumpIntoStates()
+{
+/* INDICES:
+ * 101... search Alongside
+ * 201... park Alongside easy
+ * 301... park Alongside normal
+ * 401... pull out Alongside
+ *
+ * 501... search Cross
+ * 601... park Cross
+ * 701... pull out Cross right
+ * 801... pull out Cross left
+ */
+
+
+
+// Suche Aktivieren
+if(m_searchState == 1 && m_parkTrigger == PARK_ALONGSIDE)
+{
+    //LOG_ERROR(cString("PP: PinEvent: reset search to 101"));
+    m_searchState = 101;
+}
+else if(m_searchState == 1 && m_parkTrigger == PARK_CROSS)
+{
+    m_searchState = 501;
+}
+
+// DEBUG
+//LOG_ERROR(cString("PP: On Pin: Search State" + cString::FromInt(m_searchState) + "; ParkState" + cString::FromInt(m_parkState) ));
+// DEBUG
+
+// Was machen wir?
+if( m_searchState > 100 && m_searchState < 200 && m_parkState == 0)
+{
+    searchRoutineAlongside();
+}
+else if( m_searchState > 500 && m_searchState < 600 && m_parkState == 0)
+{
+    searchRoutineCross();
+}
+else if( m_searchState == 104 && m_parkState > 200 && m_parkState < 300 )
+{
+    parkRoutineAlongsideEasy();
+}
+else if( m_searchState == 104 && m_parkState > 300 && m_parkState < 400 )
+{
+    parkRoutineAlongsideNormal();
+}
+else if( m_searchState == 503 && m_parkState > 600 && m_parkState < 700 )
+{
+    parkRoutineCross();
+}
+else if( m_parkTrigger == PULL_LEFT && m_parkState == 605 )
+{
+    pullOutCrossLeft();
+}
+else if( m_parkTrigger == PULL_RIGHT && m_parkState == 605 )
+{
+    pullOutCrossRight();
+}
+else if( (m_parkTrigger == PULL_LEFT && m_parkState == 205) || (m_parkTrigger == PULL_LEFT && m_parkState == 307) )
+{
+    // TODO
+    pullOutAlongsideLeft();
+}
+else if( (m_parkTrigger == PULL_RIGHT && m_parkState == 205) || (m_parkTrigger == PULL_RIGHT && m_parkState == 307) )
+{
+    // TODO
+    pullOutAlongsideRight();
+}
+}
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++ ALONGSIDE ROUTINE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -645,10 +659,10 @@ tResult cSWE_ParkPilot::parkRoutineAlongsideEasy()
             //m_centralAngle = (tFloat32)atan( 1 + ( (CALC_CARHALF + m_lastIRshort) / (CALC_QUOTIENT) ) );
             //m_distStart = POS_IR_FRONT_SIDE + ( 2 * CALC_RADIUS * sin( m_centralAngle ) );
             // DEBUG
-            LOG_ERROR(cString("PP: 201"));
+            //LOG_ERROR(cString("PP: 201"));
             m_centralAngle = 0.7;
             m_distStart = 100;
-            sendSpeed( -1.0 );
+            sendSpeed( -1 );
             //DEBUG
 
 //            LOG_ERROR(cString("PP: CA: " + cString::FromFloat64(m_centralAngle) + "; DE:  " + cString::FromFloat64(m_distEntry) + "; DS: " + cString::FromFloat64(m_distStart) + "; T: " + cString::FromFloat64(test)));
@@ -1005,6 +1019,32 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
 tResult cSWE_ParkPilot::sendSpeed(tFloat32 speed)
 {
 
+    tUInt32 timeStamp = 0;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSample;
+    AllocMediaSample((tVoid**)&pMediaSample);
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescSpeedOut->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSample->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    {
+        __adtf_sample_write_lock_mediadescription(m_pCoderDescSpeedOut, pMediaSample, pCoder);
+
+        pCoder->Set("f32Value", (tVoid*)&(speed));
+        pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+    }
+
+    //transmit media sample over output pin
+    pMediaSample->SetTime(_clock->GetStreamTime());
+    m_outputSpeed.Transmit(pMediaSample);
+
+
+    /*! (Rbert: tried to replace this with my own code due to out of memory errors)
     //create new media sample
     cObjectPtr<IMediaCoder> pCoder;
     cObjectPtr<IMediaSample> pMediaSampleOutput;
@@ -1024,6 +1064,7 @@ tResult cSWE_ParkPilot::sendSpeed(tFloat32 speed)
 
     //transmit media sample over output pin
     RETURN_IF_FAILED(m_outputSpeed.Transmit(pMediaSampleOutput));
+    */
 
     RETURN_NOERROR;
 

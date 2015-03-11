@@ -32,7 +32,12 @@ SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0)
 
     SetPropertyFloat("PWM scaler", 1.0); //all pwm values are multiplied by this value
 
-    SetPropertyInt("Stop Time in ms", 500); //minimum time the car stands still once it stops
+    SetPropertyInt("Stop Time in ms", 800); //minimum time the car stands still once it stops
+
+    SetPropertyInt("TestRun !!!danger!!!", 0); //proper Codes: 111, 222, 333,  => test procedure cycling through all gears. Dangerous! Better only use when car is benched!!
+
+    m_testTimer_start = 0;
+    m_testState = -1;
 
 }
 
@@ -204,9 +209,12 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     m_pwmScaler = (tFloat32)GetPropertyFloat("PWM scaler", 1.0);
 
-    m_stopTime =  (tInt32)GetPropertyInt("Stop Time in ms", 500) * (TIMER_RESOLUTION / 1000.0) ; //in us
+    m_stopTime =  (tInt32)GetPropertyInt("Stop Time in ms", 800) * (TIMER_RESOLUTION / 1000.0) ; //in us
+
+    m_testRun = (tInt32)GetPropertyInt("TestRun !!!danger!!!", 0);
 
     m_initRun = 0;
+
     //m_timerStart_init = GetTime();
 
     RETURN_NOERROR;
@@ -230,6 +238,9 @@ tResult SpeedControl::Start(__exception)
     //m_last_DirectionSent = 0;
 
     m_initRun = 0;
+
+    m_testTimer_start = 0;
+    m_testState = -1;
 
     SetPWM(0);
     //m_timerStart_init = GetTime();
@@ -278,7 +289,15 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
 
             if ( m_initRun > 80 )
             {
-                outputData = GetControllerValue();
+                if (m_testRun == 0) //should the car cycle through the test procedure?
+                {
+                    outputData = GetControllerValue();
+                }
+                else
+                {
+                    TestRun(m_testRun);
+                    outputData = GetControllerValue();
+                }
             }
             else
                 m_initRun++;
@@ -301,34 +320,36 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoder);
 
-
-            if ( value < -2 ) // prevent stupid values
+            if(m_testRun == 0)
             {
-                value = -2;
-            }
-            else if ( value > 3)
-            {
-                value = 3;
-            }
-
-            if (m_gear != (tInt32)value) //keep from spamming the pwm output
-            {
-                m_gear = (tInt32)value;
-
-                //DEBUG
-                //LOG_ERROR(cString("SC: SpeedControl: gear set to " + cString::FromInt32(m_gear)));
-
-                if ( m_initRun > 80 )
+                if ( value < -2 ) // prevent stupid values
                 {
-                    outputData = GetControllerValue();
+                    value = -2;
                 }
-                else
-                    m_initRun++;
+                else if ( value > 3)
+                {
+                    value = 3;
+                }
 
-                SetPWM(outputData);
+                if (m_gear != (tInt32)value) //keep from spamming the pwm output
+                {
+                    m_gear = (tInt32)value;
 
-                //DEBUG
-                //LOG_ERROR(cString("SC: SpeedControl: finished setting gear to " + cString::FromInt32(m_gear)));
+                    //DEBUG
+                    //LOG_ERROR(cString("SC: SpeedControl: gear set to " + cString::FromInt32(m_gear)));
+
+                    if ( m_initRun > 80 )
+                    {
+                        outputData = GetControllerValue();
+                    }
+                    else
+                        m_initRun++;
+
+                    SetPWM(outputData);
+
+                    //DEBUG
+                    //LOG_ERROR(cString("SC: SpeedControl: finished setting gear to " + cString::FromInt32(m_gear)));
+                }
             }
 
         }
@@ -653,8 +674,7 @@ tFloat32 SpeedControl::GetControllerValue()
 
 tResult SpeedControl::SetBrakeLights(tBool state)
 {
-    //DEBUG
-    /*
+
     if(state != m_last_brakeLights) //prevent unneccessary messages
     {
         cObjectPtr<IMediaCoder> pCoder;
@@ -685,16 +705,14 @@ tResult SpeedControl::SetBrakeLights(tBool state)
     }
 
     m_last_brakeLights = state;
-    */
+
 
     RETURN_NOERROR;
 }
 
 tResult SpeedControl::SetReverseLights(tBool state)
 {
-    //DEBUG
-    /*
-     *
+
     if(state != m_last_reverseLights)
     {
         cObjectPtr<IMediaCoder> pCoder;
@@ -725,8 +743,6 @@ tResult SpeedControl::SetReverseLights(tBool state)
     }
 
     m_last_reverseLights = state;
-
-    */
 
     RETURN_NOERROR;
 }
@@ -886,3 +902,99 @@ tTimeStamp SpeedControl::GetTime()
     return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
 }
 
+tResult SpeedControl::TestRun(tInt32 code)
+{
+    if(m_testState < 0)
+    {
+        LOG_ERROR(cString("SC: Testcase: start "));
+        m_testTimer_start = GetTime();
+        m_testState = 0;
+    }
+
+    if((GetTime() - m_testTimer_start) >= (6* TIMER_RESOLUTION))
+    {
+        m_testTimer_start = GetTime();
+
+        switch(code)
+        {
+        case 111:
+            switch(m_testState)
+            {
+            case 0:
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 1:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 2:
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 3:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 4:
+                m_gear = -1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 5:
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 6:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 7:
+                m_gear = 2;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 8:
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 9:
+                m_gear = 3;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 10:
+                m_gear = -2;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 11:
+                m_gear = -1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 12:
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 13:
+                m_gear = -2;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 14:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 15:
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            default:
+                m_testState = 0;
+                break;
+            }
+            break;
+        default:
+            LOG_ERROR(cString("SC: Not a valid test procedure! Check test run code! "));
+            break;
+        }
+        m_testState++;
+    }
+
+    RETURN_NOERROR;
+}

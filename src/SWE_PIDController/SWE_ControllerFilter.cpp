@@ -38,6 +38,8 @@ SWE_ControllerFilter::SWE_ControllerFilter(const tChar* __info) : cFilter(__info
     SetPropertyBool("use automatically calculated sample interval",1);
     SetPropertyInt("Controller Type", 1);
     SetPropertyStr("Controller Type" NSSUBPROP_VALUELISTNOEDIT, "0@OFF|1@P|2@PI|3@PID");
+
+    m_lastOutputTime = 0;
 }
 
 SWE_ControllerFilter::~SWE_ControllerFilter()
