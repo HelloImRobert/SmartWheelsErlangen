@@ -2,7 +2,7 @@
 
 #define WHEELBASE 359.0f
 #define CARWIDTH  260.0f //wheel center to wheel center
-#define WHEELPULSE_PER_TURN 16.0f //# of black and white bars in a wheel
+#define WHEELPULSE_PER_TURN 8.75f //# of black and white bars in a wheel + average amount of unfilterable wrong pulses
 #define TIMESTAMP_RESOLUTION 1000.0f // for the Arduino timestamps
 #define TIMESTAMP_RESOLUTION_ADTF 1000000.0f //ADTF uses microseconds
 #define MAX_TICK_FILTER_VELOCITY 1000.0f //in mm/s
@@ -57,7 +57,6 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     m_lastTimeStamp_wheels = 0;
 
     m_currentDirection = 0;
-    //m_currentDirection = 1;
 
     debugvar = 0;
 
@@ -71,14 +70,14 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     SetPropertyFloat("Velocity Filter Strength 0-1",0.3);                                   //filter strength for the velocity smoothing filter
     SetPropertyFloat("Accelerometer Velocity weighting 0-1",0.9);
     SetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",50.0);
-    SetPropertyFloat("Wheel circumfence in mm",329);
+    SetPropertyFloat("Wheel circumfence in mm",327);
     SetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",10);
     SetPropertyFloat("Accelerometer value offset in mm/s2",0.0);
     SetPropertyFloat("Gravity for pitch compensation in mm/s2",10000.0);                     //strength of pitch compensation
     SetPropertyBool("Use high-res distance measurement (based on velocity)", true);
     SetPropertyBool("Use Accelerometer", true);                                             //calculate velocity based on accelerometer data? (you want to turn this off when testing on a bench)
     SetPropertyBool("Show compensated accelerometer value", false);                         //show the value of the accelerometer after pitch compensation for adjustment of the offset
-
+    SetPropertyBool("SetDirection to 1", false);
 }
 
 SWE_Odometry::~SWE_Odometry()
@@ -109,7 +108,10 @@ tResult SWE_Odometry::Start(__exception)
 
     m_lastPinEvent = GetTime();
 
-    m_currentDirection = 0;
+    if(m_setdirectionone)
+        m_currentDirection = 1;
+    else
+        m_currentDirection = 0;
 
     m_velocityLeft = 0;
     m_velocityRight = 0;
@@ -217,7 +219,7 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
         // ------------------ further init ---------------------
 
         m_filterStrength = (tFloat32)GetPropertyFloat("Velocity Filter Strength 0-1", 0.3);
-        m_wheelCircumfence = (tFloat32)GetPropertyFloat("Wheel circumfence in mm",329);
+        m_wheelCircumfence = (tFloat32)GetPropertyFloat("Wheel circumfence in mm",327);
         m_velocityResolution = (tFloat32)GetPropertyFloat("time and pulse resolution of the velocity calculation 2-40",15);
         m_acceleromter_weight = (tFloat32)GetPropertyFloat("Accelerometer Velocity weighting 0-1",0.9);
         m_accelerometer_compensation = (tFloat32)GetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",50.0);
@@ -226,6 +228,12 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
         m_useAccelerometer = (tBool)GetPropertyBool("Use Accelerometer", true);
         m_showAccel = (tBool)GetPropertyBool("Show compensated accelerometer value", false);
         m_pitchCompensation = (tFloat32)GetPropertyFloat("Gravity for pitch compensation in mm/s2",10000.0);
+        m_setdirectionone = (tBool)GetPropertyBool("SetDirection to 1", false);
+
+        if(m_setdirectionone)
+            m_currentDirection = 1;
+        else
+            m_currentDirection = 0;
 
         //prevent stupid filter values
         if(m_filterStrength >= 1.0)
@@ -378,6 +386,9 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             pCoderInput->Get("f32Value", (tVoid*)&m_currentDirection);
             pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal_direction->Unlock(pCoderInput);
+
+            if(m_setdirectionone)
+                m_currentDirection = 1;
 
             //process input data
             if (m_currentDirection == 0) //on car stopped signal reset everything (we know we're standing still)
@@ -534,7 +545,7 @@ tResult  SWE_Odometry::CalcCombinedVelocity()
     if (intervall < 0)
         intervall = 0;
 
-    m_velocityAccelerometer = intervall * ((m_accelerometerValue_now )); //OPTIONAL: + m_accelerometerValue_old) / 2.0); //the change in velocity since the last sample
+    m_velocityAccelerometer = intervall * ((m_accelerometerValue_now + m_accelerometerValue_old) / 2.0); //the change in velocity since the last sample
 
     //DEBUG
     //debugvar = m_velocityAccelerometer;
@@ -616,8 +627,6 @@ tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
     }
     else
         m_distanceAllSum = m_distanceAllSum_wheel;
-
-
 
     m_SlidingWindowCntLeftWheel.AddNewValue(m_wheelDelta_left, timeStamp);
     m_SlidingWindowCntRightWheel.AddNewValue(m_wheelDelta_right, timeStamp);

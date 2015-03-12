@@ -177,6 +177,7 @@ class SWE_Odometry : public adtf::cFilter
     tBool    m_useHighresDist;              //use distance estimation based on velocity? (instead based on wheel sensor data) -> much higher resolution but prone to some small drift
     tBool    m_useAccelerometer;            //calculate velocity based on accelerometer data? (you want to turn this off when testing on a bench)
     tBool    m_showAccel;
+    tBool    m_setdirectionone;
 
     /*! sliding window filter for the left wheel*/
     SWE_cSmartSlidingWindow m_SlidingWindowCntLeftWheel;

@@ -51,15 +51,20 @@ private:
 
     tFloat32    m_distStartPark;
     tFloat32    m_headingAtStart;
-    tFloat32    m_AngleAdjustment;
-    tFloat32    m_DistanceAdjustment;
     tFloat32    m_distEntry;
     tFloat32 	m_distExit;
     tFloat32	m_distStart;
+    tFloat32    m_angleAbs;
     tFloat32	m_centralAngle;
     tFloat32    m_counterAngle;
     tFloat32	m_rememberDist;
+
+    //Properties
+    tFloat32    m_distStartOffsetEasy;
+    tFloat32    m_distStartOffsetNormal;
     tFloat32    m_securityBuffer;
+    tFloat32    m_CentralPlus;
+    tFloat32    m_offsetNeutral;
     tFloat32    m_headingAngleForward;
     tFloat32    m_steeringAnlgeBackward;
     tFloat32    m_perpendicularBackward;
@@ -108,8 +113,7 @@ private:
     tResult searchRoutineAlongside();
     tResult searchRoutineCross();
 
-    tResult parkRoutineAlongsideEasy();
-    tResult parkRoutineAlongsideNormal();
+    tResult parkRoutineAlongside();
     tResult parkRoutineCross();
     tResult pullOutAlongsideRight();
     tResult pullOutAlongsideLeft();

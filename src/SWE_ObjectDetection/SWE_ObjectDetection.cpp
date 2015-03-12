@@ -21,6 +21,7 @@ ADTF_FILTER_PLUGIN("SWE_ObjectDetection", OID_ADTF_OBJECTDETECTION_FILTER , cSWE
 #define MAX_ANGULAR_DEVIATION "Allowed deviation from 90°"
 #define FRAME_MEMORY "number of frames used for hole filling"
 
+
 /**
  * @brief cSWE_ObjectDetection::cSWE_ObjectDetection
  * Constructs a cSWE_ObjectDetection object, defining it's properties, to be set by ADTF;
