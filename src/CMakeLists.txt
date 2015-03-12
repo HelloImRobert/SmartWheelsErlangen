@@ -17,5 +17,4 @@ add_subdirectory(SWE_BirdEyeTransformation)
 add_subdirectory(SWE_ParkPilot)
 add_subdirectory(SWE_AttitudeConverter)
 add_subdirectory(SWE_PIDController)
-
-
+add_subdirectory(SWE_TrajectoryPlanning)

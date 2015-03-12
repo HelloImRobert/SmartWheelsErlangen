@@ -10,8 +10,8 @@ ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_LANEDETECTION_FILTER , cSWE_Lan
 #define CORRESPONDING_POINTS_XML "Path to external Camera Params xml"
 #define COUNT_OF_STDDEVS "Stddevs for the Thresholding"
 #define WIDTH_FACTOR "The factor by which the area exceeds the length of valid boundaries"
-#define MIDDLE_DISTANCE_HIGH_THRESHOLD "The minimum distance for a middle boundary"
-#define MIDDLE_DISTANCE_LOW_THRESHOLD "The maximum distance for a middle boundary"
+#define MIDDLE_DISTANCE_HIGH_THRESHOLD "The maximum distance for a middle boundary"
+#define MIDDLE_DISTANCE_LOW_THRESHOLD "The minimum distance for a middle boundary"
 #define MIN_OUTER_BOUNDARY_LENGTH "The minimum length an outer boundary must have"
 #define DRAW_IMAGES "Boolean indicating wether visualizations should be drawn"
 #define HEIGHT_THRESHOLD "The Threshold at which Blobs are removed"
@@ -432,7 +432,7 @@ void cSWE_LaneDetection::getOrientation(BlobDescriptor& blob)
      * @param contours a vector of contours as found by opencv
      * @param blobs an outputvector of blobdescriptors which represent plausible laneboundaries
      */
-void cSWE_LaneDetection::getBlobDescriptions(const std::vector< std::vector< cv::Point > >& contours, std::vector< BlobDescriptor >& blobs )
+void cSWE_LaneDetection::getBlobDescriptions( cv::Mat& image , const std::vector< std::vector< cv::Point > >& contours, std::vector< BlobDescriptor >& blobs )
 {
     // inspect every contour
     for (size_t i = 0; i < contours.size(); i++)
@@ -473,6 +473,8 @@ void cSWE_LaneDetection::getBlobDescriptions(const std::vector< std::vector< cv:
 
             // take the contour to the inverse perspective and recalculate it's orientation parameters
             project( descriptor , _projectionMatrix , _startHeight );
+
+            calculateDirectionHistogram(image,descriptor);
 
             // calculate the length of the contour
             descriptor.lengthContour = arcLength(contour, true);
@@ -737,6 +739,99 @@ void cSWE_LaneDetection::drawSpline( cv::Mat& image , const std::vector< cv::Poi
     }
 }
 
+/**
+     * \brief A function calculating properties of boundaries indicating complex boundaries.
+     * @param image the image to draw on
+     * @param blob a BlobDescriptor which should be examined
+     */
+bool cSWE_LaneDetection::calculateDirectionHistogram( cv::Mat& image , const BlobDescriptor& blob)
+{
+    const std::vector< cv::Point >& contour = blob.contour;
+    std::vector< cv::Point2d > directionVectors;
+    std::vector< double > lengths;
+    std::vector< double > angles;
+    std::vector< double > curvature;
+    size_t ninetyDegree = 0;
+
+    //size_t bins = 20;
+    //double binSize = (2 * CV_PI) / static_cast<double>(bins);
+    //std::vector< int > directionHistogram(bins);
+
+    //int sum = 0;
+    //double entropy = 0;
+
+    if (contour.size() > 1)
+    {
+        for (size_t i = 1; i < contour.size(); ++i)
+        {
+            cv::Point2d directionVector = contour[i - 1] - contour[i];
+            if (static_cast<int> (directionVector.y) != 0 && static_cast<int> (directionVector.x) != 0)
+            {
+                directionVectors.push_back(directionVector);
+            }
+        }
+        {
+            cv::Point2d directionVector = contour[0] - contour[contour.size() - 1];
+            if(static_cast<int> (directionVector.y) != 0 && static_cast<int> (directionVector.x) != 0)
+            {
+                directionVectors.push_back(directionVector);
+            }
+        }
+
+        for (size_t i = 0; i < directionVectors.size(); ++i)
+        {
+            double length = cv::norm(directionVectors[i]);
+            lengths.push_back(length);
+            double angle = std::acos(directionVectors[i].x / length);
+            angles.push_back(angle);
+
+            //int binIndex = floor(angle / binSize);
+            //directionHistogram[binIndex]++;
+            //sum++;
+        }
+
+        for (size_t i = 1; i < angles.size(); i++)
+        {
+            double localCurvature = fabs(angles[i - 1] - angles[i]);
+            curvature.push_back( localCurvature );
+            double lengthTresh = 30;
+            double curvatureThresh = 0.15;
+            double higherCurvatureThresh = 0.5 * CV_PI + curvatureThresh;
+            double lowerCurvatureThresh = 0.5 * CV_PI - curvatureThresh;
+            bool bigLengths = lengths[i - 1] > lengthTresh && lengths[i] > lengthTresh;
+            bool bigCurvature = localCurvature > lowerCurvatureThresh && localCurvature < higherCurvatureThresh;
+            if ( bigCurvature && bigLengths )
+            {
+                ninetyDegree++;
+            }
+        }
+
+        /*
+            for (size_t i = 0; i < bins; ++i)
+            {
+                double p = static_cast< double >( directionHistogram[i] ) / static_cast< double >( sum );
+                if (p > 0)
+                {
+                    entropy += p * log2(p);
+                }
+            }
+            */
+    }
+
+
+    if (ninetyDegree > 1 && _draw)
+    {
+        std::vector< cv::Point2d > vec;
+        vec.push_back(blob.centerOfGravity);
+
+        perspectiveTransform(vec, vec, _backProjectionMatrix);
+
+
+        cv::circle(image, vec[0] , 15, cv::Scalar(255, 255, 0) , 5);
+    }
+    return true;
+}
+
 
 /**
  * @brief cSWE_LaneDetection::ProcessInput The actual image processing of the LaneDetection
@@ -778,7 +873,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
 
     // get enhanced Descriptions of the blobs with basic removal of candidates
     std::vector< BlobDescriptor > blobs;
-    getBlobDescriptions(contours, blobs);
+    getBlobDescriptions(image, contours, blobs);
 
     // get the outer Lane Boundaries
     int outerLaneBoundariesIndicator = getOuterLaneBoundaries( blobs );
@@ -909,7 +1004,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         RETURN_IF_FAILED(m_pCoderDescSplines->WriteLock(pMediaSampleOutput, &pCoder));
 
 
-        cv::Point2d p1(1,-1), p2(2,-2), p3(4,-5);
+        cv::Point2d p1(0,-250), p2(100,-250), p3(200,-250);
         std::vector< cv::Point2d > rightBoundary;
         rightBoundary.push_back(p1);
         rightBoundary.push_back(p2);
@@ -949,13 +1044,17 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
                 elementSetter.str(std::string());
             }
 
-            tInt8 BoundaryArrayCountTemp = rightBoundary.size();
+            tInt8 BoundaryArrayCountTemp = leftBoundary.size();
             pCoder->Set("leftBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
             elementSetter.str(std::string());
         }
 
 
+        cv::Point2d q1(0,0), q2(100,0), q3(200,0);
         std::vector< cv::Point2d > middleBoundary;
+        middleBoundary.push_back(q1);
+        middleBoundary.push_back(q2);
+        middleBoundary.push_back(q3);
         {
             stringstream elementSetter;
             size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( middleBoundary.size() ) );
@@ -972,7 +1071,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
                 elementSetter.str(std::string());
             }
 
-            tInt8 BoundaryArrayCountTemp = rightBoundary.size();
+            tInt8 BoundaryArrayCountTemp = middleBoundary.size();
             pCoder->Set("middleBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
             elementSetter.str(std::string());
         }

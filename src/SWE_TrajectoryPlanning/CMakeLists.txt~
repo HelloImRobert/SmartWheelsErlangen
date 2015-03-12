@@ -1,0 +1,27 @@
+set(FILTER_NAME SWE_IntersecPointCalc)
+
+# include directories
+include_directories(${OpenCV_INCLUDE_DIR})
+
+# declare our filter
+adtf_add_filter(${FILTER_NAME}
+    stdafx.h
+    stdafx.cpp
+
+    SWE_TrajectoryPlanning.h
+    SWE_TrajectoryPlanning.cpp
+
+    Polynomial.h
+    Polynomial.cpp
+
+    PolynomialRootFinder.h
+    PolynomialRootFinder.cpp
+
+    splineboundarycalcs.h
+    splineboundarycalcs.cpp
+)
+
+# linking libs
+target_link_libraries(${FILTER_NAME} ${OpenCV_LIBS})
+
+adtf_install_plugin(${FILTER_NAME} ${AADC_INSTALL_DIR})

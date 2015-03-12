@@ -4,7 +4,7 @@
 		<language_version>3.00</language_version>
 		<author>odroid</author>
 		<date_creation>22.12.2014</date_creation>
-		<date_change>07.03.2015</date_change>
+		<date_change>11.03.2015</date_change>
 		<description>ADTF generated</description>
 	</header>
 	<units>
@@ -134,8 +134,8 @@
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="28" name="ui32RasterPointTimestamp" type="tUInt32" />
 		</struct>
 		<struct alignment="1" name="tIntersectionsNew" version="1">
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="intersecPoints" type="tFloat64" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="8" name="Indicator" type="tInt8" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="intersecPoint" type="tPoint2d" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="20" name="Indicator" type="tInt8" />
 		</struct>
 		<struct alignment="1" name="tBoundariesNew" version="1">
 			<element alignment="1" arraysize="75" byteorder="LE" bytepos="0" name="xCoords" type="tFloat64" />
@@ -186,10 +186,9 @@
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="16" name="velocity" type="tFloat32" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="20" name="distance_sum" type="tFloat32" />
 		</struct>
-
 		<struct alignment="1" name="tPointArray" version="1">
 			<element alignment="1" arraysize="10" byteorder="LE" bytepos="0" name="tPoint" type="tPoint2d" />
-        </struct>
+		</struct>
 		<struct alignment="1" name="tSplineBoundaryNew" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="rightBoundary" type="Boundary" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="501" name="leftBoundary" type="Boundary" />
@@ -204,10 +203,10 @@
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="2" name="StopLinePoint1" type="tPoint2d" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="22" name="StopLinePoint2" type="tPoint2d" />
 		</struct>
-            <struct alignment="1" name="tRoadSign" version="1">
-            <element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="fl32Imagesize" type="tFloat32"/>
-            <element alignment="1" arraysize="1"               byteorder="LE" bytepos="4" name="i8Identifier" type="tInt8"/>
-    </struct>
+		<struct alignment="1" name="tRoadSign" version="1">
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="fl32Imagesize" type="tFloat32" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="4" name="i8Identifier" type="tInt8" />
+		</struct>
 	</structs>
 	<streams />
 </adtf:ddl>

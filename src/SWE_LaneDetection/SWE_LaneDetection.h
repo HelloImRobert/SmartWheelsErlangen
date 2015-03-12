@@ -84,7 +84,7 @@ class cSWE_LaneDetection : public adtf::cFilter
             tResult                     InitPinFormats();
 
             // internal Functions
-            void                        getBlobDescriptions     (const std::vector< std::vector< cv::Point > >& contours , std::vector< BlobDescriptor >& blobs );
+            void                        getBlobDescriptions     (cv::Mat& image , const std::vector< std::vector< cv::Point > >& contours , std::vector< BlobDescriptor >& blobs );
             void                        getOrientation          (BlobDescriptor& blob );
             int                         getOuterLaneBoundaries  (std::vector< BlobDescriptor >& blobs);
             std::pair< size_t, size_t > contourToSpline         (const std::vector< cv::Point >& contour , const int splineSearchWidth , bool side = false );
@@ -93,6 +93,7 @@ class cSWE_LaneDetection : public adtf::cFilter
                                                                  const std::vector< BlobDescriptor* > middleLaneBoundary);
             void                        project                 (BlobDescriptor& blob, const cv::Mat& projectionMatrix, int offset = 0 );
             void                        project                 (std::vector< cv::Point >& contour, const cv::Mat& projectionMatrix, int offset = 0 );
+            bool                        calculateDirectionHistogram( cv::Mat& image , const BlobDescriptor& blob);
 
             // Parameters for the algorithm
             bool                        _draw;
