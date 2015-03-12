@@ -48,6 +48,7 @@ private:
     double _angleTolerance;
     double _veryLineLikeThresh;
     double _minOuterBoundaryLength;
+    double _distanceLowestPointToSecondIndexThresh;
 
     double _higherFlatAngleThresh;
     double _higherFlatAngleThresh2;

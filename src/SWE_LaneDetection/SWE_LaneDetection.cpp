@@ -1342,14 +1342,21 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         if ( leftBoundaryPresentAndComplex || rightBoundaryPresentAndComplex )
         {
             CrossingDescriptor crossing = _analyzer.searchCrossings(leftLaneBlob, rightLaneBlob);
-            drawCrossing( result , crossing );
 
-            std::vector<Point2d> points;
-            points.push_back(crossing.stopLine.first);
-            points.push_back(crossing.stopLine.second);
-            transformToCarCoords(points);
+            if(crossing.result != NORESULT)
+            {
+                drawCrossing( result , crossing );
 
-            transmitCrossingIndicator(crossing.isReal, crossing.type , points[0] , points[1] );
+                std::vector<Point2d> points;
+                points.push_back(crossing.stopLine.first);
+                points.push_back(crossing.stopLine.second);
+                transformToCarCoords(points);
+
+                if(points[0].x > 0 || points[1].x > 0)
+                {
+                    transmitCrossingIndicator(crossing.isReal, crossing.type , points[0] , points[1] );
+                }
+            }
         }
     }
 

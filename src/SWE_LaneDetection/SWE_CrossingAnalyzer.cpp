@@ -6,6 +6,11 @@ CrossingDescriptor::CrossingDescriptor() : result( NORESULT ), isReal(false)
 
 }
 
+bool sort_yValContour(const cv::Point& point1, const cv::Point& point2)
+ {
+     return point1.y > point2.y;
+ }
+
 CrossingAnalyzer::CrossingAnalyzer()
 {
     _leftOfCenterThresh = 150;
@@ -21,6 +26,7 @@ CrossingAnalyzer::CrossingAnalyzer()
     _lowerNinetyAngleThresh = 0.5 * CV_PI - _angleTolerance;
     _veryLineLikeThresh = 600;
     _minOuterBoundaryLength = 1700;
+    _distanceLowestPointToSecondIndexThresh = 200;
 
     _higherFlatAngleThresh = _angleTolerance;
     _higherFlatAngleThresh2 = CV_PI + _angleTolerance;
@@ -205,6 +211,27 @@ bool CrossingAnalyzer::checkArc(std::pair< size_t, size_t >& indices, const Blob
     {
         indices.first = indexOfMaxLength;
         indices.second = (successor + 1) % angles.size();
+
+        std::vector< cv::Point > contour = laneBlob->contour;
+        sort(contour.begin(),contour.end(),sort_yValContour);
+
+        int testPointY;
+        if(side)
+        {
+            testPointY = contour[contour.size()-1].y;
+        }
+        else
+        {
+            testPointY = contour[0].y;
+        }
+
+        int distanceLowestPointToSecondIndex = abs( testPointY - laneBlob->contour[successor].y );
+        bool distanceToLowestPointIsHigh = distanceLowestPointToSecondIndex > _distanceLowestPointToSecondIndexThresh;
+
+        if(distanceToLowestPointIsHigh)
+        {
+            return false;
+        }
 
         return true;
     }
