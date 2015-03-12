@@ -275,29 +275,29 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
             bool hasLeftBoundary =false; //leftBoundary.size() > 1;
             bool hasMiddleBoundary = false; //middleBoundary.size() > 1;
 
-            std::ofstream file("/home/odroid/Desktop/Ausgabe/ausgabe4.txt");
-            file << rightBoundary.size() << endl;
-            if(!rightBoundary.empty())
-            {
-                file << endl << rightBoundary[0] << endl << rightBoundary[1] << endl << rightBoundary[2] << endl << endl;
-            }
-            file << leftBoundary.size() << endl;
-            if(!leftBoundary.empty())
-            {
-                file << leftBoundary[0] << endl << leftBoundary[1] << endl << leftBoundary[2] << endl << endl;
-            }
-            file << middleBoundary.size() << endl;
-            if(!middleBoundary.empty())
-            {
-                file << middleBoundary[0] << endl << middleBoundary[1] << endl << middleBoundary[2] << endl << endl;
-            }
-            file.close();
+//            std::ofstream file("/home/odroid/Desktop/Ausgabe/ausgabe4.txt");
+//            file << rightBoundary.size() << endl;
+//            if(!rightBoundary.empty())
+//            {
+//                file << endl << rightBoundary[0] << endl << rightBoundary[1] << endl << rightBoundary[2] << endl << endl;
+//            }
+//            file << leftBoundary.size() << endl;
+//            if(!leftBoundary.empty())
+//            {
+//                file << leftBoundary[0] << endl << leftBoundary[1] << endl << leftBoundary[2] << endl << endl;
+//            }
+//            file << middleBoundary.size() << endl;
+//            if(!middleBoundary.empty())
+//            {
+//                file << middleBoundary[0] << endl << middleBoundary[1] << endl << middleBoundary[2] << endl << endl;
+//            }
+//            file.close();
 
             LOG_ERROR(cString::Format( "MBMT: test1"));
 
             // calculate intersection points with boundaries
             cv::Point2d intersectionPoint;
-            int intersectionIndicator = processing( intersectionPoint,
+            tInt8 intersectionIndicator = processing( intersectionPoint,
                                                     hasRightBoundary, hasLeftBoundary, hasMiddleBoundary,
                                                     rightBoundary, leftBoundary, middleBoundary );
 

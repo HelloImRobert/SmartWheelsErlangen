@@ -25,6 +25,7 @@ public:
     virtual ~cSWE_TrackControl();
 
     tFloat64 CalcSteeringAngle(cv::Point2d leftIntersectionPoint, cv::Point2d rightIntersectionPoint, tUInt32 intersectionIndicator);
+    tFloat64 CalcSteeringAngleTrajectory( cv::Point2d trackingPoint, tInt8 intersectionIndicator );
 
 protected: // overwrites cFilter
     tResult Init(tInitStage eStage, __exception = NULL);

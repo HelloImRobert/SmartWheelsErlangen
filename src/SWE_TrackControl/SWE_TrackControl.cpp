@@ -32,7 +32,7 @@ cSWE_TrackControl::~cSWE_TrackControl()
 
 tResult cSWE_TrackControl::CreateInputPins(__exception)
 {
-    RETURN_IF_FAILED(m_oIntersectionPoints.Create("Intersection_Points", new cMediaType(0, 0, 0, "tIntersections"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oIntersectionPoints.Create("tracking_Point", new cMediaType(0, 0, 0, "tIntersectionsNew"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oIntersectionPoints));
     RETURN_NOERROR;
 }
@@ -128,20 +128,17 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
             // READ INPUT VALUES -------------------------------------------------------------------
 
             // init temporary objects
-            cv::Point2d leftIntersectionPoint;
-            cv::Point2d rightIntersectionPoint;
-            tUInt32 intersectionIndicator;
+            cv::Point2d trackingPoint;
+            tInt8 intersectionIndicator = 0;
 
             // generate Coder object
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
 
             //get values from media sample (x and y exchanged to transform to front axis coo sys)
-            pCoder->Get("xCoordLeft", (tVoid*)&(leftIntersectionPoint.x));
-            pCoder->Get("yCoordLeft", (tVoid*)&(leftIntersectionPoint.y));
-            pCoder->Get("xCoordRight", (tVoid*)&(rightIntersectionPoint.x));
-            pCoder->Get("yCoordRight", (tVoid*)&(rightIntersectionPoint.y));
-            pCoder->Get("intersecIndicator", (tVoid*)&(intersectionIndicator));
+            pCoder->Get("intersecPoint.xCoord", (tVoid*)&(trackingPoint.x));
+            pCoder->Get("intersecPoint.yCoord", (tVoid*)&(trackingPoint.y));
+            pCoder->Get("Indicator", (tVoid*)&(intersectionIndicator));
             m_pCoderDescInputMeasured->Unlock(pCoder);
 
 
@@ -150,7 +147,7 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
             //leftIntersectionPoint.x = 200; leftIntersectionPoint.y = 100;
             //rightIntersectionPoint.x = 200; rightIntersectionPoint.y = -350;
 
-            tFloat32 steeringAngle = -180.0/3.14*(CalcSteeringAngle( leftIntersectionPoint, rightIntersectionPoint, intersectionIndicator ));
+            tFloat32 steeringAngle = -180.0/3.14*( CalcSteeringAngleTrajectory( trackingPoint, intersectionIndicator ) );
 
 
             // TRANSMIT OUTPUT VALUES -------------------------------------------------------------------
@@ -221,6 +218,31 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngle( cv::Point2d leftIntersectionPoint
     if( intersectionIndicator != 0 )
     {
         m_middlePoint = (leftIntersectionPoint + rightIntersectionPoint)*0.5;
+        steeringAngle = acos(m_middlePoint.dot(m_PerpenticularPoint)/cv::norm(m_middlePoint));
+        if(m_middlePoint.y < 0)
+        //cv::Point2d middlePoint = (leftIntersectionPoint + rightIntersectionPoint)*0.5;
+        //steeringAngle = acos(middlePoint.dot(m_PerpenticularPoint)/cv::norm(middlePoint));
+        //if(middlePoint.y < 0)
+        {
+            steeringAngle = (-1.0)*steeringAngle;
+        }
+        m_steeringAngle = steeringAngle;
+    }
+    else
+    {
+        steeringAngle = m_steeringAngle;
+    }
+
+    return steeringAngle;
+}
+
+tFloat64 cSWE_TrackControl::CalcSteeringAngleTrajectory( cv::Point2d trackingPoint, tInt8 intersectionIndicator )
+{
+    tFloat64 steeringAngle = 0;
+
+    if( intersectionIndicator != 0 )
+    {
+        m_middlePoint = trackingPoint;
         steeringAngle = acos(m_middlePoint.dot(m_PerpenticularPoint)/cv::norm(m_middlePoint));
         if(m_middlePoint.y < 0)
         //cv::Point2d middlePoint = (leftIntersectionPoint + rightIntersectionPoint)*0.5;
