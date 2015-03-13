@@ -387,11 +387,15 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
 
     // calculate most plausible segment for every non-empty boundary
     std::vector< cv::Point2d > plausibleRightSegment;
-    splineBoundaryCalcs::extractPlausibleSegment( plausibleRightSegment, extendedRightBoundary, _breakAngle, _maxDirectionAngle, _maxDistance );
+    // !!!!!!!!!!
+    bool isRightBoundary = true;
+    splineBoundaryCalcs::extractPlausibleSegment( plausibleRightSegment, extendedRightBoundary, _breakAngle, _maxDirectionAngle, _maxDistance, isRightBoundary );
+    isRightBoundary = false;
+    // !!!!!!!!!!
     std::vector< cv::Point2d > plausibleLeftSegment;
-    splineBoundaryCalcs::extractPlausibleSegment( plausibleLeftSegment, extendedLeftBoundary, _breakAngle, _maxDirectionAngle, _maxDistance );
+    splineBoundaryCalcs::extractPlausibleSegment( plausibleLeftSegment, extendedLeftBoundary, _breakAngle, _maxDirectionAngle, _maxDistance, isRightBoundary );
     std::vector< cv::Point2d > plausibleMiddleSegment;
-    splineBoundaryCalcs::extractPlausibleSegment( plausibleMiddleSegment, extendedMiddleBoundary, _breakAngle, _maxDirectionAngle, _maxDistance );
+    splineBoundaryCalcs::extractPlausibleSegment( plausibleMiddleSegment, extendedMiddleBoundary, _breakAngle, _maxDirectionAngle, _maxDistance, isRightBoundary );
 
     // check if there is no plausible segment usable and return if this is the case
     if( plausibleRightSegment.empty() && plausibleLeftSegment.empty() )

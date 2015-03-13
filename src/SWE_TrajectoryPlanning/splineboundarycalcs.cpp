@@ -474,10 +474,111 @@ std::vector< std::pair< size_t, size_t > > splineBoundaryCalcs::extractPlausible
     plausibleSplineSegment.clear();
     if( plausibleSegments.size() > 0 )
     {
-        for( size_t i = plausibleSegments.at(0).first; i <= plausibleSegments.at(0).second; i++ )
+
+
+        // MOST ADVANCED PROBLEM TREATMENT BEGIN
+        // hack to prevent wrong behaviour on crossing when rigth part of right lane is shorter than part of middle lane
+        // that is missinterpreted as a part of right lane
+        // if there is more than one plausible segment
+
+
+        // first assume that longest plausible segment is correctly detected
+        size_t returnedPlausibleSegment = 0;
+        // indicator if the HACK was already used
+        bool hackUsed = false;
+        bool hackDeletedElement = false;
+
+        // only use if the right boundary is passed parameter
+        if( isRightBoundary )
         {
-            plausibleSplineSegment.push_back( spline[i] );
+            // if there is more than one plausible segment
+            if( plausibleSegments.size() > 1 )
+            {
+                // point on longest plausible segment closest to front axis
+                cv::Point2d closestPointLongestPlausibleSegment;
+                // if first point of longest plausible segment is closer to front axis than last point of longest plausible segment
+                if( spline[plausibleSegments[0].first].x < spline[plausibleSegments[0].second].x )
+                {
+                    // use FIRST point for position check of longest plausible segment
+                    closestPointLongestPlausibleSegment = spline[plausibleSegments[0].first];
+                }
+                else
+                {
+                    // use LAST point for position check of longest plausible segment
+                    closestPointLongestPlausibleSegment = spline[plausibleSegments[0].second];
+                }
+                // point on second longest plausible segment closest to front axis
+                cv::Point2d closestPointSecondLongestPlausibleSegment;
+                // if first point of second longest plausible segment is closer to front axis than last point of longest plausible segment
+                if( spline[plausibleSegments[1].first].x < spline[plausibleSegments[1].second].x )
+                {
+                    // use FIRST point for position check of longest plausible segment
+                    closestPointSecondLongestPlausibleSegment = spline[plausibleSegments[1].first];
+                }
+                else
+                {
+                    // use LAST point for position check of longest plausible segment
+                    closestPointSecondLongestPlausibleSegment = spline[plausibleSegments[1].second];
+                }
+                // if closest point of longest plausible segment is LEFT of vehicle
+                if( closestPointLongestPlausibleSegment.y > 0.0 )
+                {
+                    // if SECOND longest plausible segment is RIGHT of vehicle
+                    if( closestPointSecondLongestPlausibleSegment.y < 0.0 )
+                    {
+                        // return SECOND longest plausible segment instead of longest plausible segment
+                        returnedPlausibleSegment = 1;
+
+                        hackUsed = true;
+                    }
+                }
+            }
+            // if there is only one plausible segment:
+            // check if this is left of vehicle and has length of a middle segment
+            else
+            {
+                // only do this check if the above part of the HACK wasn't already executed
+                if( !hackUsed )
+                {
+                    // point on longest plausible segment closest to front axis
+                    cv::Point2d closestPointLongestPlausibleSegment;
+                    // if first point of longest plausible segment is closer to front axis than last point of longest plausible segment
+                    if( spline[plausibleSegments[0].first].x < spline[plausibleSegments[0].second].x )
+                    {
+                        // use FIRST point for position check of longest plausible segment
+                        closestPointLongestPlausibleSegment = spline[plausibleSegments[0].first];
+                    }
+                    else
+                    {
+                        // use LAST point for position check of longest plausible segment
+                        closestPointLongestPlausibleSegment = spline[plausibleSegments[0].second];
+                    }
+
+                    // if closest point of longest plausible segment is LEFT of vehicle
+                    if( closestPointLongestPlausibleSegment.y > 0.0 )
+                    {
+                        // and if this segment fits the length of a middle boundary segment
+                        if( lengthsPlausibleSegments[0].second < 350 )
+                        {
+                            // assume that this plausible segment is a missinterpreted middle line segment
+                            hackDeletedElement = true;
+                        }
+                    }
+                }
+            }
         }
+        // MOST ADVANCED PROBLEM TREATMENT END
+
+
+
+        if( !hackDeletedElement )
+        {
+            for( size_t i = plausibleSegments.at( returnedPlausibleSegment ).first; i <= plausibleSegments.at( returnedPlausibleSegment ).second; i++ )
+            {
+                plausibleSplineSegment.push_back( spline[i] );
+            }
+        }
+
     }
 
 

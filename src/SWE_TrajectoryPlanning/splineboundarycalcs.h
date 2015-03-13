@@ -79,7 +79,7 @@ std::vector< std::pair< size_t, size_t > > extractPlausibleSegment( std::vector<
                                                                     const std::vector< cv::Point2d >& spline,
                                                                     const double breakAngle,
                                                                     const double maxDirectionAngle,
-                                                                    const double maxDistance);
+                                                                    const double maxDistance, const bool isRightBoundary);
 
 
 // return normal vector to 2D vector counterclockwise
