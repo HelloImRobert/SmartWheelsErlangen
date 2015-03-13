@@ -59,14 +59,14 @@ private:
     tFloat32	m_rememberDist;
     tFloat32    m_rememberDistTwo;
 
-    // Angles for maneuvering
+    // Angles for maneuveringö
     tFloat32	m_centralAngle;
     tFloat32    m_counterAngle;
     tFloat32    m_manAngleOne;
     tFloat32    m_manAngleTwo;
 
     //Properties
-    tFloat32     m_pullFirst;
+    tFloat32     m_pullFirst;    
     tFloat32     m_pullSecond;
     tFloat32     m_pullThird;
     tFloat32     m_pullFourth;
@@ -87,8 +87,10 @@ private:
     tFloat32    m_pullRightAngle;
     tFloat32    m_pullLeftStraightBlind;
     tFloat32    m_pullRightStraightBlind;
-
+    tFloat32    m_pullCounterSide;
     tInt32      m_startTimer;
+    tBool       m_setBack;
+    tFloat32    m_setBackDist;
 
     std::vector<tFloat32> m_initTest_vect;
 
