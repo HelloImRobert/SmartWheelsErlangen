@@ -11,6 +11,17 @@
 */
 
 //Filter Beginn
+struct tAADC_Maneuver
+{
+    int id;
+    cString action;
+};
+
+struct tSector
+{
+    int id;
+    std::vector<tAADC_Maneuver> maneuverList;
+};
 class cSWE_KIControl : public adtf::cFilter
 {
     ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_KICONTROL, "SWE KIControl", OBJCAT_DataFilter, "KIControl", 1, 0,0, "pre alpha version");
@@ -24,6 +35,8 @@ class cSWE_KIControl : public adtf::cFilter
     cInputPin m_oInputSignData;
     cInputPin m_oInputParkData;
     cInputPin m_oInputTC;
+  cInputPin  m_JuryStructInputPin;
+
     //Was das?V
     cOutputPin m_oIntersectionPointLeft;  //cOutputPin m_oIntersectionPointRight;
 
@@ -32,6 +45,7 @@ class cSWE_KIControl : public adtf::cFilter
     cOutputPin m_oOutputLightControl;
     cOutputPin m_oOutputTC;
     cOutputPin m_oOutputParking;
+    cOutputPin m_oOutputDriverStruct;
     //cOutputPin m_oOutputManipulated;
 
 public:
@@ -60,6 +74,7 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
      cv::Point2d points[10];
 
     int CommandCounter;
+     int CommandCountermax;
     int Signtype;
 	int SecondSigntype;
     int SpeedControl;
@@ -71,6 +86,9 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
 	bool parking;
     double Punktx;
     double Punkty;
+    bool adminstopp;
+    int Commandsector;
+    int Commandsectormax;
     tFloat32 signsize;
     //MB Funktionen die benoetigt werden
     void ObjectAvoidance();
@@ -80,7 +98,7 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
     tResult Parkroutine(int value);
     void ControlHL();
     tResult ControlLight(int lights);
-
+    tResult SendtoJury(tInt8 i8StateID, tInt16 i16ManeuverEntry);
     std::pair<cv::Point2d, cv::Point2d> m_boundary;
 
     //MB Objekte/Variablen die benoetigt werden Input
@@ -92,10 +110,15 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
     cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescTCOutput;
      cObjectPtr<IMediaTypeDescription> m_pCoderDescParkOutput;
+        cObjectPtr<IMediaTypeDescription>  m_pCoderDescDriverStruct;
     /*! Coder Descriptors for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescPointLeft;
 
+    /*! this is the filename of the maneuver list*/
+     cFilename m_maneuverListFile;
+     /*! this is the list with all the loaded sections from the maneuver list*/
+        std::vector<tSector> m_sectorList;
 };
 
 #endif // _SWE_KICONTROL_H_

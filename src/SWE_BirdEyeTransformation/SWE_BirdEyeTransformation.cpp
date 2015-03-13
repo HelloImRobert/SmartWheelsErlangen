@@ -122,10 +122,16 @@ tResult cSWE_BirdEyeTransformation::InitTransformationMatrices( std::string path
         _inversePerspectiveFileStorage[ currentSourceName ] >> source_points[ i ];
     }
 
-    _inversePerspectiveFileStorage.release();
+
 
     _projectionMatrix = cv::getPerspectiveTransform( source_points , dest_points );
     _backProjectionMatrix = cv::getPerspectiveTransform( dest_points , source_points );
+
+    FileStorage fs;
+    fs.open( "/home/odroid/AADC/calibration_files/result.XML" , FileStorage::WRITE );
+    fs << "Matrix" << _projectionMatrix;
+
+    _inversePerspectiveFileStorage.release();
 
     RETURN_NOERROR;
 }
@@ -220,6 +226,9 @@ tResult cSWE_BirdEyeTransformation::ProcessInput(IMediaSample* pMediaSample)
     // ---------------- apply an inverse Perspective mapping ----------------
     Mat warpedImage;
     cv::warpPerspective(image, warpedImage, _projectionMatrix, image.size());
+
+
+    cv::imwrite("/home/odroid/Desktop/image.jpg",warpedImage);
 
     // ----------- transmit a video of the current result to the video outputpin ------------
     if (_oColorVideoOutputPin.IsConnected())

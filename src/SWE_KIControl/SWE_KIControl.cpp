@@ -12,15 +12,10 @@ ADTF_FILTER_PLUGIN("SWE KIControl", OID_ADTF_SWE_KICONTROL, cSWE_KIControl)
 
 cSWE_KIControl::cSWE_KIControl(const tChar* __info) : cFilter(__info)
 {
-    SetPropertyFloat("Controller Kp value",1);
-    SetPropertyFloat("Controller Ki value",1);
-    SetPropertyFloat("Controller Kd value",1);
-    SetPropertyFloat("Controller Precontrol Value", 1);
+    SetPropertyStr("ManeuverFile", "");
+        SetPropertyBool("ManeuverFile" NSSUBPROP_FILENAME, tTrue);
+        SetPropertyStr("ManeuverFile" NSSUBPROP_FILENAME NSSUBSUBPROP_EXTENSIONFILTER, "XML Files (*.xml)");
 
-    SetPropertyInt("Sample Interval [msec]",1);
-    SetPropertyBool("use automatically calculated sample interval",1);
-    SetPropertyInt("Controller Typ", 1);
-    SetPropertyStr("Controller Typ" NSSUBPROP_VALUELISTNOEDIT, "1@P|2@PI|3@PID");
 
 
 }
@@ -64,6 +59,12 @@ tResult cSWE_KIControl::CreateInputPins(__exception)
 
     RETURN_IF_FAILED(m_oInputRoadData.Create("RoadData", new cMediaType(0, 0, 0, "tPointArray"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputRoadData));
+
+
+    RETURN_IF_FAILED(m_JuryStructInputPin.Create("Jury_Struct", new cMediaType(0, 0, 0, "tJuryStruct"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_JuryStructInputPin));
+
+
 
     RETURN_NOERROR;
 }
@@ -112,6 +113,24 @@ tResult cSWE_KIControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(RegisterPin(&m_oOutputParking));
     //--------------------------------------------------------------
 
+    //----------------------------------------------------Driverstruct----Driverstruct------
+
+    tChar const * strDescTCOutput3 = pDescManager->GetMediaDescription("tDriverStruct");
+    RETURN_IF_POINTER_NULL(strDescTCOutput3);
+    cObjectPtr<IMediaType> pTypedriverstruct = new cMediaType(0, 0, 0, "tDriverStruct", strDescTCOutput3,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypedriverstruct->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescDriverStruct));
+
+    RETURN_IF_FAILED(m_oOutputDriverStruct.Create("DriverStruct", pTypedriverstruct, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputDriverStruct));
+    //--------------------------------------------------------------
+
+
+
+
+
+
+
+
 
     RETURN_NOERROR;
 }
@@ -128,30 +147,10 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         CreateInputPins(__exception_ptr);
         CreateOutputPins(__exception_ptr);
 
-        //Hier XML Datei einlesen etc
-        //Dummmy funktion bis xml einlesen steht
 
 
 
-        CommandCounter=6;
-      Commands.push_back(1);
-      Commands.push_back(2);
-      Commands.push_back(3);
-      Commands.push_back(1);
-      Commands.push_back(2);
-      Commands.push_back(3);
-      Commands.push_back(1);
-      /*
-       *Int werte in Commands:
-       * 1=left
-       * 2=right
-       * 3=straigth
-       * 4=einparken1
-       * 5=einparken2
-       * 6=ausparken1
-       * 7=ausparken2
-       *
-       */
+
     }
     else if (eStage == StageNormal)
     {
@@ -161,6 +160,7 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         roadfree=true;
         Signtype=0;
 		parking=false;
+        adminstopp=false;
         for(int a=0;a<10;a++)
         {
             points[a].x=0;
@@ -174,6 +174,155 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
     else if(eStage == StageGraphReady)
     {
 
+
+        m_maneuverListFile = GetPropertyStr("ManeuverFile");
+
+          if (m_maneuverListFile.IsEmpty())
+          {
+              LOG_ERROR("DriverFilter: Maneuver file not found");
+              RETURN_ERROR(ERR_INVALID_FILE);
+          }
+          ADTF_GET_CONFIG_FILENAME(m_maneuverListFile);
+
+              m_maneuverListFile = m_maneuverListFile.CreateAbsolutePath(".");
+
+
+              if (cFileSystem::Exists(m_maneuverListFile))
+                 {
+                     cDOM oDOM;
+                     oDOM.Load(m_maneuverListFile);
+                     cDOMElementRefList oSectorElems;
+                     cDOMElementRefList oManeuverElems;
+
+                     //read first Sector Elem
+                     if(IS_OK(oDOM.FindNodes("AADC-Maneuver-List/AADC-Sector", oSectorElems)))
+                     {
+                         //iterate through sectors
+                         for (cDOMElementRefList::iterator itSectorElem = oSectorElems.begin(); itSectorElem != oSectorElems.end(); ++itSectorElem)
+                         {
+                             //if sector found
+                             tSector sector;
+                             sector.id = (*itSectorElem)->GetAttributeUInt32("id");
+
+                             if(IS_OK((*itSectorElem)->FindNodes("AADC-Maneuver", oManeuverElems)))
+                             {
+                                 //iterate through maneuvers
+                                 for(cDOMElementRefList::iterator itManeuverElem = oManeuverElems.begin(); itManeuverElem != oManeuverElems.end(); ++itManeuverElem)
+                                 {
+                                     tAADC_Maneuver man;
+                                     man.id = (*itManeuverElem)->GetAttributeUInt32("id");
+                                     man.action = (*itManeuverElem)->GetAttribute("action");
+                                     sector.maneuverList.push_back(man);
+                                     if(man.action =="left")
+                                     {
+                                            Commands.push_back(1);
+                                     }
+                                     else if(man.action =="right")
+                                     {
+                                             Commands.push_back(2);
+                                     }
+                                     else if(man.action =="straight")
+                                     {
+                                             Commands.push_back(3);
+                                     }
+                                     else if(man.action =="parallel_parking")
+                                     {
+                                             Commands.push_back(4);
+                                     }
+                                     else if(man.action =="cross_parking")
+                                     {
+                                             Commands.push_back(5);
+                                     }
+                                     else if(man.action =="pull_out_left")
+                                     {
+                                             Commands.push_back(6);
+                                     }
+                                     else if(man.action =="pull_out_right")
+                                     {
+                                             Commands.push_back(7);
+                                     }
+
+
+                                 }
+                             }
+
+                             m_sectorList.push_back(sector);
+                         }
+                     }
+                     if (oSectorElems.size() > 0)
+                     {
+                         LOG_INFO("DriverFilter: Loaded Maneuver file successfully.");
+                     }
+                     else
+                     {
+                         LOG_ERROR("DriverFilter: no valid Maneuver Data found!");
+                         RETURN_ERROR(ERR_INVALID_FILE);
+                     }
+                 }
+                 else
+                 {
+                     LOG_ERROR("DriverFilter: no valid Maneuver File found!");
+                     RETURN_ERROR(ERR_INVALID_FILE);
+                 }
+
+              /*
+               * Man?ver
+               * in m_sectorList stehen alle abschnitte drin, jeder abschnitt hat eine Id.
+               * in den abschnitten stehen die verschiedenen commandos, mit fortlaufender id
+
+               *
+               */
+              Commandsector=0;
+              Commandsectormax=m_sectorList.size()-1;
+              CommandCountermax=m_sectorList[Commandsector].maneuverList.size()-1;
+             // CommandCountermax=m_sectorList[0].maneuverList.size()-1;
+              CommandCounter=0;
+
+        //CommandCounter=6;
+//    for(int ab=0;ab<m_sectorList[0].maneuverList.size();ab++)
+//    {
+
+//        if(m_sectorList[0].maneuverList[ab].action=="left")
+//        {
+//               Commands.push_back(1);
+//        }
+//        else if(m_sectorList[0].maneuverList[ab].action=="right")
+//        {
+//                Commands.push_back(2);
+//        }
+//        else if(m_sectorList[0].maneuverList[ab].action=="straight")
+//        {
+//                Commands.push_back(3);
+//        }
+//        else if(m_sectorList[0].maneuverList[ab].action=="parallel_parking")
+//        {
+//                Commands.push_back(4);
+//        }
+//        else if(m_sectorList[0].maneuverList[ab].action=="cross_parking")
+//        {
+//                Commands.push_back(5);
+//        }
+//        else if(m_sectorList[0].maneuverList[ab].action=="pull_out_left")
+//        {
+//                Commands.push_back(6);
+//        }
+//        else if(m_sectorList[0].maneuverList[ab].action=="pull_out_right")
+//        {
+//                Commands.push_back(7);
+//        }
+//      //  LOG_ERROR("MB: Found ");
+//    }
+      /*
+       *Int werte in Commands:
+       * 1=left
+       * 2=right
+       * 3=straigth
+       * 4=einparken1
+       * 5=einparken2
+       * 6=ausparken1
+       * 7=ausparken2
+       *
+       */
     }
 
     RETURN_NOERROR;
@@ -230,10 +379,17 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
            pCoder->Get("tPoint", (tVoid*)&objecte); //Werte auslesen
             m_pCoderDescInputMeasured->Unlock(pCoder);
             //Hier die Objekte auslesen, und in eigene Vecor bauen
-
+            if( adminstopp!=true)
+            {
                 ObjectAvoidance();
 
                 DriverCalc();
+            }
+            else
+            {
+                SpeedControl=0;
+                sendTC(0,0);
+            }
         }
         //--------------------------------------------------------------RoadData----------------------------------------------------------------------------------------
         else if(pSource == &m_oInputRoadData)
@@ -249,7 +405,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         //--------------------------------------------------------------Schilder einlesen----------------------------------------------------------------------------------------
         else if(pSource== &m_oInputSignData)
         {
-          //  LOG_INFO(cString::Format( "MB:Ki empfange Qr"));
+
             tInt8 value = 0;
             tFloat32 area = 0;
            cObjectPtr<IMediaCoder> pCoder;
@@ -329,19 +485,67 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
             if(value==1 && (Commands[CommandCounter]==4 ||Commands[CommandCounter]==5))
             {
-                if(CommandCounter!=0)
+                if(CommandCounter!=CommandCountermax)
                 {
-                   CommandCounter--;
+                   CommandCounter++;
+                }
+                else
+                {
+
                 }
             }
             else if(value==2 && (Commands[CommandCounter]==6 ||Commands[CommandCounter]==7))
             {
-                if(CommandCounter!=0)
+                if(CommandCounter!=CommandCountermax)
                 {
-                   CommandCounter--;
+                   CommandCounter++;
+                }
+                else
+                {
+
                 }
              }
         }
+
+        //--------------------------------------------------------------Daten vom JuryModul einlesen----------------------------------------------------------------------------------------
+
+        else if(pSource==&m_JuryStructInputPin)
+        {
+                       tInt8 i8ActionID = -2;
+                       tInt16 i16entry = -1;
+                       cObjectPtr<IMediaCoder> pCoder;
+                       RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+
+                           pCoder->Get("i8ActionID", (tVoid*)&i8ActionID);
+                           pCoder->Get("i16ManeuverEntry", (tVoid*)&i16entry);
+
+
+                       if (i8ActionID==-1)
+                       {
+                           //scheinbar stopp befehl
+                        adminstopp=true;
+                        //SendtoJury(tInt8 i8StateID, tInt16 i16ManeuverEntry)
+                          // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Stop with maneuver ID %d",i16entry));
+                           //emit sendStop((int)i16entry);
+                       }
+                       else if (i8ActionID==0)
+                       {
+                           //Ready anforderung
+
+                          // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Request Ready with maneuver ID %d",i16entry));
+                           //emit sendRequestReady((int)i16entry);
+                       }
+                       else if (i8ActionID==1)
+                       {
+                              adminstopp=false;
+                           //Start
+                          // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Run with maneuver ID %d",i16entry));
+                           //emit sendRun((int)i16entry);
+                       }
+        }
+
+
+
         //--------------------------------------------------------------Daten vom TC einlesen----------------------------------------------------------------------------------------
 
         else if(pSource==&m_oInputTC)
@@ -782,16 +986,16 @@ void cSWE_KIControl::DriverCalc()
 
  */
 
-//hier ist noch ein fehler
-      LOG_INFO(cString::Format( "MB:KiLicht an 2"));
+// TODO: Parken richtig einbauen, und die Kreuzungsgeschichte Korrekteinbinden
     switch (Commands[CommandCounter])
     {
         //left-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 1:
+          LOG_ERROR("MB: Links abbiegen jetzte aber richtig ");
             if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
             {
                  sendTC(SpeedControl,1);
-                 LOG_INFO(cString::Format( "MB:KiLicht an "));
+
                   ControlLight(1);
             }
             else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
@@ -816,11 +1020,14 @@ void cSWE_KIControl::DriverCalc()
 						
 						if(abgebogen)
 						{
-							if(CommandCounter!=0)
-								CommandCounter--;
+                            if(CommandCounter!=CommandCountermax)
+                                CommandCounter++;
 							else
 							{
-								//Game Over sieg
+                                Commandsector++;
+                                 CommandCountermax+=m_sectorList[Commandsector].maneuverList.size()-1;
+
+                                //Game Over sieg hier rein was passieren soll, wenn ziel erreicht
 							}
 							Signtype=0;
 							SecondSigntype=0;
@@ -904,10 +1111,12 @@ void cSWE_KIControl::DriverCalc()
 
                     if(abgebogen)
                     {
-                        if(CommandCounter!=0)
-                            CommandCounter--;
+                        if(CommandCounter!=CommandCountermax)
+                            CommandCounter++;
                         else
                         {
+                             Commandsector++;
+                               CommandCountermax+=m_sectorList[Commandsector].maneuverList.size()-1;
                             //Game Over sieg
                         }
                         Signtype=0;
@@ -990,10 +1199,12 @@ void cSWE_KIControl::DriverCalc()
 
                     if(abgebogen)
                     {
-                        if(CommandCounter!=0)
-                            CommandCounter--;
+                        if(CommandCounter!=CommandCountermax)
+                            CommandCounter++;
                         else
                         {
+                             Commandsector++;
+                               CommandCountermax+=m_sectorList[Commandsector].maneuverList.size()-1;
                             //Game Over sieg
                         }
                         Signtype=0;
@@ -1047,6 +1258,7 @@ void cSWE_KIControl::DriverCalc()
         break;
         //Einparken1-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 4:
+
                     parking=true;
                     //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das größte schild ist das erkannt wird
                     if(SecondSigntype==4)
@@ -1058,6 +1270,7 @@ void cSWE_KIControl::DriverCalc()
                     break;
         //einparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 5:
+
              parking=true;
              //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das größte schild ist das erkannt wird
                  if(SecondSigntype==4)
@@ -1067,11 +1280,13 @@ void cSWE_KIControl::DriverCalc()
                     break;
         //ausparken1-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 6:
+
                     SecondSigntype=0;
                     Parkroutine(3);
                     break;
         //ausparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
         case 7:
+
                     SecondSigntype=0;
                     Parkroutine(4);
                     break;
@@ -1174,4 +1389,26 @@ double cSWE_KIControl::getPerpendicDistance(const cv::Point2d& referencePoint)
 
 
     return distance;
+}
+tResult cSWE_KIControl::SendtoJury(tInt8 i8StateID, tInt16 i16ManeuverEntry)
+{
+        cObjectPtr<IMediaSample> pMediaSample;
+        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+
+        cObjectPtr<IMediaSerializer> pSerializer;
+        m_pCoderDescDriverStruct->GetMediaSampleSerializer(&pSerializer);
+        tInt nSize = pSerializer->GetDeserializedSize();
+
+        RETURN_IF_FAILED(pMediaSample->AllocBuffer(nSize));
+        {   // focus for sample write lock
+            __adtf_sample_write_lock_mediadescription(m_pCoderDescDriverStruct,pMediaSample,pCoder);
+
+
+            pCoder->Set("i8StateID", (tVoid*)&i8StateID);
+            pCoder->Set("i16ManeuverEntry", (tVoid*)&i16ManeuverEntry);
+        }
+
+        pMediaSample->SetTime(_clock->GetStreamTime());
+        m_oOutputDriverStruct.Transmit(pMediaSample);
+        RETURN_NOERROR;
 }

@@ -19,7 +19,7 @@ cSWE_TrajectoryPlanning::cSWE_TrajectoryPlanning(const tChar* __info) : cFilter(
     SetPropertyFloat("insertion distance",100.0);
     SetPropertyFloat("road width",900.0);
     SetPropertyFloat("max road width deviation",100.0);
-    SetPropertyFloat("tracking point distance",100.0);
+    SetPropertyFloat("tracking point distance",400.0);
     SetPropertyFloat("intersection angle",90*CV_PI/180);
 }
 
@@ -271,9 +271,9 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
 
             // CALCUALTIONS -------------------------------------------------------------------
 
-            bool hasRightBoundary = true; //rightBoundary.size() > 1;
-            bool hasLeftBoundary =false; //leftBoundary.size() > 1;
-            bool hasMiddleBoundary = false; //middleBoundary.size() > 1;
+            bool hasRightBoundary = rightBoundary.size() > 1;
+            bool hasLeftBoundary = leftBoundary.size() > 1;
+            bool hasMiddleBoundary = middleBoundary.size() > 1;
 
 //            std::ofstream file("/home/odroid/Desktop/Ausgabe/ausgabe4.txt");
 //            file << rightBoundary.size() << endl;
@@ -292,6 +292,24 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
 //                file << middleBoundary[0] << endl << middleBoundary[1] << endl << middleBoundary[2] << endl << endl;
 //            }
 //            file.close();
+
+//            double picHeight = 480;
+//            double picWidth = 640;
+//            double distFrontToWarpedImageBottom = 310;
+//            double distFrontToFrontAxis = 120;
+//            double distSideImageToMid = 10;
+
+//            for( size_t i = 0; i < rightBoundary.size(); i++ )
+//            {
+//                rightBoundary[i].x = (-1.0)*( rightBoundary[i].x - picWidth/2 - distSideImageToMid );
+//                rightBoundary[i].y = (-1.0)*( rightBoundary[i].y - picHeight - distFrontToWarpedImageBottom - distFrontToFrontAxis );
+
+//                 double temp = rightBoundary[i].x;
+
+//                rightBoundary[i].x = rightBoundary[i].y;
+//                rightBoundary[i].y = temp;
+
+//            }
 
             LOG_ERROR(cString::Format( "MBMT: test1"));
 
@@ -362,6 +380,8 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
         returnedPoint.y = 0.0;
         return 0;
     }
+
+    LOG_ERROR(cString::Format( "MBMT: test2.0"));
 
     // insert points in fixed distance on boundaries for intersection point calculation
     std::vector< std::pair< size_t, double > > segmentLengths;

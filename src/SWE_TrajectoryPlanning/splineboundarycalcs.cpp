@@ -239,6 +239,7 @@ std::vector< cv::Point2d > splineBoundaryCalcs::insertPoints( std::vector< std::
 
     // final size of return value
     size_t absoluteSize = srcSpline.size();
+    LOG_ERROR(cString::Format( "MBMT: test2.1"));
 
     // store for number of points to insert in corresponding segments
     std::vector < unsigned int > insertCount;
@@ -272,7 +273,10 @@ std::vector< cv::Point2d > splineBoundaryCalcs::insertPoints( std::vector< std::
             if( modulus < 1e-1 )
             {
                 // ... do not insert this last point to avoid inf and nan values
-                insertCount[i]--;
+                if( insertCount[i] > 0 )
+                {
+                    insertCount[i]--;
+                }
             }
             // add count to return value size
             absoluteSize += insertCount[i];
@@ -281,6 +285,8 @@ std::vector< cv::Point2d > splineBoundaryCalcs::insertPoints( std::vector< std::
         {
             insertCount[i] = 0;
         }
+        LOG_ERROR(cString::Format( "MBMT: test2.2"));
+        LOG_ERROR(cString::FromInt32( static_cast< int >( insertCount[i] ) ));
     }
 
     // allocate memory for return values

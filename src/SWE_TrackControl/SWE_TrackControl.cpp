@@ -17,11 +17,11 @@ cSWE_TrackControl::cSWE_TrackControl(const tChar* __info) : cFilter(__info), m_P
 
     SetPropertyFloat("Reference Point x-Coord",0.0);
     SetPropertyFloat("Reference Point y-Coord",0.0);
-    SetPropertyFloat("Intersection Line Distance",200.0);
+    SetPropertyFloat("Intersection Line Distance",400.0);
     SetPropertyFloat("Intersection Line Angle",0.0);
-    SetPropertyFloat("Road Width",500.0);
+    SetPropertyFloat("Road Width",900.0);
     SetPropertyFloat("max Road Width Deviation",100);
-    SetPropertyFloat("Distance Missing Boundary",500);
+    SetPropertyFloat("Distance Missing Boundary",490);
 
     //SetPropertyStr("Controller Typ" NSSUBPROP_VALUELISTNOEDIT, "1@P|2@PI|3@PID");
 }
@@ -147,7 +147,7 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
             //leftIntersectionPoint.x = 200; leftIntersectionPoint.y = 100;
             //rightIntersectionPoint.x = 200; rightIntersectionPoint.y = -350;
 
-            tFloat32 steeringAngle = -180.0/3.14*( CalcSteeringAngleTrajectory( trackingPoint, intersectionIndicator ) );
+            tFloat32 steeringAngle = -180.0/CV_PI*( CalcSteeringAngleTrajectory( trackingPoint, intersectionIndicator ) );
 
 
             // TRANSMIT OUTPUT VALUES -------------------------------------------------------------------

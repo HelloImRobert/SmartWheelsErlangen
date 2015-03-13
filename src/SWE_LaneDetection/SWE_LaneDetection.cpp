@@ -227,7 +227,7 @@ tResult cSWE_LaneDetection::InitTransformationMatrices( std::string pathExternal
 {
     _inversePerspectiveFileStorage.open( pathExternalCameraParams , FileStorage::READ );
 
-    int length = 9;
+    int length = 4;
     cv::Point2f source_points [ length ];
     cv::Point2f dest_points [ length ];
 
@@ -457,6 +457,8 @@ void cSWE_LaneDetection::getBlobDescriptions( cv::Mat& image , const std::vector
             // calculate the orientation parameters of the contour
             getOrientation(descriptor);
 
+            bool elongated = descriptor.principalAxisLengthRatio > _principalAxisLengthRatioThreshold;
+
             // decide on which side the object lies
             if (descriptor.angleOfMainDirection < -0.1)
             {
@@ -490,7 +492,6 @@ void cSWE_LaneDetection::getBlobDescriptions( cv::Mat& image , const std::vector
             }
 
             // features to verify if we found a road boundary
-            bool elongated = descriptor.principalAxisLengthRatio > _principalAxisLengthRatioThreshold;
             bool lineLike = descriptor.areaContour < _widthFactor * descriptor.lengthContour;
             bool large = descriptor.areaContour > _lowerAreaThreshold;
 
@@ -832,6 +833,27 @@ bool cSWE_LaneDetection::calculateDirectionHistogram( cv::Mat& image , const Blo
     return true;
 }
 
+void transformToCarCoords( std::vector< cv::Point2d >& spline )
+{
+    double picHeight = 480;
+    double picWidth = 640;
+    double distFrontToWarpedImageBottom = 310;
+    double distFrontToFrontAxis = 120;
+    double distSideImageToMid = 10;
+
+    for( size_t i = 0; i < spline.size(); i++ )
+    {
+        spline[i].x = (-1.0)*( spline[i].x - picWidth/2 - distSideImageToMid );
+        spline[i].y = (-1.0)*( spline[i].y - picHeight - distFrontToWarpedImageBottom - distFrontToFrontAxis );
+
+        double temp = spline[i].x;
+
+        spline[i].x = spline[i].y;
+        spline[i].y = temp;
+
+    }
+}
+
 
 /**
  * @brief cSWE_LaneDetection::ProcessInput The actual image processing of the LaneDetection
@@ -1004,11 +1026,26 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         RETURN_IF_FAILED(m_pCoderDescSplines->WriteLock(pMediaSampleOutput, &pCoder));
 
 
-        cv::Point2d p1(0,-250), p2(100,-250), p3(200,-250);
         std::vector< cv::Point2d > rightBoundary;
-        rightBoundary.push_back(p1);
-        rightBoundary.push_back(p2);
-        rightBoundary.push_back(p3);    
+        for(size_t i = 0 ; i < rightSpline.size();i++)
+        {
+            rightBoundary.push_back(rightSpline[i]);
+        }
+        std::vector< cv::Point2d > middleBoundary;
+        for(size_t i = 0 ; i < middleSpline.size();i++)
+        {
+            middleBoundary.push_back(middleSpline[i]);
+        }
+        std::vector< cv::Point2d > leftBoundary;
+        for(size_t i = 0 ; i < leftSpline.size();i++)
+        {
+            leftBoundary.push_back(leftSpline[i]);
+        }
+
+        transformToCarCoords(rightBoundary);
+        transformToCarCoords(leftBoundary);
+        transformToCarCoords(middleBoundary);
+
         {
             stringstream elementSetter;
             size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( rightBoundary.size() ) );
@@ -1023,11 +1060,10 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
                 elementSetter.str(std::string());
             }
 
-            tInt8 BoundaryArrayCountTemp = rightBoundary.size();
+            tInt8 BoundaryArrayCountTemp = static_cast<tInt8>(end);
             pCoder->Set("rightBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
         }
 
-        std::vector< cv::Point2d > leftBoundary;
         {
             stringstream elementSetter;
             size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( leftBoundary.size() ) );
@@ -1044,17 +1080,11 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
                 elementSetter.str(std::string());
             }
 
-            tInt8 BoundaryArrayCountTemp = leftBoundary.size();
+            tInt8 BoundaryArrayCountTemp = static_cast<tInt8>(end);
             pCoder->Set("leftBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
             elementSetter.str(std::string());
         }
 
-
-        cv::Point2d q1(0,0), q2(100,0), q3(200,0);
-        std::vector< cv::Point2d > middleBoundary;
-        middleBoundary.push_back(q1);
-        middleBoundary.push_back(q2);
-        middleBoundary.push_back(q3);
         {
             stringstream elementSetter;
             size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( middleBoundary.size() ) );
@@ -1071,7 +1101,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
                 elementSetter.str(std::string());
             }
 
-            tInt8 BoundaryArrayCountTemp = middleBoundary.size();
+            tInt8 BoundaryArrayCountTemp = static_cast<tInt8>(end);
             pCoder->Set("middleBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
             elementSetter.str(std::string());
         }
@@ -1124,6 +1154,9 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         //RETURN_IF_FAILED(m_CrossingIndicatorPin.Transmit(pMediaSampleCrossIndicator));
         // OUTPUT CROSSING INDICATOR -----------------------------------------------------------
     }
+
+//    cv::Mat warpedImage;
+//    cv::warpPerspective(image,warpedImage,_projectionMatrix,image.size());
 
 
     // transmit a video of the current result to the video outputpin
