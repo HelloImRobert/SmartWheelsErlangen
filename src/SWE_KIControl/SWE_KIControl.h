@@ -76,6 +76,7 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
     int CommandCounter;
      int CommandCountermax;
     int Signtype;
+    int status;
 	int SecondSigntype;
     int SpeedControl;
 	int kreuzungstyp;
@@ -95,7 +96,7 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
     void DriverCalc();
     tResult sendTC(int speed, int type);
 
-    tResult Parkroutine(int value);
+    tResult Parkroutine(tInt8 value);
     void ControlHL();
     tResult ControlLight(int lights);
     tResult SendtoJury(tInt8 i8StateID, tInt16 i16ManeuverEntry);
