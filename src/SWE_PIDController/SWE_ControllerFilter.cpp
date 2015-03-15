@@ -55,6 +55,8 @@ tResult SWE_ControllerFilter::CreateInputPins(__exception)
     RETURN_IF_FAILED(RegisterPin(&m_oInputSetPoint));
     RETURN_IF_FAILED(m_oInputFeedForward.Create("feed_forward_value", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputFeedForward));
+    RETURN_IF_FAILED(m_oInputControllerStrength.Create("controller_strength", new cMediaType(0, 0, 0, "tSignalValue"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oInputControllerStrength));
     RETURN_NOERROR;
 }
 
@@ -123,6 +125,7 @@ tResult SWE_ControllerFilter::Start(__exception)
     m_setPoint = 0;
     m_lastMeasuredError = 0;
     m_lastOutputTime = 0;
+    m_controllerStrength = 1.0;
 }
 
 tResult SWE_ControllerFilter::Stop(__exception)
@@ -227,6 +230,22 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
             m_pCoderDescSignal->Unlock(pCoder);
             m_feedForward = value;
         }
+        else if (pSource == &m_oInputControllerStrength)
+        {
+
+            //write values with zero
+            tFloat32 value = 0;
+            tUInt32 timeStamp = 0;
+
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescSignal->Lock(pMediaSample, &pCoder));
+            
+            //get values from media sample
+            pCoder->Get("f32Value", (tVoid*)&value);
+            pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+            m_pCoderDescSignal->Unlock(pCoder);
+            m_controllerStrength = value;
+        }
 
         m_mutex.Leave();
         
@@ -274,7 +293,7 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
         //y = Kp * e + Ki * Ta * esum
         m_accumulatedVariable += sampleTime*(m_setPoint-measuredValue);
 
-        m_accumulatedVariable = LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
+        m_accumulatedVariable = LimitValue(m_accumulatedVariable, (m_maxInfluence_upper*m_controllerStrength / m_Ki), (m_maxInfluence_lower*m_controllerStrength / m_Ki)); //limit accumulation to ensure stability of controlled system
 
         returnvalue = m_Kp*(m_setPoint-measuredValue) + m_Ki*m_accumulatedVariable;
     }
@@ -285,7 +304,7 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
         //ealt = e
         m_accumulatedVariable += sampleTime*(m_setPoint-measuredValue);
 
-        m_accumulatedVariable = LimitValue(m_accumulatedVariable, (m_maxInfluence_upper / m_Ki), (m_maxInfluence_lower / m_Ki)); //limit accumulation to ensure stability of controlled system
+        m_accumulatedVariable = LimitValue(m_accumulatedVariable, (m_maxInfluence_upper*m_controllerStrength / m_Ki), (m_maxInfluence_lower*m_controllerStrength / m_Ki)); //limit accumulation to ensure stability of controlled system
 
         returnvalue =  m_Kp*(m_setPoint-measuredValue) + m_Ki*m_accumulatedVariable + m_Kd*((m_setPoint-measuredValue)-m_lastMeasuredError)/sampleTime;
 
@@ -294,7 +313,7 @@ tFloat32 SWE_ControllerFilter::getControllerValue(tFloat32 measuredValue)
     else //off
         returnvalue = 0;
 
-    returnvalue = LimitValue(returnvalue, m_maxInfluence_upper, m_maxInfluence_lower);
+    returnvalue = LimitValue(returnvalue, m_maxInfluence_upper*m_controllerStrength, m_maxInfluence_lower*m_controllerStrength);
 
     if(m_useFF)
         returnvalue += m_feedForward;
