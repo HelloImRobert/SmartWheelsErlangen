@@ -178,6 +178,9 @@ class SWE_Odometry : public adtf::cFilter
     tBool    m_useAccelerometer;            //calculate velocity based on accelerometer data? (you want to turn this off when testing on a bench)
     tBool    m_showAccel;
     tBool    m_setdirectionone;
+    tFloat32 m_accelScaling;                //factor to scale the accelerometer values - scaling is applied after pitch compensation
+    tFloat32 m_distanceDriftCompensation;
+    tFloat32 m_tickPerTurn;
 
     /*! sliding window filter for the left wheel*/
     SWE_cSmartSlidingWindow m_SlidingWindowCntLeftWheel;
