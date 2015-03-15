@@ -100,9 +100,9 @@ class cSWE_LaneDetection : public adtf::cFilter
             void                        transformFromCarCoords      (std::vector< cv::Point2d >& spline );
 
             void                        serializeLane               (cObjectPtr<IMediaCoder>& pCoder , std::string lane , const std::vector< Point2d >& spline );
-            void                        transmitLanes               (const std::vector< Point2d >& leftSpline , const std::vector< Point2d >& middleSpline ,
+            tResult                     transmitLanes               (const std::vector< Point2d >& leftSpline , const std::vector< Point2d >& middleSpline ,
                                                                      const std::vector< Point2d >& rightSpline );
-            void                        transmitCrossingIndicator   (bool isRealStopLine , int crossingType , cv::Point firstStoplinePoint , cv::Point secondStopLinePoint );
+            tResult                     transmitCrossingIndicator   (bool isRealStopLine , int crossingType , cv::Point StopLinePoint1 , cv::Point StopLinePoint2 );
 
             // Parameters for the algorithm
             double                      _ambigousAngle;

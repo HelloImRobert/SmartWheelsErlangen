@@ -208,7 +208,7 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
                 rightBoundary.resize( BoundaryArrayCountTemp );
 
                 stringstream elementGetter;
-                for( size_t j = 0; j < BoundaryArrayCountTemp; j++)
+                for( int j = 0; j < BoundaryArrayCountTemp; j++)
                 {
                     elementGetter << "rightBoundary.Points[" << j << "].xCoord";
                     pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(rightBoundary.at(j).x));
@@ -227,7 +227,7 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
                 leftBoundary.resize( BoundaryArrayCountTemp );
 
                 stringstream elementGetter;
-                for( size_t j = 0; j < BoundaryArrayCountTemp; j++)
+                for( int j = 0; j < BoundaryArrayCountTemp; j++)
                 {
                     elementGetter << "leftBoundary.Points[" << j << "].xCoord";
                     pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(leftBoundary.at(j).x));
@@ -246,7 +246,7 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
                 middleBoundary.resize( BoundaryArrayCountTemp );
 
                 stringstream elementGetter;
-                for( size_t j = 0; j < BoundaryArrayCountTemp; j++)
+                for( int j = 0; j < BoundaryArrayCountTemp; j++)
                 {
                     elementGetter << "middleBoundary.Points[" << j << "].xCoord";
                     pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(middleBoundary.at(j).x));
@@ -293,7 +293,6 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
             RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
             RETURN_IF_FAILED(m_oIntersectionPoints.Transmit(pMediaSampleOutput));
 
-            LOG_ERROR(cString::Format( "MBMT: test2"));
             //std::ofstream file("/home/odroid/Desktop/Ausgabe/ausgabe4.txt");
             //file << lineBoundaries[0] << endl << lineBoundaries[1] << endl << lineBoundaries[2] << endl << lineBoundaries[3] << endl;
             //file.close();
@@ -574,15 +573,9 @@ int cSWE_TrajectoryPlanning::doSth()
 
     std::vector< cv::Point2d > leftBoundary;
 
-    bool hasRightBoundary = true;
-    bool hasLeftBoundary = false;
-    bool hasMiddleBoundary = true;
-
-
     cv::Point2d intersectionPoint;
-    int indicator = processing( intersectionPoint, hasRightBoundary, hasLeftBoundary, hasMiddleBoundary,
-                                rightBoundary, leftBoundary, middleBoundary );
 
+    processing( intersectionPoint,rightBoundary, leftBoundary, middleBoundary );
 
     return 0;
 }

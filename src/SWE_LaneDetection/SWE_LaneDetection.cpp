@@ -24,7 +24,7 @@ ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_LANEDETECTION_FILTER , cSWE_Lan
 #define RESULTVID_SCALE "The scaling of the resultvideo"
 #define MIN_LENGTH_MIDDLE_BOUNDARY "Minimum contour length of a middle laneboundary"
 #define MAX_LENGTH_MIDDLE_BOUNDARY "Maximum contour length of a middle laneboundary"
-#define AMBIGOUSANGLE "Minimum Angle, under which a line is classified as Ambiguos"
+#define AMBIGUOSANGLE "Minimum Angle, under which a line is classified as Ambiguos"
 #define DIST_FRONT_TO_WARPED_IMAGE_BOTTOM "distance of the lowest point visible in the inverse perspective to the car coordinate system"
 #define DIST_FRONT_TO_FRONT_AXIS "distance of the front point of the car to the front axis"
 #define DIST_SIDE_IMAGE_TO_MID "distance of the middle of the image to the middle of the car in inverse perspective"
@@ -216,7 +216,7 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         _splineSearchWidth = GetPropertyInt(SPLINE_SEARCH_WIDTH);
         _minLengthMiddleBoundary = GetPropertyFloat(MIN_LENGTH_MIDDLE_BOUNDARY);
         _maxLengthMiddleBoundary = GetPropertyFloat(MAX_LENGTH_MIDDLE_BOUNDARY);
-        _ambigousAngle = GetPropertyFloat(AMBIGOUSANGLE);
+        _ambigousAngle = GetPropertyFloat(AMBIGUOSANGLE);
         _distFrontToWarpedImageBottom = GetPropertyFloat(DIST_FRONT_TO_WARPED_IMAGE_BOTTOM);
         _distFrontToFrontAxis = GetPropertyFloat(DIST_FRONT_TO_FRONT_AXIS);
         _distSideImageToMid = GetPropertyFloat(DIST_SIDE_IMAGE_TO_MID);
@@ -248,9 +248,9 @@ tResult cSWE_LaneDetection::InitPinFormats()
     _sColorBitMapOutputFormat.nPixelFormat = cImage::PF_RGB_888;
     _sColorBitMapOutputFormat.nPaletteSize = 0;
     _sColorBitMapOutputFormat.nWidth = IMAGE_WIDTH;
-    _sColorBitMapOutputFormat.nHeight = _imageHeight;
+    _sColorBitMapOutputFormat.nHeight = IMAGE_HEIGHT;
     _sColorBitMapOutputFormat.nBytesPerLine = IMAGE_WIDTH * 3;
-    _sColorBitMapOutputFormat.nSize = _sColorBitMapOutputFormat.nBytesPerLine * _imageHeight;
+    _sColorBitMapOutputFormat.nSize = _sColorBitMapOutputFormat.nBytesPerLine * IMAGE_HEIGHT;
 
     // setup the constant parameters of the GreyScale outputformat
     _sInternRepresentationBitMapOutputFormat.nBitsPerPixel = 24;
@@ -576,6 +576,10 @@ void cSWE_LaneDetection::getBlobDescriptions( cv::Mat& image , const std::vector
         }
     }
 
+    // sort blobs depending on the arc_length in decreasing order
+    sort(blobs.begin(),blobs.end(),sort_arcLength);
+}
+
 /**
      * \brief A function calculating the perpendicular distance of a point to a line.
      * @param directionVector the vector of direction along the line
@@ -607,9 +611,6 @@ int cSWE_LaneDetection::getOuterLaneBoundaries( std::vector< BlobDescriptor >& b
 
     if (blobs.size() > 0)
     {
-        // check if we have at least two candidates
-        int endIndex = min(2, (int)blobs.size());
-
         BlobDescriptor& firstBlob = blobs[0];
 
         // if the contour is larger than our threshold accept it as a outer lane boundary
@@ -748,7 +749,7 @@ void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobD
     }
 
     // draw the outer lane boundaries
-    for (size_t i = 0; i < outerLaneBoundariesIndicator; i++)
+    for (int i = 0; i < outerLaneBoundariesIndicator; i++)
     {
         std::vector< std::vector< cv::Point > > contourToPaint;
 
@@ -811,7 +812,7 @@ void cSWE_LaneDetection::drawSpline( cv::Mat& image , const std::vector< cv::Poi
     std::vector< cv::Point2d > points;
     project(splinePoints , points , _backProjectionMatrix );
 
-    SWE::CatMullRomSpline CRspline(points);
+    CatMullRomSpline CRspline(points);
 
     size_t keyPoints = 500;
     double step = CRspline.getNumberOfPoints() / (double)(keyPoints - 1);
@@ -900,8 +901,8 @@ void cSWE_LaneDetection::transformToCarCoords( std::vector< cv::Point2d >& splin
 {
     for( size_t i = 0; i < spline.size(); i++ )
     {
-        spline[i].x = (-1.0)*( spline[i].x - static_cast< double >(IMAGE_WIDTH)/2.0 - distSideImageToMid );
-        spline[i].y = (-1.0)*( spline[i].y - static_cast< double >(_imageHeight) - distFrontToWarpedImageBottom - distFrontToFrontAxis );
+        spline[i].x = (-1.0)*( spline[i].x - static_cast< double >(IMAGE_WIDTH)/2.0 - _distSideImageToMid );
+        spline[i].y = (-1.0)*( spline[i].y - static_cast< double >(IMAGE_HEIGHT) - _distFrontToWarpedImageBottom - _distFrontToFrontAxis );
 
         double temp = spline[i].x;
 
@@ -915,8 +916,8 @@ void cSWE_LaneDetection::transformFromCarCoords( std::vector< cv::Point2d >& spl
 {
     for( size_t i = 0; i < spline.size(); i++ )
     {
-        spline[i].x = (-1.0 * point.x) + static_cast< double >(_imageHeight) + distFrontToWarpedImageBottom + distFrontToFrontAxis ;
-        spline[i].y = (-1.0 * point.y) + static_cast< double >(IMAGE_WIDTH)/2.0 + distSideImageToMid;
+        spline[i].x = (-1.0 * spline[i].x) + static_cast< double >(IMAGE_HEIGHT) + _distFrontToWarpedImageBottom + _distFrontToFrontAxis ;
+        spline[i].y = (-1.0 * spline[i].y) + static_cast< double >(IMAGE_WIDTH)/2.0 + _distSideImageToMid;
 
         double temp = spline[i].x;
 
@@ -944,39 +945,39 @@ void cSWE_LaneDetection::serializeLane( cObjectPtr<IMediaCoder>& pCoder , std::s
     pCoder->Set("rightBoundary.Count", (tVoid*)&(BoundaryArrayCountTemp));
 }
 
-void cSWE_LaneDetection::transmitLanes( const std::vector< Point2d >& leftSpline , const std::vector< Point2d >& middleSpline , const std::vector< Point2d >& rightSpline )
+tResult cSWE_LaneDetection::transmitLanes( const std::vector< Point2d >& leftSpline , const std::vector< Point2d >& middleSpline , const std::vector< Point2d >& rightSpline )
 {
-    {
-        cObjectPtr<IMediaCoder> pCoder;
+    cObjectPtr<IMediaCoder> pCoder;
 
-        //create new media sample
-        cObjectPtr<IMediaSample> pMediaSampleOutput;
-        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
 
-        //allocate memory with the size given by the descriptor
-        cObjectPtr<IMediaSerializer> pSerializer;
-        m_pCoderDescSplines->GetMediaSampleSerializer(&pSerializer);
-        tInt nSize = pSerializer->GetDeserializedSize();
-        pMediaSampleOutput->AllocBuffer(nSize);
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescSplines->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
 
-        //write date to the media sample with the coder of the descriptor
-        RETURN_IF_FAILED(m_pCoderDescSplines->WriteLock(pMediaSampleOutput, &pCoder));
+    //write date to the media sample with the coder of the descriptor
+    RETURN_IF_FAILED(m_pCoderDescSplines->WriteLock(pMediaSampleOutput, &pCoder));
 
-        serializeLane( pCoder , "rightBoundary" , rightSpline );
-        serializeLane( pCoder , "middleBoundary" , middleSpline );
-        serializeLane( pCoer , "leftBoundary" , leftSpline );
+    serializeLane( pCoder , "rightBoundary" , rightSpline );
+    serializeLane( pCoder , "middleBoundary" , middleSpline );
+    serializeLane( pCoder , "leftBoundary" , leftSpline );
 
-        m_pCoderDescSplines->Unlock(pCoder);
+    m_pCoderDescSplines->Unlock(pCoder);
 
-        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-        RETURN_IF_FAILED(m_oSplinesPin.Transmit(pMediaSampleOutput));
-    }
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oSplinesPin.Transmit(pMediaSampleOutput));
+
+    RETURN_NOERROR;
 }
 
 /**
  *
  */
-void cSWE_LaneDetection::transmitCrossingIndicator( bool isRealStopLine , int crossingType , cv::Point firstStoplinePoint , cv::Point secondStopLinePoint )
+tResult cSWE_LaneDetection::transmitCrossingIndicator( bool isRealStopLine , int crossingType , cv::Point StopLinePoint1 , cv::Point StopLinePoint2 )
 {
     cObjectPtr<IMediaCoder> pCoder;
 
@@ -1006,6 +1007,8 @@ void cSWE_LaneDetection::transmitCrossingIndicator( bool isRealStopLine , int cr
 
     RETURN_IF_FAILED(pMediaSampleCrossIndicator->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(m_CrossingIndicatorPin.Transmit(pMediaSampleCrossIndicator));
+
+    RETURN_NOERROR;
 }
 
 /**
@@ -1057,7 +1060,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     std::vector< cv::Point2d > leftSpline;
 
     // commit to decisions what we have found
-    for (size_t i = 0; i < outerLaneBoundariesIndicator; ++i)
+    for (int i = 0; i < outerLaneBoundariesIndicator; ++i)
     {
         BlobDescriptor& blob = blobs[i];
         // only accept the candidate if we didn't already find a better

@@ -1,6 +1,6 @@
 #include "SWE_CatmullRomSpline.h"
 
-    CatMullRomSpline::CatMullRomSpline(const std::vector<Point> &points , double tkParameter )
+    CatMullRomSpline::CatMullRomSpline(const std::vector<Point2d> &points , double tkParameter )
 		: _TkParameter( tkParameter )
 	{
 		if (points.size() < 2)
@@ -16,7 +16,7 @@
 
 	CatMullRomSpline::~CatMullRomSpline(){}
 
-	void CatMullRomSpline::addSplinePoint( const Point& point )
+    void CatMullRomSpline::addSplinePoint(const Point2d &point )
 	{
 		_Points.push_back( point );
 	}
