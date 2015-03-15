@@ -84,7 +84,7 @@ private:
     /*! holds the accumulatedVariable for the controller*/
     tFloat32 m_accumulatedVariable;
     /*! dynamic scaling of the upper and lower bounds of the controller influence */
-    tFloat32 m_controllerStrenght;
+    tFloat32 m_controllerStrength;
 
     /*! these variables hold the property values */
     tFloat32 m_Kp;

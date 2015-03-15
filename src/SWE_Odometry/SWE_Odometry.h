@@ -160,7 +160,7 @@ class SWE_Odometry : public adtf::cFilter
     tFloat32 m_distanceX_sum;         //translation change since last trigger
     tFloat32 m_distanceY_sum;         // """"
     tFloat32 m_heading_sum;           //rotation change since last trigger
-    tFloat32 m_distanceAllSum;        //accumulated distance (counts backwards when driving backwards)
+    tFloat32 m_distanceAllSum;        //accumulated distance (counts backwards when driving backwards) //Improvement: Float32 breakes down after a few kilometers
     tFloat32 m_distanceAllSum_acc;    // "            "       derived from the combined velocity data
     tFloat32 m_distanceAllSum_wheel;  // "            "       derived from the wheel speed sensors
     tInt32   m_velocityResolution;    //resolution of the velocity calculation 10 ~ max 10% error, 5 ~ max 20% error etc.

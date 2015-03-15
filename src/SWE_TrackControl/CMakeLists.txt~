@@ -1,12 +1,21 @@
-# add the include directory of the filter
-include_directories(../include)
+set(FILTER_NAME SWE_TrackControl)
+
+# include directories
+include_directories(${OpenCV_INCLUDE_DIR}) 
+
 # declare our filter
-adtf_add_filter(SWE_TrackControl
+adtf_add_filter(${FILTER_NAME}
     stdafx.h
     stdafx.cpp
 
     SWE_TrackControl.h
     SWE_TrackControl.cpp
+
+    SWE_Maneuver.cpp
+    SWE_Maneuver.h
 )
 
-adtf_install_plugin(SWE_TrackControl ${AADC_INSTALL_DIR})
+# linking libs
+target_link_libraries(${FILTER_NAME} ${OpenCV_LIBS})
+
+adtf_install_plugin(${FILTER_NAME} ${AADC_INSTALL_DIR})

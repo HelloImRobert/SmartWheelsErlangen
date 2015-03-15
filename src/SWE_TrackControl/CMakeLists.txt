@@ -10,6 +10,9 @@ adtf_add_filter(${FILTER_NAME}
 
     SWE_TrackControl.h
     SWE_TrackControl.cpp
+
+    SWE_Maneuver.cpp
+    SWE_Maneuver.h
 )
 
 # linking libs
