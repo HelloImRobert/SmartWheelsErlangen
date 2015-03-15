@@ -88,6 +88,7 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
     double Punktx;
     double Punkty;
     bool adminstopp;
+    int Parksteuerung;
     int Commandsector;
     int Commandsectormax;
     tFloat32 signsize;
