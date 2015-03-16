@@ -66,6 +66,8 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
 
     m_pitch_now = 0;
 
+    m_heading_sumsum = 0;
+
     SetPropertyFloat("Velocity Filter Strength 0-1",0.3);                                   //filter strength for the velocity smoothing filter
     SetPropertyFloat("Accelerometer Velocity weighting 0-1",0.95);
     SetPropertyFloat("Accelerometer Velocity drift compensation +- mm/s2",200.0);
@@ -107,6 +109,7 @@ tResult SWE_Odometry::Start(__exception)
     m_distanceX_sum = 0;
     m_distanceY_sum = 0;
     m_heading_sum = 0;
+    m_heading_sumsum = 0;
 
     m_lastPinEvent = GetTime();
 
@@ -905,6 +908,7 @@ tResult SWE_Odometry::SendOdometry(tTimeStamp timestamp)
     pCoder->Set("distance_x", (tVoid*)&(m_distanceX_sum));
     pCoder->Set("distance_y", (tVoid*)&(m_distanceY_sum));
     pCoder->Set("angle_heading", (tVoid*)&(m_heading_sum));
+    //pCoder->Set("angle_heading", (tVoid*)&(m_heading_sumsum));
     pCoder->Set("velocity", (tVoid*)&(m_velocityCombined));
     pCoder->Set("distance_sum", (tVoid*)&(m_distanceAllSum));
     m_pCoderDescOdometryOut->Unlock(pCoder);
