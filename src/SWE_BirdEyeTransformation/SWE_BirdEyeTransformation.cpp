@@ -7,10 +7,18 @@ ADTF_FILTER_PLUGIN("SWE_BirdEyeTrafo", OID_ADTF_BIRDEYETRANSFORMATION_FILTER , c
 
 // Macros used to decouple text from code
 #define CORRESPING_POINTS_XML "Path to external Camera Params xml"
+#define OUTPUT_FILE "The outputfile for the dumped video"
+#define CONVERT_VIDEO "Bool indicating if the video should be dumped"
 
 cSWE_BirdEyeTransformation::cSWE_BirdEyeTransformation(const tChar* __info):cFilter(__info)
 {
-    SetPropertyStr( CORRESPING_POINTS_XML , "/home/odroid/AADC/calibration_files/SWE_cameraCalibrationPoints.XML");
+    SetPropertyStr( CORRESPING_POINTS_XML , "/home/odroid/AADC/calibration_files/SWE_cameraCalibration.XML");
+    SetPropertyBool( CORRESPING_POINTS_XML NSSUBPROP_ISCHANGEABLE, tTrue);
+
+    SetPropertyStr( OUTPUT_FILE , "/home/odroid/Desktop/convertedVid.avi" );
+    SetPropertyBool( CORRESPING_POINTS_XML NSSUBPROP_ISCHANGEABLE, tTrue);
+
+    SetPropertyBool( CONVERT_VIDEO , false );
     SetPropertyBool( CORRESPING_POINTS_XML NSSUBPROP_ISCHANGEABLE, tTrue);
 
     m_frameCounter = 0;
@@ -56,6 +64,17 @@ tResult cSWE_BirdEyeTransformation::Init(tInitStage eStage, __exception)
 
         // initialize the formats of the pins;
         InitPinFormats();
+
+        _dumpVideo = GetPropertyBool( CONVERT_VIDEO );
+
+        if( _dumpVideo )
+        {
+            resultVideo.open(GetPropertyStr( OUTPUT_FILE ), resultVideo.fourcc('M', 'J', 'P', 'G'), 10, cv::Size(640, 480), true);
+            if(!resultVideo.isOpened())
+            {
+                _dumpVideo = false;
+            }
+        }
     }
     else if (eStage == StageGraphReady)
     {
@@ -127,10 +146,6 @@ tResult cSWE_BirdEyeTransformation::InitTransformationMatrices( std::string path
     _projectionMatrix = cv::getPerspectiveTransform( source_points , dest_points );
     _backProjectionMatrix = cv::getPerspectiveTransform( dest_points , source_points );
 
-    FileStorage fs;
-    fs.open( "/home/odroid/AADC/calibration_files/result.XML" , FileStorage::WRITE );
-    fs << "Matrix" << _projectionMatrix;
-
     _inversePerspectiveFileStorage.release();
 
     RETURN_NOERROR;
@@ -143,6 +158,11 @@ tResult cSWE_BirdEyeTransformation::InitTransformationMatrices( std::string path
  */
 tResult cSWE_BirdEyeTransformation::Shutdown(tInitStage eStage, __exception)
 {   
+    if( _dumpVideo )
+    {
+        resultVideo.release();
+    }
+
     if (eStage == StageGraphReady)
     {
     }
@@ -192,6 +212,11 @@ tResult cSWE_BirdEyeTransformation::ProcessInput(IMediaSample* pMediaSample)
     Mat image( _oVideoInputPin.GetFormat()->nHeight , _oVideoInputPin.GetFormat()->nWidth , CV_8UC3 , pData );
     pMediaSample->Unlock(pData);
 
+    if( _dumpVideo )
+    {
+        resultVideo << image;
+    }
+
     // ---------- send trigger signal -----------
     cObjectPtr<IMediaCoder> pCoder;
 
@@ -215,9 +240,6 @@ tResult cSWE_BirdEyeTransformation::ProcessInput(IMediaSample* pMediaSample)
     //transmit media sample over output pin --> the timestamp is used for both output pins
     tTimeStamp tmStreamTime = _clock ? _clock->GetStreamTime() : adtf_util::cHighResTimer::GetTime();
 
-    //DEBUG:
-    //tmStreamTime = m_frameCounter;
-
     //RETURN_IF_FAILED(pMediaSampleOutput->SetTime(tmStreamTime));
     RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(_oOutputTrigger.Transmit(pMediaSampleOutput));
@@ -226,9 +248,6 @@ tResult cSWE_BirdEyeTransformation::ProcessInput(IMediaSample* pMediaSample)
     // ---------------- apply an inverse Perspective mapping ----------------
     Mat warpedImage;
     cv::warpPerspective(image, warpedImage, _projectionMatrix, image.size());
-
-
-    cv::imwrite("/home/odroid/Desktop/image.jpg",warpedImage);
 
     // ----------- transmit a video of the current result to the video outputpin ------------
     if (_oColorVideoOutputPin.IsConnected())

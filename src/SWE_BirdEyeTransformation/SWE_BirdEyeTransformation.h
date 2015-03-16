@@ -35,6 +35,9 @@ class cSWE_BirdEyeTransformation : public adtf::cFilter
             cv::Mat _backProjectionMatrix;
             cv::Mat _projectionMatrix;                     /**< the projection Matrix for the inverse Perspective Mapping*/
 
+            cv::VideoWriter resultVideo;
+            bool _dumpVideo;
+
             tBitmapFormat _sColorBitMapOutputFormat;            /**< the inputformat of the video*/
             const tBitmapFormat*   _sBitMapInputFormat;    /**< the outputformat for the debug video*/
 
