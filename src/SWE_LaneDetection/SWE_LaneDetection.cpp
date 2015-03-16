@@ -526,89 +526,89 @@ void cSWE_LaneDetection::getOrientation(BlobDescriptor& blob)
      * @param contours a vector of contours as found by opencv
      * @param blobs an outputvector of blobdescriptors which represent plausible laneboundaries
      */
-void cSWE_LaneDetection::getBlobDescriptions( cv::Mat& image , const std::vector< std::vector< cv::Point > >& contours, std::vector< BlobDescriptor >& blobs )
+void cSWE_LaneDetection::getBlobDescriptions( const std::vector< std::vector< cv::Point > >& contours, std::vector< BlobDescriptor >& blobs )
 {
-    		// inspect every contour
-		for (size_t i = 0; i < contours.size(); i++)
-		{
-			// count how many elements are present in a lower part of the image
-			int contourElements = 0;
-			for (size_t j = 0; j < contours[i].size(); j++)
-			{
-                int yIncrement = floor(( static_cast<double>(contours[i][j].x) - 320.0) * 0.1 );
-                if (contours[i][j].y > _heightThresh + yIncrement )
-				{
-					contourElements++;
-				}
-			}
-			// if at least some elements are present consider the contour
-			if (contourElements > 0)
-			{
-				// create a descriptor and reduce the points of the contour
-				BlobDescriptor descriptor;
-				std::vector< cv::Point >& contour = descriptor.contour;
+    // inspect every contour
+    for (size_t i = 0; i < contours.size(); i++)
+    {
+        // count how many elements are present in a lower part of the image
+        int contourElements = 0;
+        for (size_t j = 0; j < contours[i].size(); j++)
+        {
+            int yIncrement = floor(( static_cast<double>(contours[i][j].x) - 320.0) * 0.1 );
+            if (contours[i][j].y > _heightThresh + yIncrement )
+            {
+                contourElements++;
+            }
+        }
+        // if at least some elements are present consider the contour
+        if (contourElements > 0)
+        {
+            // create a descriptor and reduce the points of the contour
+            BlobDescriptor descriptor;
+            std::vector< cv::Point >& contour = descriptor.contour;
 
-                double perspArcLength = arcLength(Mat(contours[i]), true);
-                if( perspArcLength > 400 )
-                {
-                    approxPolyDP(Mat(contours[i]), contour , perspArcLength*0.004, true);
-                }
-                else
-                {
-                    approxPolyDP(Mat(contours[i]), contour , perspArcLength*0.04, true);
-                }
+            double perspArcLength = arcLength(Mat(contours[i]), true);
+            if( perspArcLength > 400 )
+            {
+                approxPolyDP(Mat(contours[i]), contour , perspArcLength*0.004, true);
+            }
+            else
+            {
+                approxPolyDP(Mat(contours[i]), contour , perspArcLength*0.04, true);
+            }
 
-				// calculate the orientation parameters of the contour
-				getOrientation(descriptor);
+            // calculate the orientation parameters of the contour
+            getOrientation(descriptor);
 
-                bool elongated = descriptor.principalAxisLengthRatio > _principalAxisLengthRatioThreshold;
+            bool elongated = descriptor.principalAxisLengthRatio > _principalAxisLengthRatioThreshold;
 
-				// decide on which side the object lies
-                if (descriptor.angleOfMainDirection < -0.06)
-				{
-                    descriptor.side = LEFT;
-				}
-                else if (descriptor.angleOfMainDirection > 0.06)
-				{
-                    descriptor.side = RIGHT;
-				}
-				else
-				{
-                    descriptor.side = AMBIGOUS;
-				}
+            // decide on which side the object lies
+            if (descriptor.angleOfMainDirection < -0.06)
+            {
+                descriptor.side = LEFT;
+            }
+            else if (descriptor.angleOfMainDirection > 0.06)
+            {
+                descriptor.side = RIGHT;
+            }
+            else
+            {
+                descriptor.side = AMBIGOUS;
+            }
 
-				// take the contour to the inverse perspective and recalculate it's orientation parameters
-                project( descriptor , descriptor , _projectionMatrix , _startHeight );
+            // take the contour to the inverse perspective and recalculate it's orientation parameters
+            project( descriptor , descriptor , _projectionMatrix , _startHeight );
 
-                descriptor.complexBoundaryIndicator = calculateDirectionHistogram( descriptor );
+            descriptor.complexBoundaryIndicator = calculateDirectionHistogram( descriptor );
 
-				// calculate the length of the contour
-				descriptor.lengthContour = arcLength(contour, true);
+            // calculate the length of the contour
+            descriptor.lengthContour = arcLength(contour, true);
 
-				// calculate the area of the contour, while handling the special case of a line boundary
-				if (contour.size() > 2)
-				{
-					descriptor.areaContour = contourArea(contour);
-				}
-				else
-				{
-					descriptor.areaContour = descriptor.lengthContour;
-				}
+            // calculate the area of the contour, while handling the special case of a line boundary
+            if (contour.size() > 2)
+            {
+                descriptor.areaContour = contourArea(contour);
+            }
+            else
+            {
+                descriptor.areaContour = descriptor.lengthContour;
+            }
 
-				// features to verify if we found a road boundary
-                bool lineLike = descriptor.areaContour < _widthFactor * descriptor.lengthContour;
-				bool large = descriptor.areaContour > _lowerAreaThreshold;
+            // features to verify if we found a road boundary
+            bool lineLike = descriptor.areaContour < _widthFactor * descriptor.lengthContour;
+            bool large = descriptor.areaContour > _lowerAreaThreshold;
 
-				// if it could be a roadboundary write it to our set
-                if  ( elongated && lineLike && large && ( !(descriptor.side == AMBIGOUS) || descriptor.lengthContour < _minOuterBoundaryLength) )
-				{
-					blobs.push_back(descriptor);
-				}
-			}
-		}
+            // if it could be a roadboundary write it to our set
+            if  ( elongated && lineLike && large && ( !(descriptor.side == AMBIGOUS) || descriptor.lengthContour < _minOuterBoundaryLength) )
+            {
+                blobs.push_back(descriptor);
+            }
+        }
+    }
 
-		// sort blobs depending on their arc_length in decreasing order
-		sort(blobs.begin(), blobs.end(), sort_arcLength);
+    // sort blobs depending on their arc_length in decreasing order
+    sort(blobs.begin(), blobs.end(), sort_arcLength);
 }
 
 /**
@@ -640,58 +640,60 @@ int cSWE_LaneDetection::getOuterLaneBoundaries( std::vector< BlobDescriptor >& b
 {
     int outerLaneBoundariesIndicator = 0;
 
-		if (blobs.size() > 0)
-		{
-			// check if we have at least two candidates
-			int endIndex = min(2, (int)blobs.size());
+    if (blobs.size() > 0)
+    {
+        BlobDescriptor& firstBlob = blobs[0];
 
-			BlobDescriptor& firstBlob = blobs[0];
+        // if the contour is larger than our threshold accept it as a outer lane boundary
+        if (firstBlob.lengthContour > _minOuterBoundaryLength)
+        {
+            if(blobs.size() > 1)
+            {
+                std::vector<cv::Point2d> onePoint;
+                onePoint.push_back(cv::Point2d(450,0));
+                transformFromCarCoords(onePoint);
+                cv::Point approxCarPosition = onePoint[0];
 
-			// if the contour is larger than our threshold accept it as a outer lane boundary
-			if (firstBlob.lengthContour > _minOuterBoundaryLength)
-			{
-                if(blobs.size() > 1)
+                bool sameSide = firstBlob.side == blobs[1].side;
+                bool isNearer = cv::norm(firstBlob.centerOfGravity - approxCarPosition ) > cv::norm(blobs[1].centerOfGravity - approxCarPosition );
+                bool isOuterBoundary = blobs[1].lengthContour > 1.0 * _minOuterBoundaryLength;
+
+                if( sameSide && isNearer && isOuterBoundary )
                 {
-                    bool sameSide = firstBlob.side == blobs[1].side;
-                    cv::Point approxCarPosition= transformFromCarCoords(cv::Point2d(450,0));
-                    bool isNearer = cv::norm(firstBlob.centerOfGravity - approxCarPosition ) > cv::norm(blobs[1].centerOfGravity - approxCarPosition );
-                    bool isOuterBoundary = blobs[1].lengthContour > 1.0 * _minOuterBoundaryLength;
-                    if( sameSide && isNearer && isOuterBoundary )
-                    {
-                        blobs.erase(blobs.begin());
-                    }
+                    blobs.erase(blobs.begin());
                 }
-				outerLaneBoundariesIndicator++;
-			}
+            }
+            outerLaneBoundariesIndicator++;
+        }
 
-			// if we found one outer boundary, look for another
-			bool found = outerLaneBoundariesIndicator > 0;
-			bool moreCandidates = blobs.size() > 1;
-			if (found && moreCandidates)
-			{
-				BlobDescriptor& secondBlob = blobs[1];
+        // if we found one outer boundary, look for another
+        bool found = outerLaneBoundariesIndicator > 0;
+        bool moreCandidates = blobs.size() > 1;
+        if (found && moreCandidates)
+        {
+            BlobDescriptor& secondBlob = blobs[1];
 
-				// calculate the perpendicular distance of the first principal axis of the first blob to the second blob
-                double distance = getPerpendicularDistance(firstBlob.eigen_vecs[0], firstBlob.centerOfGravity, secondBlob.centerOfGravity);
+            // calculate the perpendicular distance of the first principal axis of the first blob to the second blob
+            double distance = getPerpendicularDistance(firstBlob.eigen_vecs[0], firstBlob.centerOfGravity, secondBlob.centerOfGravity);
 
-                if(secondBlob.side == RIGHT)
-                {
-                    distance *= -1;
-                }
+            if(secondBlob.side == RIGHT)
+            {
+                distance *= -1;
+            }
 
-				// calculated indicators if the candidate lies correctly
-                bool aboveLowThreshold = distance > 2 * _middleDistanceLowThreshold;
-				bool belowHighThreshold = distance < 2 * _middleDistanceHighThreshold;
-                bool longEnough = secondBlob.lengthContour > _minOuterBoundaryLength;
+            // calculated indicators if the candidate lies correctly
+            bool aboveLowThreshold = distance > 2 * _middleDistanceLowThreshold;
+            bool belowHighThreshold = distance < 2 * _middleDistanceHighThreshold;
+            bool longEnough = secondBlob.lengthContour > _minOuterBoundaryLength;
 
-				// if it's in the correct place, assume it's another outer boundary
-                if (aboveLowThreshold && belowHighThreshold && longEnough )
-				{
-					outerLaneBoundariesIndicator++;
-				}
-			}
-		}
-		return outerLaneBoundariesIndicator;
+            // if it's in the correct place, assume it's another outer boundary
+            if (aboveLowThreshold && belowHighThreshold && longEnough )
+            {
+                outerLaneBoundariesIndicator++;
+            }
+        }
+    }
+    return outerLaneBoundariesIndicator;
 }
 
 /**
@@ -874,72 +876,72 @@ void cSWE_LaneDetection::drawSpline( cv::Mat& image , const std::vector< cv::Poi
      * @param image the image to draw on
      * @param blob a BlobDescriptor which should be examined
      */
-bool cSWE_LaneDetection::calculateDirectionHistogram( cv::Mat& image , const BlobDescriptor& blob)
+bool cSWE_LaneDetection::calculateDirectionHistogram( const BlobDescriptor& blob)
 {
-    		const std::vector< cv::Point >& contour = blob.contour;
-		std::vector< cv::Point2d > directionVectors;
-		std::vector< double > lengths;
-		std::vector< double > angles;
-		std::vector< double > curvature;
-		size_t ninetyDegree = 0;
+    const std::vector< cv::Point >& contour = blob.contour;
+    std::vector< cv::Point2d > directionVectors;
+    std::vector< double > lengths;
+    std::vector< double > angles;
+    std::vector< double > curvature;
+    size_t ninetyDegree = 0;
 
-		if (contour.size() > 1)
-		{
-			for (size_t i = 1; i < contour.size(); ++i)
-			{
-				cv::Point2d directionVector = contour[i - 1] - contour[i];
-				if (static_cast<int> (directionVector.y) != 0 && static_cast<int> (directionVector.x) != 0)
-				{
-					directionVectors.push_back(directionVector);
-				}
-			}
-			{
-				cv::Point2d directionVector = contour[0] - contour[contour.size() - 1];
-				if(static_cast<int> (directionVector.y) != 0 && static_cast<int> (directionVector.x) != 0)
-				{
-					directionVectors.push_back(directionVector);
-				}
-			}
+    if (contour.size() > 1)
+    {
+        for (size_t i = 1; i < contour.size(); ++i)
+        {
+            cv::Point2d directionVector = contour[i - 1] - contour[i];
+            if (static_cast<int> (directionVector.y) != 0 && static_cast<int> (directionVector.x) != 0)
+            {
+                directionVectors.push_back(directionVector);
+            }
+        }
+        {
+            cv::Point2d directionVector = contour[0] - contour[contour.size() - 1];
+            if(static_cast<int> (directionVector.y) != 0 && static_cast<int> (directionVector.x) != 0)
+            {
+                directionVectors.push_back(directionVector);
+            }
+        }
 
-			for (size_t i = 0; i < directionVectors.size(); ++i)
-			{
-				double length = cv::norm(directionVectors[i]);
-				lengths.push_back(length);
-				double angle = std::acos(directionVectors[i].x / length);
-				angles.push_back(angle);
-			}
+        for (size_t i = 0; i < directionVectors.size(); ++i)
+        {
+            double length = cv::norm(directionVectors[i]);
+            lengths.push_back(length);
+            double angle = std::acos(directionVectors[i].x / length);
+            angles.push_back(angle);
+        }
 
-			for (size_t i = 1; i < angles.size(); i++)
-			{
-				double localCurvature = fabs(angles[i - 1] - angles[i]);
-				curvature.push_back( localCurvature );
+        for (size_t i = 1; i < angles.size(); i++)
+        {
+            double localCurvature = fabs(angles[i - 1] - angles[i]);
+            curvature.push_back( localCurvature );
 
-                double lengthTresh = 40;
-				double curvatureThresh = 0.15;
+            double lengthTresh = 40;
+            double curvatureThresh = 0.15;
 
-                double higherCurvatureThresh = 0.5 * CV_PI + curvatureThresh;
-				double lowerCurvatureThresh = 0.5 * CV_PI - curvatureThresh;
+            double higherCurvatureThresh = 0.5 * CV_PI + curvatureThresh;
+            double lowerCurvatureThresh = 0.5 * CV_PI - curvatureThresh;
 
-                bool bigLengths = lengths[i - 1] > lengthTresh && lengths[i] > lengthTresh;
-				bool bigCurvature = localCurvature > lowerCurvatureThresh && localCurvature < higherCurvatureThresh;
+            bool bigLengths = lengths[i - 1] > lengthTresh && lengths[i] > lengthTresh;
+            bool bigCurvature = localCurvature > lowerCurvatureThresh && localCurvature < higherCurvatureThresh;
 
-                if ( bigCurvature && bigLengths )
-				{
-					ninetyDegree++;
-				}
-			}
-		}
+            if ( bigCurvature && bigLengths )
+            {
+                ninetyDegree++;
+            }
+        }
+    }
 
-        if (ninetyDegree > 1 && _draw)
-		{
-			std::vector< cv::Point2d > vec;
-			vec.push_back(blob.centerOfGravity);
+    if (ninetyDegree > 1 && _draw)
+    {
+        std::vector< cv::Point2d > vec;
+        vec.push_back(blob.centerOfGravity);
 
-			perspectiveTransform(vec, vec, _backProjectionMatrix);
+        perspectiveTransform(vec, vec, _backProjectionMatrix);
 
-            return true;
-		}
-        return false;
+        return true;
+    }
+    return false;
 }
 
 void cSWE_LaneDetection::serializeLane( cObjectPtr<IMediaCoder>& pCoder , std::string lane , const std::vector< Point2d >& spline )

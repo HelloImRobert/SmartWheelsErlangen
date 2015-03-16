@@ -63,6 +63,7 @@ class cSWE_LaneDetection : public adtf::cFilter
                 double principalAxisLengthRatio;
                 vector<Point2d> eigen_vecs;
                 vector<double> eigen_vals;
+                bool complexBoundaryIndicator;
             };
 
         protected:
