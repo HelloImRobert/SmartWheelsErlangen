@@ -11,6 +11,10 @@
 // all headings are relative to maneuver start
 // all distances are relative values, relative to start of this maneuver element
 
+//stopline
+#define STOPLINE_CRAWL 300
+#define STOPLINE_SLOW  1200
+
 // go straight
 #define GS_DIST1 900
 
@@ -26,7 +30,7 @@
 //along park, leave left
 #define AL_DIST1 50
 #define AL_HEAD1 (tFloat32)((  25.0  /3.141592)*180)
-#define AL_HEAD2 (tFloat32)((  25.0  /3.141592)*180)
+#define AL_HEAD2 (tFloat32)((  180.0  /3.141592)*180)
 
 //along park, leave right
 

@@ -3,6 +3,8 @@
 
 #include "stdafx.h"
 #include "math.h"
+#include <iostream>
+#include <fstream>
 
 
 #define OID_ADTF_SWE_PARKPILOT "adtf.swe.parkpilot"
@@ -24,6 +26,8 @@ class cSWE_ParkPilot : public adtf::cFilter
     cOutputPin m_outputSpeed;
     cOutputPin m_outputSteering;
     cOutputPin m_outputParkState;
+    cOutputPin m_outputBlink;
+
 
     // FOR TEST START
     cOutputPin m_AccelerateOutputPin;
@@ -79,10 +83,17 @@ private:
     tBool       m_searchActivated;
     tBool       m_minDistReached;
     tBool       m_carStopped;
+    tBool       m_parkAlongside;
+    tBool       m_parkCross;
+    tBool       m_pullLeft;
+    tBool       m_pullRight;
+    tBool       m_gotControl;
 
     tInt16      m_searchState;
     tInt16      m_parkState;
     tInt16      m_pulloutState;
+
+    tUInt16      m_carPassingEvents;
 
     tBool       m_debug_bool;
 
@@ -124,6 +135,7 @@ private:
     tResult sendVelocity(tFloat32 vel);
     tResult sendSteeringAngle(tFloat32 steeringAngle);
     tResult sendParkState(tInt8 parkState);
+    tResult sendBlink(tInt8 blink);
 
     tResult jumpIntoStates();
 
@@ -141,6 +153,8 @@ private:
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSpeedOut;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSteeringOut;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescParkStateOut;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescParkOutput;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput;
 };
 
 #endif // _SWE_PARKPILOT_H_

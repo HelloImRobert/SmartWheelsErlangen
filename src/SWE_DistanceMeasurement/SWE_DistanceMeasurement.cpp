@@ -38,6 +38,7 @@ ADTF_FILTER_PLUGIN("SWE_DistanceMeasurement", OID_ADTF_SWE_DISTANCEMEASUREMENT, 
 SWE_DistanceMeasurement::SWE_DistanceMeasurement(const tChar* __info) : cFilter(__info)
 {
     SetPropertyFloat("Filter Strength", 0.7);
+    SetPropertyFloat("IRadjustment", 1.3);
     _mean.uss_front_left = 0;
     _mean.uss_front_right = 0;
     _mean.uss_rear_right = 0;
@@ -58,8 +59,6 @@ tResult SWE_DistanceMeasurement::Init(tInitStage eStage, __exception)
 
     if (eStage == StageFirst)
     {
-        _filter_strength = (tFloat32)GetPropertyFloat("Filter Strength", 0.7);
-
 
         //pin descriptor
         cObjectPtr<IMediaDescriptionManager> pDescManager;
@@ -116,26 +115,12 @@ tResult SWE_DistanceMeasurement::Init(tInitStage eStage, __exception)
         RETURN_IF_FAILED(m_pin_output_detectedPoints.Create("DetectedPoints", pTypePoints, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_pin_output_detectedPoints));
 
-        //RETURN_IF_FAILED(m_pin_output_detectedPoints.Create( "DetectedPoints", new adtf::cMediaType( MEDIA_TYPE_STRUCTURED_DATA, MEDIA_SUBTYPE_STRUCT_FLOAT32 ) , static_cast<IPinEventSink*> (this) ) );
-        //RETURN_IF_FAILED( RegisterPin( &m_pin_output_detectedPoints ) );
-
-        // try3 failed (original)
-        //RETURN_IF_FAILED(m_pin_output_detectedPoints.Create("DetectedPoints", new cMediaType(0, 0, 0, "tFloat32"), static_cast<IPinEventSink*> (this)));
-        //RETURN_IF_FAILED(RegisterPin(&m_pin_output_detectedPoints));
-
-        //try2 failed
-        //RETURN_IF_FAILED(m_pin_output_detectedPoints.Create("DetectedPoints", pTypeSignalValue, static_cast<IPinEventSink*> (this)));
-        //RETURN_IF_FAILED(RegisterPin(&m_pin_output_detectedPoints));
-
-        // try1 failed
-        //RETURN_IF_FAILED(m_pin_output_detectedPoints.Create( "DetectedPoints",
-        //                    cObjectPtr<IMediaType>( new adtf::cMediaType( MEDIA_TYPE_STRUCTURED_DATA, MEDIA_SUBTYPE_STRUCT_FLOAT32 ) ), NULL ) );
-        //RETURN_IF_FAILED( RegisterPin( &m_pin_output_detectedPoints ) );
 
     }
     else if (eStage == StageNormal)
     {
-
+        _filter_strength = (tFloat32)GetPropertyFloat("Filter Strength");
+        _IRadjustment = (tFloat32)GetPropertyFloat("IRadjustment");
     }
     else if(eStage == StageGraphReady)
     {
@@ -213,8 +198,6 @@ tResult SWE_DistanceMeasurement::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
             else if (pSource == &m_pin_input_ir_front_right_short)
             {
                 _mean.ir_front_right_short = weightedMean(signalValue,_mean.ir_front_right_short);
-                //LOG_ERROR(cString("DM: IR_F_R_latest = " + cString::FromFloat64(signalValue)  ));
-                //LOG_ERROR(cString("DM: IR_F_R_mean = " + cString::FromFloat64(_mean.ir_front_right_short)  ));
             }
             else if (pSource == &m_pin_input_ir_rear_center_short)
             {
@@ -243,9 +226,6 @@ tTimeStamp SWE_DistanceMeasurement::GetTime()
 
 tResult SWE_DistanceMeasurement::sendData()
 {
-       // OUTPUT SPLINES -----------------------------------------------------------
-        //allocate memory with the size given by the descriptor
-        // ADAPT: m_pCoderDescPointLeft
     cObjectPtr<IMediaCoder> pCoder;
 
     //create new media sample
@@ -257,8 +237,6 @@ tResult SWE_DistanceMeasurement::sendData()
         tInt nSize = pSerializer->GetDeserializedSize();
         pMediaSample->AllocBuffer(nSize);
 
-        //write date to the media sample with the coder of the descriptor
-        // ADAPT: m_pCoderDescPointLeft
 
         RETURN_IF_FAILED(m_pCoderDescPointsOut->WriteLock(pMediaSample, &pCoder));
 
@@ -279,15 +257,8 @@ tResult SWE_DistanceMeasurement::sendData()
                 pCoder->Set(tempPointer2, (tVoid*)&(_detected_array[i].y));
                 elementSetter.str(std::string());
 
-           //  elementSetter << "BoundaryArray[" << i << "].Count";
-//             const string& tempRef3 = elementSetter.str();
-//             const tChar* tempPointer3 = tempRef3.c_str();
-//             int BoundaryArrayCountTemp = splines[i].size();
-//             pCoder->Set(tempPointer3, (tVoid*)&(BoundaryArrayCountTemp));
-//             elementSetter.str(std::string());
         }
-        // int BoundaryCountTemp = splines.size();;
-//         pCoder->Set("BoundaryCount", (tVoid*)&(BoundaryCountTemp));
+
        m_pCoderDescPointsOut->Unlock(pCoder);
 
 
@@ -314,8 +285,6 @@ tFloat32 SWE_DistanceMeasurement::weightedMean(tFloat32 latest, tFloat32 old)
 */
 tResult SWE_DistanceMeasurement::transfrom()
 {
-
-    tFloat32 fusionBuffer;
 
     // Transform USS
     // FRONT LEFT 0
@@ -407,29 +376,19 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.ir_front_left.x = INVALIDE_LOW;
         _transformed.ir_front_left.y = INVALIDE_LOW;
     }
-    else if(_mean.ir_front_left_short > 50 && _mean.ir_front_left_short <= 150)
+    else if(_mean.ir_front_left_short > 50 && _mean.ir_front_left_short <= 250)
     {
         _transformed.ir_front_left.x = POS_IR_FRONT_SIDE;
-        _transformed.ir_front_left.y = _mean.ir_front_left_short + POS_IR_FRONT_SIDE_LEFT;
+        _transformed.ir_front_left.y = (_mean.ir_front_left_short * _IRadjustment) + POS_IR_FRONT_SIDE_LEFT;
 
     }
-    else if(_mean.ir_front_left_short > 150 && _mean.ir_front_left_short < 400 && _mean.ir_front_left_long > 150 && _mean.ir_front_left_long < 400)
-    {
-        //fusion
-        fusionBuffer = ( _mean.ir_front_left_short + _mean.ir_front_left_long ) / 2;
-
-        //transform
-        _transformed.ir_front_left.x = POS_IR_FRONT_SIDE;
-        _transformed.ir_front_left.y = fusionBuffer + POS_IR_FRONT_SIDE_LEFT;
-
-    }
-    else if(_mean.ir_front_left_short > 150 && _mean.ir_front_left_long >= 400 && _mean.ir_front_left_long < 600)
+    else if(_mean.ir_front_left_short > 250 && _mean.ir_front_left_long > 200 && _mean.ir_front_left_long < 600)
     {
         _transformed.ir_front_left.x = POS_IR_FRONT_SIDE;
-        _transformed.ir_front_left.y = _mean.ir_front_left_long + POS_IR_FRONT_SIDE_LEFT;
+        _transformed.ir_front_left.y = (_mean.ir_front_left_long * _IRadjustment) + POS_IR_FRONT_SIDE_LEFT;
 
     }
-    else if(_mean.ir_front_left_short > 150 && _mean.ir_front_left_long >= 600)
+    else if(_mean.ir_front_left_short > 300 && _mean.ir_front_left_long >= 600)
     {
         _transformed.ir_front_left.x = INVALIDE_HIGH;
         _transformed.ir_front_left.y = INVALIDE_HIGH;
@@ -444,35 +403,31 @@ tResult SWE_DistanceMeasurement::transfrom()
     {
         _transformed.ir_front_right.x = INVALIDE_LOW;
         _transformed.ir_front_right.y = INVALIDE_LOW;
+        LOG_ERROR(cString("DM 1: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
     }
-    else if(_mean.ir_front_right_short > 50 && _mean.ir_front_right_short <= 150)
+    else if(_mean.ir_front_right_short > 50 && _mean.ir_front_right_short <= 250)
     {
         _transformed.ir_front_right.x = POS_IR_FRONT_SIDE;
-        _transformed.ir_front_right.y = -_mean.ir_front_right_short + POS_IR_FRONT_SIDE_RIGHT;
+        _transformed.ir_front_right.y = -(_mean.ir_front_right_short * _IRadjustment) + POS_IR_FRONT_SIDE_RIGHT;
 
+        LOG_ERROR(cString("DM 2: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
     }
-    else if(_mean.ir_front_right_short > 150 && _mean.ir_front_right_short < 400 && _mean.ir_front_right_long > 150 && _mean.ir_front_right_long < 400)
+      else if(_mean.ir_front_right_short > 250 && _mean.ir_front_right_long > 200 && _mean.ir_front_right_long < 600)
     {
-        //fusion
-        fusionBuffer = ( _mean.ir_front_right_short + _mean.ir_front_right_long ) / 2;
+        _transformed.ir_front_right.x = POS_IR_FRONT_SIDE;
+        _transformed.ir_front_right.y = -(_mean.ir_front_right_long * _IRadjustment) + POS_IR_FRONT_SIDE_RIGHT;
 
-        //transform
-        _transformed.ir_front_right.x = POS_IR_FRONT_SIDE;
-        _transformed.ir_front_right.y = -fusionBuffer + POS_IR_FRONT_SIDE_RIGHT;
+        LOG_ERROR(cString("DM 3: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
     }
-    else if(_mean.ir_front_right_short > 150 && _mean.ir_front_right_long >= 400 && _mean.ir_front_right_long < 600)
-    {
-        _transformed.ir_front_right.x = POS_IR_FRONT_SIDE;
-        _transformed.ir_front_right.y = -_mean.ir_front_right_long + POS_IR_FRONT_SIDE_RIGHT;
-    }
-    else if(_mean.ir_front_right_short > 150 && _mean.ir_front_right_long >= 600)
+    else if(_mean.ir_front_right_short > 300 && _mean.ir_front_right_long >= 600)
     {
         _transformed.ir_front_right.x = INVALIDE_HIGH;
         _transformed.ir_front_right.y = INVALIDE_HIGH;
+        LOG_ERROR(cString("DM 4: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
     }
     
     _detected_array[5] = _transformed.ir_front_right;
-    //LOG_ERROR(cString("DM: IR_F_R_mean = " + cString::FromFloat64(_detected_array[5].y)  ));
+
 
 
     // FRONT CENTER 6
@@ -481,24 +436,15 @@ tResult SWE_DistanceMeasurement::transfrom()
         _transformed.ir_front_center.x = INVALIDE_LOW;
         _transformed.ir_front_center.y = INVALIDE_LOW;
     }
-    else if(_mean.ir_front_center_short > 50 && _mean.ir_front_center_short <= 150)
+    else if(_mean.ir_front_center_short > 50 && _mean.ir_front_center_short <= 250)
     {
-        _transformed.ir_front_center.x = _mean.ir_front_center_short + POS_IR_FRONT_CENTER;
+        _transformed.ir_front_center.x = (_mean.ir_front_center_short * _IRadjustment) + POS_IR_FRONT_CENTER;
         _transformed.ir_front_center.y = 0.0;
 
     }
-    else if(_mean.ir_front_center_short > 150 && _mean.ir_front_center_short < 400 && _mean.ir_front_center_long > 150 && _mean.ir_front_center_long < 400)
+    else if(_mean.ir_front_center_short > 250 && _mean.ir_front_center_long > 200 && _mean.ir_front_center_long < 600)
     {
-        //fusion
-        fusionBuffer = ( _mean.ir_front_center_short + _mean.ir_front_center_long ) / 2;
-
-        //transform
-        _transformed.ir_front_center.x = -fusionBuffer + POS_IR_FRONT_CENTER;
-        _transformed.ir_front_center.y = 0.0;
-    }
-    else if(_mean.ir_front_center_short > 150 && _mean.ir_front_center_long >= 400 && _mean.ir_front_center_long < 600)
-    {
-        _transformed.ir_front_center.x = _mean.ir_front_center_long + POS_IR_FRONT_CENTER;
+        _transformed.ir_front_center.x = (_mean.ir_front_center_long * _IRadjustment) + POS_IR_FRONT_CENTER;
         _transformed.ir_front_center.y = 0.0;
 
     }
