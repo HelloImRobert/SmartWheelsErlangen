@@ -6,13 +6,13 @@
 #define OID_ADTF_SWE_SPEEDCONTROL "adtf.aadc.swe.SpeedControl"
 
 /*!
-* motor speed controller
+* motor speed controller SmartWheels-Erlangen (Robert de Temple) If you have any questions mail me at: robert *punkt* detemple *kringel* gmail *punkt* com
 * - The controller has a set of "gears" 3,....0,...-2 that define the speed and the direction the car has to go. 3 full speed, 2, 1 crawl, 0 stop, -1, -2 fast reverse.
 * - It uses active braking. The strength of this braking depends on the kind of transition (e.g. braking to a full stop or just a "normal" change of speed).
 * - It also signals the use of brake lights and reverse gear lights according to the situation.
 * This controller only uses the cars velocity for speed transiton (to find out if the target gear/speed has been reached (more or less, very inpercise)). Use a secondary, cascaded controller e.g. SWE_PIDController for precise speeds.
 * Any transition to or through 0 (full stop) e.g. when changing directions results in short minimum stop time defined in the parameters.
-* This is to make sure that the car has really stopped before any change in direction might happen.
+* - This is to make sure that the car has really stopped before any change in direction might happen.
 * - The controller then signals the stop to any filters that need this information (as the odometry is usually not that good at very slow speeds).
 * - The controller also signals the current direction of travel to the odometry as the installed sensors on the car cannot measure this by themselves (hence also the enforced full stop).
 */
@@ -28,6 +28,7 @@ class SpeedControl : public adtf::cFilter
         cOutputPin m_oOutputreverse;            //   "     "    "       "       "     "      "
         cOutputPin m_oOutputDirection;          // the direction in wich the car currently travelles -> needed by the odometry 1, 0,-1
         cOutputPin m_oOutputSetPoint;           // the current speed this controller expects or wishes the car to be -> used as input setPoint for a cascaded secondary controller
+        cOutputPin m_oOutputControllerStrength; // for secondary cascaded controller (see SWE_PIDController)
     public:
         SpeedControl(const tChar* __info);
         virtual ~SpeedControl();
@@ -93,6 +94,10 @@ class SpeedControl : public adtf::cFilter
         /*! sends the current setPoint to the controller behind it */
 
         tResult SetSetPoint(tFloat32 value);
+
+        /*! sends the current Controller Strength to the controller behind it */
+
+        tResult SetControllerStrength(tFloat32 value);
 
 
 

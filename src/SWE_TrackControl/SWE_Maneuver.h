@@ -19,8 +19,9 @@ class SWE_Maneuver
 public:
 
     /*! constructor of the class
+    * @param clock reference to the adtf clock object
     */
-    SWE_Maneuver();
+    SWE_Maneuver(ucom::cObjectPtr<IReferenceClock> &clock);
 
     /*! destructor */
     ~SWE_Maneuver();
@@ -30,9 +31,11 @@ public:
      * @param maneuver the maneuver to be executed
      * @param headingSum absolute summed heading from odometry: the current heading of the car (e.g. sum of all heading changes since start -> must count more than +/- PI)
      * @param distanceSum odometry: the sum of the driven distance of the car
+     * @param stopLineXLeft x coordinate of left stop line point
+     * @param stopLineXRight x coordinate of right stop line point
      * @return the neccessary steering angle
      */
-    tResult Start(maneuvers maneuver, tFloat32 headingSum, tInt32 distanceSum, tFloat32 stopLineDistance = 0);
+    tResult Start(maneuvers maneuver, tFloat32 headingSum, tInt32 distanceSum, tFloat32 stopLineXLeft = 0, tFloat32 stopLineXRight = 0);
 
     /**
      * @brief tell me if current maneuver has finished
@@ -87,6 +90,8 @@ private:
     tResult StateMachine_TR(tFloat32 heading, tInt32 distanceSum, tInt32 state);
 
 
+
+    //defunct as not needed (yet)
     tResult StateMachine_AL(tFloat32 heading, tInt32 distanceSum, tInt32 state);
 
 
@@ -98,22 +103,16 @@ private:
 
     tResult StateMachine_CR(tFloat32 heading, tInt32 distanceSum, tInt32 state);
 
-    // get difference between two heading angles
-    tFloat32 GetAngleDiff(tFloat32 angle_new, tFloat32 angle_old);
 
 
     //--- member variables ---
-    tInt32 m_distanceStart;
     tInt32 m_state;
-
-    tFloat32 m_headingStart;
 
     maneuvers m_currentManeuver;
 
     tFloat32 m_steeringAngleOut;
     tFloat32 m_gearOut;
 
-
-
+    ucom::cObjectPtr<IReferenceClock> &_clock;
 };
 

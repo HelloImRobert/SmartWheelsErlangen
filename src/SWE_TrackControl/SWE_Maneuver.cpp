@@ -22,13 +22,15 @@
 
 //turn left
 #define TL_HEAD1 (tFloat32)((  -10.0  / 180 ) * 3.141592) //degree to rad
-#define TL_DIST1 400
-#define TL_HEAD2 (tFloat32)((  80.0   / 180 ) * 3.141592)
+#define TL_HEAD2 (tFloat32)((  10.0  / 180 ) * 3.141592)
+#define TL_DIST1 450
+#define TL_HEAD3 (tFloat32)((  80.0   / 180 ) * 3.141592)
 
 //turn right
-#define TR_HEAD1 (tFloat32)((  -10.0   / 180 ) * 3.141592)
+#define TR_HEAD1 (tFloat32)((  -80.0   / 180 ) * 3.141592)
 
 
+/*
 //along park, leave left
 #define AL_DIST1 50
 #define AL_HEAD1 (tFloat32)((  25.0   / 180 ) * 3.141592)
@@ -42,26 +44,30 @@
 
 //cross park, leave right
 
+*/
 
 
-
-SWE_Maneuver::SWE_Maneuver(): m_state(0), m_currentManeuver(NO_MANEUVER)
+SWE_Maneuver::SWE_Maneuver(ucom::cObjectPtr<IReferenceClock> &clock): m_state(0), m_currentManeuver(NO_MANEUVER), m_steeringAngleOut(STEER_NEUTRAL), m_gearOut(0), _clock(clock)
 {
 }
 
 SWE_Maneuver::~SWE_Maneuver(){}
 
 
-tResult SWE_Maneuver::Start(maneuvers maneuver, tFloat32 headingSum, tInt32 distanceSum, tFloat32 stopLineDistance = 0)
+tResult SWE_Maneuver::Start(maneuvers maneuver, tFloat32 headingSum, tInt32 distanceSum, tFloat32 stopLineXLeft, tFloat32 stopLineXRight)
 {
     tInt32 returnvalue = 0;
+    tFloat stopLineDistance;
+
+    stopLineDistance = ((stopLineXLeft + stopLineXRight) / 2.0) - CAR_LENGTH;
+
+    if(stopLineDistance < 0)
+        stopLineDistance = 0;
 
     m_currentManeuver = maneuver;
-    m_state = 1;
-    m_distanceStart = distanceSum;
-    m_headingStart = headingSum;
+    m_state = 1; //start
 
-    returnvalue = CalcStep_p(heading, distanceSum, stopLineDistance);
+    returnvalue = CalcStep_p(headingSum, distanceSum, stopLineDistance);
 
     return returnvalue;
 }
@@ -69,9 +75,9 @@ tResult SWE_Maneuver::Start(maneuvers maneuver, tFloat32 headingSum, tInt32 dist
 tResult SWE_Maneuver::CalcStep(tFloat32 heading, tInt32 distanceSum)
 {
 
-    CalcStep_p(heading, distanceSum, -9999);
+    CalcStep_p(heading, distanceSum, 0); //stopline distance not needed except for state = 1
 
-    return NOERROR;
+    RETURN_NOERROR;
 }
 
 tBool SWE_Maneuver::IsFinished()
@@ -124,15 +130,17 @@ tResult SWE_Maneuver::reset()
 
     m_state = 0;
     m_currentManeuver = NO_MANEUVER;
+    m_steeringAngleOut = 0;
+    m_gearOut = 0;
 
     RETURN_NOERROR;
 }
 
-tInt32 SWE_Maneuver::StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFloat32 stopLineDistance) //TODO odometry
+tInt32 SWE_Maneuver::StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFloat32 stopLineDistance)
 {
 
     static tInt32 startDistance;
-    static tFloat32 startStopLineDistance;
+    static tFloat32 startStopLineDistance = 0;
     static tTimeStamp startTime;
 
     //OPTIONAL: do not change gear
@@ -143,32 +151,29 @@ tInt32 SWE_Maneuver::StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFl
     {
     case 1:
         startDistance = distanceSum;
+        startStopLineDistance = stopLineDistance;
         state++;
-        break;
     case 2:
-        if(stopLineDistance <= STOPLINE_DISTANCE_SLOW)
+        if((startStopLineDistance - (distanceSum - startDistance)) <= STOPLINE_DISTANCE_SLOW) //slow down if distances reached
         {
-            m_gearOut = 2;
-            state++;
+            if((startStopLineDistance - (distanceSum - startDistance)) <= STOPLINE_DISTANCE_CRAWL)
+            {
+                if((startStopLineDistance - (distanceSum - startDistance)) <= STOPLINE_DISTANCE_STOP)
+                {
+                    m_gearOut = 0;
+                    startTime = (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime(); // in microseconds
+                    state++;
+                }
+                else
+                    m_gearOut = 1;
+            }
+            else
+                m_gearOut = 2;
         }
+
         break;
     case 3:
-        if(stopLineDistance <= STOPLINE_DISTANCE_CRAWL)
-        {
-            m_gearOut = 1;
-            state++;
-        }
-        break;
-    case 4:
-        if(stopLineDistance <= STOPLINE_DISTANCE_STOP)
-        {
-            m_gearOut = 0;
-            startTime = (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime(); // in microseconds
-            state++;
-        }
-        break;
-    case 5:
-        if( ((_clock != NULL) ? _clock->GetTime () : cSystem::GetTime()) - startTime >= STOPLINE_WAIT_TIME) //wait a little to come to a rest
+        if( ((_clock != NULL) ? _clock->GetTime () : cSystem::GetTime()) - startTime >= STOPLINE_WAIT_TIME) //wait a little to come to rest
         {
             state = 0;
         }
@@ -181,7 +186,7 @@ tInt32 SWE_Maneuver::StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFl
 }
 
 
-tInt32 SWE_Maneuver::StateMachine_GS(tInt32 distanceSum, tInt32 state)
+tInt32 SWE_Maneuver::StateMachine_GS(tInt32 distanceSum, tInt32 state) //go straight
 {
 
     static tInt32 startDistance;
@@ -195,9 +200,8 @@ tInt32 SWE_Maneuver::StateMachine_GS(tInt32 distanceSum, tInt32 state)
         m_gearOut = 2;
 
         state++;
-        break;
     case 2:
-        if ((distanceSum - startDistance) >= GS_DIST1)
+        if ((distanceSum - startDistance) >= GS_DIST1) //distance reached?
             state = 0;
         break;
     default: //finished
@@ -220,33 +224,41 @@ tInt32 SWE_Maneuver::StateMachine_TL(tFloat32 heading, tInt32 distanceSum, tInt3
     case 1:
         startDistance = distanceSum;
         startHeading = heading;
-        m_steeringAngleOut = STEER_RIGHT;
+        m_steeringAngleOut = STEER_RIGHT;//go a little to the right first
         m_gearOut = 1;
 
         state++;
-        break;
     case 2:
         if ((heading - startHeading) <= TL_HEAD1)
         {
-            m_gearOut = 2;
-            m_steeringAngleOut = STEER_NEUTRAL;
+            m_steeringAngleOut = STEER_LEFT; //... then back to the left
             state++;
         }
 
         break;
+
     case 3:
-        if ((distanceSum - startDistance) >= TL_DIST1)
+        if ((heading - startHeading) >= TL_HEAD2)
         {
-            m_gearOut = 1;
-            m_steeringAngleOut = STEER_LEFT;
+            m_gearOut = 2;
+            m_steeringAngleOut = STEER_NEUTRAL;//then go straight
             state++;
         }
 
         break;
     case 4:
-        if ( (heading - startHeading) >= TL_HEAD2)
+        if ((distanceSum - startDistance) >= TL_DIST1)
         {
-            m_steeringAngleOut = STEER_NEUTRAL;
+            m_gearOut = 1;
+            m_steeringAngleOut = STEER_LEFT; // final turn...
+            state++;
+        }
+
+        break;
+    case 5:
+        if ( (heading - startHeading) >= TL_HEAD3)
+        {
+            m_steeringAngleOut = STEER_NEUTRAL; // finished
             state = 0;
         }
 
@@ -262,6 +274,34 @@ tInt32 SWE_Maneuver::StateMachine_TL(tFloat32 heading, tInt32 distanceSum, tInt3
 
 tInt32 SWE_Maneuver::StateMachine_TR(tFloat32 heading, tInt32 distanceSum, tInt32 state)
 {
+    //static tInt32 startDistance = 0;
+    static tFloat32 startHeading = 0;
+
+
+    switch(state)
+    {
+    case 1:
+        //startDistance = distanceSum;
+        startHeading = heading;
+        m_steeringAngleOut = STEER_RIGHT;
+        m_gearOut = 1;
+
+        state++;
+    case 2:
+        if ((heading - startHeading) <= TR_HEAD1)
+        {
+            m_gearOut = 2;
+            m_steeringAngleOut = STEER_NEUTRAL;
+            state = 0;
+        }
+
+        break;
+    default: //finished
+        //startDistance = 0;
+        state = 0;
+        break;
+    }
+
     return state;
 }
 
@@ -291,22 +331,4 @@ tInt32 SWE_Maneuver::StateMachine_CR(tFloat32 heading, tInt32 distanceSum, tInt3
 }
 */
 
-tFloat32 SWE_Maneuver::GetAngleDiff(tFloat32 angle_new, tFloat32 angle_old)
-{
-    // get the smaller angle between two measurements + handle the corner cases when passing 0 and +/- PI
-    tFloat32 angleDiff;
 
-
-    angleDiff = angle_new - angle_old;
-
-    if (angleDiff > (MY_PI))
-    {
-        angleDiff = angleDiff - (2*MY_PI);
-    }
-    else if (angleDiff < -(MY_PI)) //positive turn through -Pi / +Pi border
-    {
-        angleDiff = angleDiff + (2*MY_PI);
-    }
-
-    return angleDiff;
-}

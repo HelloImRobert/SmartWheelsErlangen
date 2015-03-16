@@ -89,6 +89,9 @@ tResult SpeedControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(m_oOutputSetPoint.Create("SetPoint_Speed", pTypeSignalValue_direction, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputSetPoint));
 
+    RETURN_IF_FAILED(m_oOutputControllerStrength.Create("Controller_Strength", pTypeSignalValue_direction, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputControllerStrength));
+
 
     // Struct for brake
     tChar const * strDescLightOutput = pDescManager->GetMediaDescription("tBoolSignalValue");
@@ -396,6 +399,7 @@ tFloat32 SpeedControl::GetControllerValue()
 {
     tFloat32 outputData = m_pwm_0;
     tFloat32 outputSetPoint = m_setPoint_0;
+    tFloat32 outputControllerStrength = 0.0;
 
     //update current state
     UpdateState();
@@ -435,25 +439,30 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetBrakeLights(false);
                 outputData = m_pwm_p3;
                 outputSetPoint = m_setPoint_p3;
+                outputControllerStrength = 1.0;
                 break;
             case 2:
                 SetBrakeLights(true);
                 outputData = m_lightBrake;
                 outputSetPoint = m_setPoint_p2;
+                outputControllerStrength = 0.0;
                 break;
             case 1:
                 SetBrakeLights(true);
                 outputData = m_lightBrake;
                 outputSetPoint = m_setPoint_p1;
+                outputControllerStrength = 0.0;
                 break;
             case 0:
                 SetBrakeLights(true);
                 outputData = m_strongBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
             default:
                 SetBrakeLights(true);
                 outputData = m_strongBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
             }
         }
         else if (m_currentState == 2)
@@ -467,25 +476,30 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetBrakeLights(false);
                 outputData = m_pwm_boost_p3;
                 outputSetPoint = m_setPoint_p3;
+                outputControllerStrength = 0.0;
                 break;
             case 2:
                 SetBrakeLights(false);
                 outputData = m_pwm_p2;
                 outputSetPoint = m_setPoint_p2;
+                outputControllerStrength = 1.0;
                 break;
             case 1:
                 SetBrakeLights(true);
                 outputData = m_lightBrake;
                 outputSetPoint = m_setPoint_p1;
+                outputControllerStrength = 0.0;
                 break;
             case 0:
                 SetBrakeLights(true);
                 outputData = m_strongBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
             default:
                 SetBrakeLights(true);
                 outputData = m_strongBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
             }
         }
         else if (m_currentState == 1)
@@ -499,26 +513,31 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetBrakeLights(false);
                 outputData = m_pwm_boost_p3;
                 outputSetPoint = m_setPoint_p2;
+                outputControllerStrength = 0.0;
                 break;
             case 2:
                 SetBrakeLights(false);
                 outputData = m_pwm_boost_p2;
                 outputSetPoint = m_setPoint_p2;
+                outputControllerStrength = 0.0;
                 break;
             case 1:
                 SetBrakeLights(false);
                 outputData = m_pwm_p1;
                 outputSetPoint = m_setPoint_p1;
+                outputControllerStrength = 1.0;
                 break;
             case 0:
                 SetBrakeLights(true);
                 outputData = m_lightBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
                 break;
             default:
                 SetBrakeLights(true);
                 outputData = m_lightBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
             }
         }
         else if (m_currentState == 0)
@@ -531,6 +550,7 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetDirection(1);
                 outputData = m_pwm_boost_p3;
                 outputSetPoint = m_setPoint_p3;
+                outputControllerStrength = 0.0;
                 break;
             case 2:
                 SetReverseLights(false);
@@ -538,6 +558,7 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetDirection(1);
                 outputData = m_pwm_boost_p2;
                 outputSetPoint = m_setPoint_p2;
+                outputControllerStrength = 0.0;
                 break;
             case 1:
                 SetReverseLights(false);
@@ -545,6 +566,7 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetDirection(1);
                 outputData = m_pwm_boost_p1;
                 outputSetPoint = m_setPoint_p1;
+                outputControllerStrength = 1.0; //might have trouble starting
                 break;
             case 0:
                 SetReverseLights(false);
@@ -552,6 +574,7 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetDirection(0);
                 outputData = m_pwm_0;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
                 break;
             case -1:
                 SetReverseLights(true);
@@ -559,6 +582,7 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetDirection(-1);
                 outputData = m_pwm_boost_n1;
                 outputSetPoint = m_setPoint_n1;
+                outputControllerStrength = 1.0;
                 break;
             case -2:
                 SetReverseLights(true);
@@ -566,6 +590,7 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetDirection(-1);
                 outputData = m_pwm_boost_n2;
                 outputSetPoint = m_setPoint_n2;
+                outputControllerStrength = 0.0;
                 break;
             }
         }
@@ -580,31 +605,37 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetBrakeLights(true);
                 outputData = m_inv_lightBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
                 break;
             case 2:
                 SetBrakeLights(true);
                 outputData = m_inv_lightBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
                 break;
             case 1:
                 SetBrakeLights(true);
                 outputData = m_inv_lightBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
                 break;
             case 0:
                 SetBrakeLights(true);
                 outputData = m_inv_lightBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
                 break;
             case -1:
                 SetBrakeLights(false);
                 outputData = m_pwm_n1;
                 outputSetPoint = m_setPoint_n1;
+                outputControllerStrength = 1.0;
                 break;
             case -2:
                 SetBrakeLights(false);
                 outputData = m_pwm_boost_n2;
                 outputSetPoint = m_setPoint_n2;
+                outputControllerStrength = 0.0;
                 break;
             }
         }
@@ -619,31 +650,37 @@ tFloat32 SpeedControl::GetControllerValue()
                 SetBrakeLights(true);
                 outputData = m_inv_strongBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
                 break;
             case 2:
                 SetBrakeLights(true);
                 outputData = m_inv_strongBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
                 break;
             case 1:
                 SetBrakeLights(true);
                 outputData = m_inv_strongBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
                 break;
             case 0:
                 SetBrakeLights(true);
                 outputData = m_inv_strongBrake;
                 outputSetPoint = m_setPoint_0;
+                outputControllerStrength = 0.0;
                 break;
             case -1:
                 SetBrakeLights(true);
                 outputData = m_inv_lightBrake;
                 outputSetPoint = m_setPoint_n1;
+                outputControllerStrength = 0.0;
                 break;
             case -2:
                 SetBrakeLights(false);
                 outputData = m_pwm_n2;
                 outputSetPoint = m_setPoint_n2;
+                outputControllerStrength = 1.0;
                 break;
             }
         }
@@ -666,6 +703,7 @@ tFloat32 SpeedControl::GetControllerValue()
     m_lastState = m_currentState;
     m_last_pwm = outputData;
 
+    SetControllerStrength(outputControllerStrength);
     SetSetPoint(outputSetPoint);
 
     return outputData;
@@ -881,6 +919,37 @@ tResult SpeedControl::SetSetPoint(tFloat32 value)
     RETURN_NOERROR;
 }
 
+tResult SpeedControl::SetControllerStrength(tFloat32 value)
+{
+
+    cObjectPtr<IMediaCoder> pCoder;
+    //tUInt32 timeStamp = 0;
+
+    //timeStamp = GetTime();
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSample;
+    AllocMediaSample((tVoid**)&pMediaSample);
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescSignal_direction->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSample->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    m_pCoderDescSignal_direction->WriteLock(pMediaSample, &pCoder);
+
+    pCoder->Set("f32Value", (tVoid*)&(value));
+    //pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+    m_pCoderDescSignal_direction->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputControllerStrength.Transmit(pMediaSample));
+
+    RETURN_NOERROR;
+}
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++ Helpers ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
