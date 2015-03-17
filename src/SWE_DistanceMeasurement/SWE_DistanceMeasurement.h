@@ -85,9 +85,9 @@ class SWE_DistanceMeasurement : public adtf::cFilter
     sensorData          	_mean;
     XYSensorData      		_transformed;
     tFloat32            	_filter_strength;
-    tFloat32                _IRadjustment;
+    tFloat32                _IRscaler;
     tTimeStamp          	_timeOfLastSample;
-    Point2d _detected_array[10] ;
+    Point2d                 _detected_array[10] ;
     //std::pair <tFloat32,tFloat32> _new_vect_entry;
 
     

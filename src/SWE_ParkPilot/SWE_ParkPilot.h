@@ -64,11 +64,7 @@ private:
     tFloat32	m_rememberDist;
 
     //Properties
-    tFloat32    m_distStartOffsetEasy;
     tFloat32    m_distStartOffsetNormal;
-    tFloat32    m_securityBuffer;
-    tFloat32    m_CentralPlus;
-    tFloat32    m_offsetNeutral;
     tFloat32    m_headingAngleForward;
     tFloat32    m_steeringAnlgeBackward;
     tFloat32    m_perpendicularBackward;
