@@ -403,27 +403,27 @@ tResult SWE_DistanceMeasurement::transfrom()
     {
         _transformed.ir_front_right.x = INVALIDE_LOW;
         _transformed.ir_front_right.y = INVALIDE_LOW;
-        LOG_ERROR(cString("DM 1: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
+        //LOG_ERROR(cString("DM 1: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
     }
     else if(_mean.ir_front_right_short > 50 && _mean.ir_front_right_short <= 250)
     {
         _transformed.ir_front_right.x = POS_IR_FRONT_SIDE;
         _transformed.ir_front_right.y = -(_mean.ir_front_right_short * _IRscaler) + POS_IR_FRONT_SIDE_RIGHT;
 
-        LOG_ERROR(cString("DM 2: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
+        //LOG_ERROR(cString("DM 2: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
     }
       else if(_mean.ir_front_right_short > 250 && _mean.ir_front_right_long > 200 && _mean.ir_front_right_long < 600)
     {
         _transformed.ir_front_right.x = POS_IR_FRONT_SIDE;
         _transformed.ir_front_right.y = -(_mean.ir_front_right_long * _IRscaler) + POS_IR_FRONT_SIDE_RIGHT;
 
-        LOG_ERROR(cString("DM 3: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
+        //LOG_ERROR(cString("DM 3: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
     }
     else if(_mean.ir_front_right_short > 300 && _mean.ir_front_right_long >= 600)
     {
         _transformed.ir_front_right.x = INVALIDE_HIGH;
         _transformed.ir_front_right.y = INVALIDE_HIGH;
-        LOG_ERROR(cString("DM 4: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
+        //LOG_ERROR(cString("DM 4: Short: " + cString::FromFloat64(_mean.ir_front_right_short) + "; Long: " + cString::FromFloat64(_mean.ir_front_right_long) + "; Comb: " + cString::FromFloat64(_transformed.ir_front_right.y) ));
     }
     
     _detected_array[5] = _transformed.ir_front_right;

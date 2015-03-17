@@ -52,6 +52,7 @@ private:
     tFloat32    m_IRRearRightCur;
     tFloat32    m_IRFrontLeftCur;
     tFloat32    m_lastIRshort;
+    tFloat32    m_checkPointOne;
 
     tFloat32    m_distStartPark;
     tFloat32    m_headingAtStart;
@@ -84,12 +85,13 @@ private:
     tBool       m_pullLeft;
     tBool       m_pullRight;
     tBool       m_gotControl;
+    tBool       m_firstIR;
 
     tInt16      m_searchState;
     tInt16      m_parkState;
     tInt16      m_pulloutState;
 
-    tUInt16      m_carPassingEvents;
+    tUInt16     m_carPassingEvents;
 
     tBool       m_debug_bool;
 

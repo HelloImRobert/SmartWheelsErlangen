@@ -9,7 +9,8 @@
 #define POS_IR_FRONT_SIDE 450.0f   // Abstand der vorderen IR Sensoren zur Hinterachse (x-Richtung)
 
 /*! Thresholds */
-#define TH_SHORT 140.0f
+#define TH_SHORT 150.0f
+#define TH_LONG 450.0f
 #define TH_LONG_ALONGSIDE 450.0f  //besser eigtl 590 !!
 #define TH_LONG_CROSS 405.0f      //besser eigtl 590 !!
 
@@ -88,6 +89,7 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         m_pullRight = false;
         m_gotControl = true;
         //DEBUG TOGGLES END
+        m_firstIR = false;
 
         m_odometryData.distance_x = 0.0;
         m_odometryData.distance_y = 0.0;
@@ -222,9 +224,6 @@ tResult cSWE_ParkPilot::CreateOutputPins(__exception)
     RETURN_IF_FAILED(m_outputParkState.Create("Park_State", pTypeParkOutput, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_outputParkState));
 
-//    RETURN_IF_FAILED(m_outputParkState.Create("ParkState", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
-//    RETURN_IF_FAILED(RegisterPin(&m_outputParkState));
-
     RETURN_NOERROR;
 }
 
@@ -354,6 +353,10 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         }
 //        else if(pSource == &m_pin_input_ir)
 //        {
+//              if(m_parkTrigger == 0)
+//              {
+//                   RETURN_NOERROR;
+//              }
 //            tTimeStamp timeStamp;
 
 //            cObjectPtr<IMediaCoder> pCoder;
@@ -414,6 +417,10 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 //        }
         else if(pSource == &m_inputObjectData)
         {
+            if(m_parkTrigger == 0)
+            {
+                RETURN_NOERROR;
+            }
 
             cv::Point2d objects[10];
 
@@ -437,44 +444,47 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             m_IRFrontRightCur = (-1) * (objects[5].y - POS_IR_SIDE_RIGHT);
             m_IRFrontLeftCur  = objects[4].y - POS_IR_SIDE_LEFT;
 
-            if(m_searchState == 0)
-            {
-                tFloat32 nextElem;
 
-                if(m_initTest_vect.size() < m_carPassingEvents)
+            if( m_IRFrontRightCur < TH_SHORT && m_firstIR == false)
+            {
+                m_checkPointOne = m_odometryData.distance_sum;
+                m_firstIR = true;
+            }
+
+            if( m_IRFrontRightCur > TH_LONG && m_firstIR == true)
+            {
+                if( m_odometryData.distance_sum - m_checkPointOne >= 200 )
                 {
-                    m_initTest_vect.push_back(nextElem);
-                    m_initTest_vect.back() = m_IRFrontRightCur;
+                    LOG_ERROR(cString("PP: Search Active" ));
+                    m_searchState = 1;
                 }
                 else
                 {
-                    m_initTest_vect.erase( m_initTest_vect.begin() );
-                    m_initTest_vect.push_back(nextElem);
-                    m_initTest_vect.back() = m_IRFrontRightCur;
-
-                    for(uint i = 0; i < m_initTest_vect.size(); ++i)
-                    {
-                        if(m_initTest_vect.at(i) > TH_SHORT)
-                        {
-                            m_searchState = 0;
-                            LOG_ERROR(cString("PP: Search NOT Active" ));
-                            break;
-                        }
-                        else
-                        {
-                            m_searchState = 1;
-                            m_lastIRshort = m_initTest_vect.at(i);
-                            LOG_ERROR(cString("PP: Search Active" ));
-                        }
-                    }
+                    LOG_ERROR(cString("PP: Search NOT Active, Object not a Car" ));
+                    m_firstIR = false;
+                    m_searchState = 0;
                 }
             }
+            else if(m_firstIR == true && (m_odometryData.distance_sum - m_checkPointOne >= 200) )
+            {
+                m_searchState = 1;
+                LOG_ERROR(cString("PP: Search Active" ));
+            }
 
-            jumpIntoStates();
+            if(m_searchState == 1)
+            {
+                jumpIntoStates();
+            }
+
 
         }
         else if(pSource == &m_inputOdometry)
         {
+            if(m_parkTrigger == 0)
+            {
+                RETURN_NOERROR;
+            }
+
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescOdometry->Lock(pMediaSample, &pCoder));
             pCoder->Get("distance_x", (tVoid*)&(m_odometryData.distance_x));
@@ -491,6 +501,11 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         }
         else if(pSource == &m_inputStopFlag)
         {
+            if(m_parkTrigger == 0)
+            {
+                RETURN_NOERROR;
+            }
+
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescStop->Lock(pMediaSample, &pCoder));
             pCoder->Get("bValue", (tVoid*)&(m_carStopped));
