@@ -9,19 +9,19 @@ ADTF_FILTER_PLUGIN("SWE Motor Speed Controller", OID_ADTF_SWE_SPEEDCONTROL, Spee
 SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0), m_gear(0), m_currentState(0), m_lastState(0), m_goingForwards(0), m_lastSampleTime(0),m_timerStart(0), m_no_wait(true), m_last_pwm(0), m_last_brakeLights(0), m_last_reverseLights(0), m_last_DirectionSent(0), m_initRun(0)
 {
     SetPropertyFloat("Gear 3 PWM value",35); //the forward control pwm value sent to the car motor when driving in this gear. In percent 0 = stop/neutral
-    SetPropertyFloat("Gear 3 speed threshold",1200); // the speed in mm/s (measured) at which the controller decides it has left this speed window => the upper limit of this speed window, the actual speed will be between this and the limit of the gear below this
+    SetPropertyFloat("Gear 3 speed threshold",3000); // the speed in mm/s (measured) at which the controller decides it has left this speed window => the upper limit of this speed window, the actual speed will be between this and the limit of the gear below this
 
     SetPropertyFloat("Gear 2 PWM value",25);
-    SetPropertyFloat("Gear 2 speed threshold",600);
+    SetPropertyFloat("Gear 2 speed threshold",1000);
 
     SetPropertyFloat("Gear 1 PWM value",15);
-    SetPropertyFloat("Gear 1 speed threshold",300);
+    SetPropertyFloat("Gear 1 speed threshold",500);
 
     SetPropertyFloat("Gear -1 PWM value", -15); //reverse gear
-    SetPropertyFloat("Gear -1 speed threshold",-300);
+    SetPropertyFloat("Gear -1 speed threshold",-500);
 
     SetPropertyFloat("Gear -2 PWM value", -25);
-    SetPropertyFloat("Gear -2 speed threshold",-600);
+    SetPropertyFloat("Gear -2 speed threshold",-1000);
 
     SetPropertyFloat("light brake strength", 0.03); //pwm value for light braking
     SetPropertyFloat("strong brake strength",0.1);  //pwm value for strong braking
@@ -141,15 +141,15 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     m_pwm_p3 = (tFloat32)GetPropertyFloat("Gear 3 PWM value",35);
     m_pwm_boost_p3 = (m_pwm_p3) * boostValue;
-    m_threshold_p3 = (tFloat32)GetPropertyFloat("Gear 3 speed threshold",1200);
+    m_threshold_p3 = (tFloat32)GetPropertyFloat("Gear 3 speed threshold",3000);
 
     m_pwm_p2 = (tFloat32)GetPropertyFloat("Gear 2 PWM value",25);
     m_pwm_boost_p2 = (m_pwm_p2 ) * boostValue;
-    m_threshold_p2 = (tFloat32)GetPropertyFloat("Gear 2 speed threshold",600);
+    m_threshold_p2 = (tFloat32)GetPropertyFloat("Gear 2 speed threshold",1000);
 
     m_pwm_p1 = (tFloat32)GetPropertyFloat("Gear 1 PWM value",15);
     m_pwm_boost_p1 = (m_pwm_p1 ) * boostValue;
-    m_threshold_p1 = (tFloat32)GetPropertyFloat("Gear 1 speed threshold",300);
+    m_threshold_p1 = (tFloat32)GetPropertyFloat("Gear 1 speed threshold",500);
 
     m_pwm_0 = 0;
     m_threshold_p0 = 0 + thresholdWindow_0;
@@ -158,11 +158,11 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
 
     m_pwm_n1 = (tFloat32)GetPropertyFloat("Gear -1 PWM value",-15);
     m_pwm_boost_n1 = (m_pwm_n1) * boostValue;
-    m_threshold_n1 = (tFloat32)GetPropertyFloat("Gear -1 speed threshold",-300);
+    m_threshold_n1 = (tFloat32)GetPropertyFloat("Gear -1 speed threshold",-500);
 
     m_pwm_n2 = (tFloat32)GetPropertyFloat("Gear -2 PWM value",-25);
     m_pwm_boost_n2 = (m_pwm_n2) * boostValue;
-    m_threshold_n2 = (tFloat32)GetPropertyFloat("Gear -2 speed threshold",-600);
+    m_threshold_n2 = (tFloat32)GetPropertyFloat("Gear -2 speed threshold",-1000);
 
     // save yourself from bad configurations
     if(m_threshold_p1 <= m_threshold_p0)
@@ -383,10 +383,10 @@ tResult SpeedControl::UpdateState()
     if ((m_velocity > m_threshold_n0) && (m_velocity < m_threshold_p0)) //has it stopped?
         m_currentState = 0;
 
-    if (m_velocity < m_threshold_n0) //is it going backwards?
-        m_currentState = -1;
-    else if (m_velocity < m_threshold_n1)
+    if (m_velocity < m_threshold_n1)
         m_currentState = -2;
+    else if (m_velocity < m_threshold_n0) //is it going backwards?
+        m_currentState = -1;
 
     RETURN_NOERROR;
 }
@@ -421,7 +421,6 @@ tFloat32 SpeedControl::GetControllerValue()
         //DEBUG
         //LOG_ERROR(cString("SC: SpeedControl: Car has stopped"));
     }
-
 
 
     //-------------------- decision tree for acceleration and braking + lights -------------------------
@@ -747,7 +746,6 @@ tResult SpeedControl::SetBrakeLights(tBool state)
 
     m_last_brakeLights = state;
 
-
     RETURN_NOERROR;
 }
 
@@ -848,7 +846,6 @@ tResult SpeedControl::SetCarStopped(tBool state)
     //transmit media sample over output pin
     RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(m_oOutputCarStopped.Transmit(pMediaSampleOutput));
-
 
     RETURN_NOERROR;
 }
@@ -993,6 +990,7 @@ tResult SpeedControl::TestRun(tInt32 code)
             switch(m_testState)
             {
             case 0:
+                LOG_ERROR(cString("SC: Test from -2 to 3 "));
                 m_gear = 0;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
@@ -1053,6 +1051,59 @@ tResult SpeedControl::TestRun(tInt32 code)
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 15:
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            default:
+                m_testState = 0;
+                break;
+            }
+            break;
+        case 222:
+            switch(m_testState)
+            {
+            case 0:
+                LOG_ERROR(cString("SC: Test from -1 to 1 "));
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 1:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 2:
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 3:
+                m_gear = -1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 4:
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 5:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 6:
+                m_gear = -1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 7:
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 8:
+                m_gear = -1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 9:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 10:
                 m_gear = 0;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;

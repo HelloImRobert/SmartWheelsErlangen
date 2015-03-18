@@ -10,8 +10,6 @@
 #define PITCH_COMPENSATION_STRENGTH 9810.0f //gravity in mm/s2
 #define ACCELEROMETER_INPUT_SCALING 1000.0f //with this factor the values will be in mm/s2 -> further scaling with property
 
-
-
 ADTF_FILTER_PLUGIN("SWE_Odometry", OID_ADTF_SWE_ODOMETRY, SWE_Odometry)
 
 
@@ -81,7 +79,7 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     SetPropertyBool("SetDirection to 1", false);
     SetPropertyFloat("Accelerometer Scaling", 1.0);
     SetPropertyFloat("Pulses per wheel revolution", 8.6);                                   //it should be 8.0 but you have to compensate a little for all those errors
-    SetPropertyFloat("HighresDistanceDriftCompensation", 0.001);
+    SetPropertyFloat("HighresDistanceDriftCompensation", 0.01);
 }
 
 SWE_Odometry::~SWE_Odometry()
@@ -236,7 +234,7 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
         m_setdirectionone = (tBool)GetPropertyBool("SetDirection to 1", false);
         m_accelScaling = (tFloat32)GetPropertyFloat("Accelerometer Scaling", 1.0);
         m_tickPerTurn = (tFloat32)GetPropertyFloat("Pulses per wheel revolution", 8.6);
-        m_distanceDriftCompensation = (tFloat32)GetPropertyFloat("HighresDistanceDriftCompensation", 0.001);
+        m_distanceDriftCompensation = (tFloat32)GetPropertyFloat("HighresDistanceDriftCompensation", 0.01);
 
         if(m_setdirectionone)
             m_currentDirection = 1;
@@ -296,7 +294,6 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
 // ****************************************************************************************************************
 //                                                   On Pin Event
 // ****************************************************************************************************************
-
 
 tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample)
 {
@@ -524,6 +521,7 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
     RETURN_NOERROR;
 }
 
+
 // ****************************************************************************************************************
 //                                                   Process Input Data
 // ****************************************************************************************************************
@@ -589,7 +587,7 @@ tResult  SWE_Odometry::CalcCombinedVelocity()
     m_velocityCombined += compensation_value;
 
     //apply recursive weighting compensation
-    m_velocityCombined = (1.0-m_acceleromter_weight)*m_velocityWheelSensors + (m_acceleromter_weight*m_velocityCombined);
+    m_velocityCombined = (1.0 - m_acceleromter_weight)*m_velocityWheelSensors + (m_acceleromter_weight*m_velocityCombined);
 
     //zero if standing still
     if (m_currentDirection == 0)
@@ -881,11 +879,9 @@ tFloat32 SWE_Odometry::GetExtrapolatedHeadingDiff(tTimeStamp time_now)
 }
 
 
-
 // ****************************************************************************************************************
 //                                                   Transmit Data
 // ****************************************************************************************************************
-
 
 tResult SWE_Odometry::SendOdometry(tTimeStamp timestamp)
 {
@@ -919,7 +915,6 @@ tResult SWE_Odometry::SendOdometry(tTimeStamp timestamp)
 
     RETURN_NOERROR;
 }
-
 
 tResult SWE_Odometry::SendVelocity()
 {
