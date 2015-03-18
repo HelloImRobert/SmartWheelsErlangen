@@ -999,6 +999,51 @@ tResult SpeedControl::TestRun(tInt32 code)
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 2:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 3:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 4:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 5:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 6:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 7:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 8:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            default:
+                m_testState = 0;
+                break;
+            }
+            break;
+        case 222:
+            switch(m_testState)
+            {
+            case 0:
+                LOG_ERROR(cString("SC: Test from -2 to 3 "));
+                m_gear = 0;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 1:
+                m_gear = 1;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 2:
                 m_gear = 0;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
@@ -1059,7 +1104,7 @@ tResult SpeedControl::TestRun(tInt32 code)
                 break;
             }
             break;
-        case 222:
+        case 333:
             switch(m_testState)
             {
             case 0:
