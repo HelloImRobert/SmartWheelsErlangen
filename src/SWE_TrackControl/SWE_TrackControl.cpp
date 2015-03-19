@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 
+#define WHEELBASE 359 //distance between both axles in mm
 
 
 
