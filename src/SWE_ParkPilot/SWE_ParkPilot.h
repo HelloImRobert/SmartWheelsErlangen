@@ -21,7 +21,6 @@ class cSWE_ParkPilot : public adtf::cFilter
     cInputPin m_inputObjectData;
     cInputPin m_pin_input_ir;
     cInputPin m_inputOdometry;
-    cInputPin m_inputStopFlag;
 
     cOutputPin m_outputSpeed;
     cOutputPin m_outputSteering;
@@ -58,14 +57,16 @@ private:
     tFloat32    m_headingAtStart;
     tFloat32    m_distEntry;
     tFloat32 	m_distExit;
-    tFloat32	m_distStart;
     tFloat32    m_angleAbs;
-    tFloat32	m_centralAngle;
-    tFloat32    m_counterAngle;
     tFloat32	m_rememberDist;
 
+    // Angles for maneuvering
+    tFloat32	m_centralAngle;
+    tFloat32    m_counterAngle;
+    tFloat32    m_manAngleOne;
+    tFloat32    m_manAngleTwo;
+
     //Properties
-    tFloat32    m_distStartOffsetNormal;
     tFloat32    m_headingAngleForward;
     tFloat32    m_steeringAnlgeBackward;
     tFloat32    m_perpendicularBackward;
@@ -86,14 +87,15 @@ private:
     tBool       m_pullRight;
     tBool       m_gotControl;
     tBool       m_firstIR;
+    tBool       m_activeManeuvering;
 
     tInt16      m_searchState;
     tInt16      m_parkState;
     tInt16      m_pulloutState;
 
-    tUInt16     m_carPassingEvents;
-
     tBool       m_debug_bool;
+
+    cv::Point2d m_objects[10];
 
     /*! Lock */
     cCriticalSection m_mutex;

@@ -35,6 +35,8 @@ class SWE_DistanceMeasurement : public adtf::cFilter
     protected: // overwrites cFilter
         tResult Init(tInitStage eStage, __exception = NULL);
         tResult OnPinEvent(IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample);
+        tResult Start(__exception = NULL);
+
 
     private:
     /*!gets the actual time as a tTimeStamp */
@@ -86,6 +88,8 @@ class SWE_DistanceMeasurement : public adtf::cFilter
     XYSensorData      		_transformed;
     tFloat32            	_filter_strength;
     tFloat32                _IRscaler;
+    tFloat32                _timerStart;
+    tInt32                  _stopTime;
     tTimeStamp          	_timeOfLastSample;
     Point2d                 _detected_array[10] ;
     //std::pair <tFloat32,tFloat32> _new_vect_entry;
