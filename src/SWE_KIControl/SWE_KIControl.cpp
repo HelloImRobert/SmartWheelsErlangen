@@ -993,7 +993,7 @@ tResult cSWE_KIControl::sendTC(int speed, int type)
     5=Kreuzung gerade aus
     6=Parking(Steurung aus)
     Speed:
-    Stufen: 2,1,0,-1,-2
+    Stufen: 3,2,1,0,-1,-2
     
     */
     if(speed==0)

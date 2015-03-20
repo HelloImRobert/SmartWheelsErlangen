@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 
+#define WHEELBASE 359 //distance between both axles in mm
 
 
 
@@ -13,17 +14,11 @@ ADTF_FILTER_PLUGIN("SWE TrackControl", OID_ADTF_SWE_TRACKCONTROL, cSWE_TrackCont
 
 cSWE_TrackControl::cSWE_TrackControl(const tChar* __info) : cFilter(__info), m_PerpenticularPoint(1.0, 0.0)
 {
-    m_steeringAngle = 0.0;
+    m_old_steeringAngle = 0.0;
+    m_property_useNewCalc = false;
 
-    SetPropertyFloat("Reference Point x-Coord",0.0);
-    SetPropertyFloat("Reference Point y-Coord",0.0);
-    SetPropertyFloat("Intersection Line Distance",400.0);
-    SetPropertyFloat("Intersection Line Angle",0.0);
-    SetPropertyFloat("Road Width",900.0);
-    SetPropertyFloat("max Road Width Deviation",100);
-    SetPropertyFloat("Distance Missing Boundary",490);
+    SetPropertyBool("Use new angle calculation", false); //DEBUG
 
-    //SetPropertyStr("Controller Typ" NSSUBPROP_VALUELISTNOEDIT, "1@P|2@PI|3@PID");
 }
 
 cSWE_TrackControl::~cSWE_TrackControl()
@@ -34,6 +29,13 @@ tResult cSWE_TrackControl::CreateInputPins(__exception)
 {
     RETURN_IF_FAILED(m_oIntersectionPoints.Create("tracking_Point", new cMediaType(0, 0, 0, "tIntersectionsNew"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oIntersectionPoints));
+
+    RETURN_IF_FAILED(m_oCommands.Create("KI_Commands", new cMediaType(0, 0, 0, "tKITC"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oCommands));
+
+    RETURN_IF_FAILED(m_oOdometry.Create("Odometry_Data", new cMediaType(0, 0, 0, "tOdometry"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOdometry));
+
     RETURN_NOERROR;
 }
 
@@ -91,6 +93,15 @@ tResult cSWE_TrackControl::Init(tInitStage eStage, __exception)
 
 tResult cSWE_TrackControl::Start(__exception)
 {
+
+    m_property_useNewCalc = (tBool)SetPropertyBool("Use new angle calculation", false); //DEBUG
+
+    m_input_maxGear = 0;
+    m_input_Command = 1;
+    m_input_intersectionIndicator = 0;
+    m_angleAbs = 0;
+    m_old_steeringAngle = 0;
+
     return cFilter::Start(__exception_ptr);
 }
 
@@ -127,81 +138,60 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
 
             // READ INPUT VALUES -------------------------------------------------------------------
 
-            // init temporary objects
-            cv::Point2d trackingPoint;
-            tInt8 intersectionIndicator = 0;
+            // generate Coder object
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+
+            //get values from media sample (x and y exchanged to transform to front axis coo sys)
+            pCoder->Get("intersecPoint.xCoord", (tVoid*)&(m_input_trackingPoint.x));
+            pCoder->Get("intersecPoint.yCoord", (tVoid*)&(m_input_trackingPoint.y));
+            pCoder->Get("Indicator", (tVoid*)&(m_input_intersectionIndicator));
+            m_pCoderDescInputMeasured->Unlock(pCoder);
+
+
+            // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
+
+            ReactToInput();
+
+        }
+        else if(pSource == &m_oOdometry)
+        {
+
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+            pCoder->Get("distance_x", (tVoid*)&(m_odometryData.distance_x));
+            pCoder->Get("distance_y", (tVoid*)&(m_odometryData.distance_y));
+            pCoder->Get("angle_heading", (tVoid*)&(m_odometryData.angle_heading));
+            pCoder->Get("velocity", (tVoid*)&(m_odometryData.velocity));
+            pCoder->Get("distance_sum", (tVoid*)&(m_odometryData.distance_sum));
+            m_pCoderDescInputMeasured->Unlock(pCoder);
+
+            m_angleAbs = m_angleAbs + m_odometryData.angle_heading;
+
+
+            // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
+
+            ReactToInput();
+
+        }
+        else if(pSource == &m_oCommands)
+        {
+
+            // READ INPUT VALUES -------------------------------------------------------------------
 
             // generate Coder object
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
 
             //get values from media sample (x and y exchanged to transform to front axis coo sys)
-            pCoder->Get("intersecPoint.xCoord", (tVoid*)&(trackingPoint.x));
-            pCoder->Get("intersecPoint.yCoord", (tVoid*)&(trackingPoint.y));
-            pCoder->Get("Indicator", (tVoid*)&(intersectionIndicator));
+            pCoder->Get("tInt8ValueSpeed", (tVoid*)&(m_input_maxGear));
+            pCoder->Get("tInt8ValueCommand", (tVoid*)&(m_input_Command));
             m_pCoderDescInputMeasured->Unlock(pCoder);
 
 
-            // CALCUALTIONS -------------------------------------------------------------------
+            // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
 
-            //leftIntersectionPoint.x = 200; leftIntersectionPoint.y = 100;
-            //rightIntersectionPoint.x = 200; rightIntersectionPoint.y = -350;
-
-            tFloat32 steeringAngle = -180.0/CV_PI*( CalcSteeringAngleTrajectory( trackingPoint, intersectionIndicator ) );
-
-
-            // TRANSMIT OUTPUT VALUES -------------------------------------------------------------------
-
-
-            //create new media sample
-            cObjectPtr<IMediaSample> pMediaSampleOutput;
-            RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
-
-            //allocate memory with the size given by the descriptor
-            // ADAPT: m_pCoderDescPointLeft
-            cObjectPtr<IMediaSerializer> pSerializer;
-            m_pCoderDescSteeringAngle->GetMediaSampleSerializer(&pSerializer);
-            tInt nSize = pSerializer->GetDeserializedSize();
-            pMediaSampleOutput->AllocBuffer(nSize);
-
-            //write date to the media sample with the coder of the descriptor
-            // ADAPT: m_pCoderDescPointLeft
-            //cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDescSteeringAngle->WriteLock(pMediaSampleOutput, &pCoder));
-            pCoder->Set("f32Value", (tVoid*)&(steeringAngle));
-            m_pCoderDescSteeringAngle->Unlock(pCoder);
-
-            //transmit media sample over output pin
-            // ADAPT: m_oIntersectionPointLeft
-            RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-            RETURN_IF_FAILED(m_oSteeringAngle.Transmit(pMediaSampleOutput));
-
-            //std::ofstream file("/home/odroid/Desktop/Ausgabe/ausgabe4.txt");
-            //file << lineBoundaries[0] << endl << lineBoundaries[1] << endl << lineBoundaries[2] << endl << lineBoundaries[3] << endl;
-            //file.close();
-
-
-
-            //allocate memory with the size given by the descriptor
-            // ADAPT: m_pCoderDescPointLeft
-            //cObjectPtr<IMediaSerializer> pSerializer;
-            m_pCoderDescMiddlePoint->GetMediaSampleSerializer(&pSerializer);
-            nSize = pSerializer->GetDeserializedSize();
-            pMediaSampleOutput->AllocBuffer(nSize);
-
-            //write date to the media sample with the coder of the descriptor
-            // ADAPT: m_pCoderDescPointLeft, steering Angle
-            //cObjectPtr<IMediaCoder> pCoder;
-            RETURN_IF_FAILED(m_pCoderDescMiddlePoint->WriteLock(pMediaSampleOutput, &pCoder));
-            pCoder->Set("xCoord", (tVoid*)&(m_middlePoint.x));
-            pCoder->Set("yCoord", (tVoid*)&(m_middlePoint.y));
-            m_pCoderDescMiddlePoint->Unlock(pCoder);
-
-            //transmit media sample over output pin
-            // ADAPT: m_oIntersectionPointLeft
-            RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-            RETURN_IF_FAILED(m_oMiddlePoint.Transmit(pMediaSampleOutput));
-
+            ReactToInput();
         }
         else
             RETURN_NOERROR;
@@ -211,30 +201,6 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
     RETURN_NOERROR;
 }
 
-tFloat64 cSWE_TrackControl::CalcSteeringAngle( cv::Point2d leftIntersectionPoint, cv::Point2d rightIntersectionPoint, tUInt32 intersectionIndicator )
-{
-    tFloat64 steeringAngle = 0;
-
-    if( intersectionIndicator != 0 )
-    {
-        m_middlePoint = (leftIntersectionPoint + rightIntersectionPoint)*0.5;
-        steeringAngle = acos(m_middlePoint.dot(m_PerpenticularPoint)/cv::norm(m_middlePoint));
-        if(m_middlePoint.y < 0)
-        //cv::Point2d middlePoint = (leftIntersectionPoint + rightIntersectionPoint)*0.5;
-        //steeringAngle = acos(middlePoint.dot(m_PerpenticularPoint)/cv::norm(middlePoint));
-        //if(middlePoint.y < 0)
-        {
-            steeringAngle = (-1.0)*steeringAngle;
-        }
-        m_steeringAngle = steeringAngle;
-    }
-    else
-    {
-        steeringAngle = m_steeringAngle;
-    }
-
-    return steeringAngle;
-}
 
 tFloat64 cSWE_TrackControl::CalcSteeringAngleTrajectory( cv::Point2d trackingPoint, tInt8 intersectionIndicator )
 {
@@ -242,21 +208,153 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngleTrajectory( cv::Point2d trackingPoi
 
     if( intersectionIndicator != 0 )
     {
-        m_middlePoint = trackingPoint;
-        steeringAngle = acos(m_middlePoint.dot(m_PerpenticularPoint)/cv::norm(m_middlePoint));
-        if(m_middlePoint.y < 0)
-        //cv::Point2d middlePoint = (leftIntersectionPoint + rightIntersectionPoint)*0.5;
-        //steeringAngle = acos(middlePoint.dot(m_PerpenticularPoint)/cv::norm(middlePoint));
-        //if(middlePoint.y < 0)
+        steeringAngle = acos(m_input_trackingPoint.dot(m_PerpenticularPoint)/cv::norm(m_input_trackingPoint));
+        if(m_input_trackingPoint.y < 0)
         {
             steeringAngle = (-1.0)*steeringAngle;
         }
-        m_steeringAngle = steeringAngle;
+        m_old_steeringAngle = steeringAngle;
     }
     else
     {
-        steeringAngle = m_steeringAngle;
+        steeringAngle = m_old_steeringAngle;
     }
 
     return steeringAngle;
+}
+
+tFloat64 cSWE_TrackControl::CalcSteeringAngleCircle(cv::Point2d trackingPoint, tInt8 intersectionIndicator)
+{
+    tFloat32 steeringAngle = 0;
+
+
+
+    return steeringAngle;
+}
+
+tResult cSWE_TrackControl::ReactToInput()
+{
+
+    tFloat32 steeringAngle = 0;
+    tFloat32 outputGear;
+
+    outputGear = m_input_maxGear;
+
+
+    if(m_property_useNewCalc) //two alternative modes of calculation
+    {
+        steeringAngle = 180.0/CV_PI * ( CalcSteeringAngleCircle( m_input_trackingPoint, m_input_intersectionIndicator ) );
+    }
+    else
+    {
+        steeringAngle = -180.0/CV_PI*( CalcSteeringAngleTrajectory( m_input_trackingPoint, m_input_intersectionIndicator ) );
+    }
+
+
+    SendSteering(steeringAngle);
+    //SendGear(outputGear); //DEBUG
+
+    SendTrackingPoint();
+
+    RETURN_NOERROR;
+}
+
+tResult cSWE_TrackControl::SendSteering(tFloat32 outputAngle)
+{
+
+    // generate Coder object
+    cObjectPtr<IMediaCoder> pCoder;
+    //RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescSteeringAngle->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+    RETURN_IF_FAILED(m_pCoderDescSteeringAngle->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("f32Value", (tVoid*)&(outputAngle));
+    m_pCoderDescSteeringAngle->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    // ADAPT: m_oIntersectionPointLeft
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oSteeringAngle.Transmit(pMediaSampleOutput));
+
+
+    /*
+
+      */
+
+    RETURN_NOERROR;
+}
+
+tResult cSWE_TrackControl::SendTrackingPoint()
+{
+
+    // generate Coder object
+    cObjectPtr<IMediaCoder> pCoder;
+    //RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescMiddlePoint->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    //cObjectPtr<IMediaCoder> pCoder;
+    RETURN_IF_FAILED(m_pCoderDescMiddlePoint->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("xCoord", (tVoid*)&(m_input_trackingPoint.x));
+    pCoder->Set("yCoord", (tVoid*)&(m_input_trackingPoint.y));
+    m_pCoderDescMiddlePoint->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    // ADAPT: m_oIntersectionPointLeft
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oMiddlePoint.Transmit(pMediaSampleOutput));
+
+    RETURN_NOERROR;
+}
+
+tResult cSWE_TrackControl::SendGear(tFloat32 outputGear)
+{
+
+    tUInt32 timeStamp = 0;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSample;
+    AllocMediaSample((tVoid**)&pMediaSample);
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescGear->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSample->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    {
+        __adtf_sample_write_lock_mediadescription(m_pCoderDescGear, pMediaSample, pCoder);
+
+        pCoder->Set("f32Value", (tVoid*)&(outputGear));
+        pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+    }
+
+    //transmit media sample over output pin
+    pMediaSample->SetTime(_clock->GetStreamTime());
+    m_oGear.Transmit(pMediaSample);
+
+    RETURN_NOERROR;
 }
