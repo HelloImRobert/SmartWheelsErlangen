@@ -32,7 +32,7 @@ tResult cSWE_TrajectoryPlanning::CreateInputPins(__exception)
     RETURN_IF_FAILED(m_oLines.Create("Line_Boundaries", new cMediaType(0, 0, 0, "tLineBoundaries"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oLines));
 
-    RETURN_IF_FAILED(m_oSplines.Create("tSplineBoundaryNew", new cMediaType(0, 0, 0, "tSplineBoundaryNew"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oSplines.Create("Spline_Boundaries", new cMediaType(0, 0, 0, "tSplineBoundaryNew"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oSplines));
     RETURN_NOERROR;
 }
@@ -51,6 +51,16 @@ tResult cSWE_TrajectoryPlanning::CreateOutputPins(__exception)
 
     RETURN_IF_FAILED(m_oIntersectionPoints.Create("tracking_point", pTypeIntersecPoints, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oIntersectionPoints));
+
+
+    // output for trajectory to KI
+    tChar const * strDescTrajectory = pDescManager->GetMediaDescription("tTrajectory");
+    RETURN_IF_POINTER_NULL(strDescTrajectory);
+    cObjectPtr<IMediaType> pTypeTrajectory = new cMediaType(0, 0, 0, "tTrajectory", strDescTrajectory,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeTrajectory->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescTrajectory));
+
+    RETURN_IF_FAILED(m_oTrajectory.Create("Trajectory", pTypeTrajectory, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oTrajectory));
 
     RETURN_NOERROR;
 }
@@ -264,13 +274,16 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
 
             // calculate intersection points with boundaries
             cv::Point2d intersectionPoint;
-            tInt8 intersectionIndicator = processing( intersectionPoint, rightBoundary, leftBoundary, middleBoundary );
+            std::vector<cv::Point2d> trajectory;
+            tInt8 intersectionIndicator = processing( intersectionPoint, trajectory, rightBoundary, leftBoundary, middleBoundary );
 
             // TRANSMIT OUTPUT VALUES -------------------------------------------------------------------
 
             //create new media sample
             cObjectPtr<IMediaSample> pMediaSampleOutput;
             RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+            // transmit tracking point
 
             //allocate memory with the size given by the descriptor
             // ADAPT: m_pCoderDescPointLeft
@@ -293,9 +306,49 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
             RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
             RETURN_IF_FAILED(m_oIntersectionPoints.Transmit(pMediaSampleOutput));
 
-            //std::ofstream file("/home/odroid/Desktop/Ausgabe/ausgabe4.txt");
-            //file << lineBoundaries[0] << endl << lineBoundaries[1] << endl << lineBoundaries[2] << endl << lineBoundaries[3] << endl;
-            //file.close();
+
+
+            // transmit tracking point
+
+            //allocate memory with the size given by the descriptor
+            // ADAPT: m_pCoderDescPointLeft
+            //cObjectPtr<IMediaSerializer> pSerializer;
+            m_pCoderDescTrajectory->GetMediaSampleSerializer(&pSerializer);
+            nSize = pSerializer->GetDeserializedSize();
+            pMediaSampleOutput->AllocBuffer(nSize);
+
+            //write date to the media sample with the coder of the descriptor
+            // ADAPT: m_pCoderDescPointLeft
+            //cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescTrajectory->WriteLock(pMediaSampleOutput, &pCoder));
+
+
+            {
+                stringstream elementSetter;
+                size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( trajectory.size() ) );
+                for(size_t j=0; j < end; j++)
+                {
+                    elementSetter << "TrajectoryPoints.Points[" << j << "].xCoord";
+                    pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(trajectory.at(j).x));
+                    elementSetter.str(std::string());
+
+                    elementSetter << "TrajectoryPoints.Points[" << j << "].yCoord";
+                    pCoder->Set(elementSetter.str().c_str(), (tVoid*)&(trajectory.at(j).y));
+                    elementSetter.str(std::string());
+                }
+
+                tInt8 BoundaryArrayCountTemp = static_cast<tInt8>(end);
+                std::string tempString( "TrajectoryPoints.Count" );
+                pCoder->Set( tempString.c_str() , (tVoid*)&(BoundaryArrayCountTemp));
+            }
+
+            m_pCoderDescTrajectory->Unlock(pCoder);
+
+            //transmit media sample over output pin
+            // ADAPT: m_oIntersectionPointLeft
+            RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+            RETURN_IF_FAILED(m_oTrajectory.Transmit(pMediaSampleOutput));
+
 
         }
 
@@ -307,6 +360,7 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
 }
 
 int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
+                                         std::vector< cv::Point2d >& trajectory,
                                          const std::vector< cv::Point2d >& rightBoundary,
                                          const std::vector< cv::Point2d >& leftBoundary,
                                          const std::vector< cv::Point2d >& middleBoundary)
@@ -346,7 +400,7 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
     {
         LOG_ERROR(cString("plausible segments empty"));
         returnedPoint.x = 0.0;
-        returnedPoint.y = 0.0;      
+        returnedPoint.y = 0.0;
         return 0;
     }
 
@@ -396,7 +450,7 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
     }
 
     // calucalte trajectory ( assuming that normals close to vehicle look to the left )
-    std::vector< cv::Point2d > trajectory;
+    trajectory.clear();
     trajectory.reserve( longestPlausibleSegment.size() );
     if( longestSegmentIsRight )
     {
@@ -540,47 +594,47 @@ int cSWE_TrajectoryPlanning::processing( cv::Point2d& returnedPoint,
 
 int cSWE_TrajectoryPlanning::doSth()
 {
-    //    cv::Point2d line0(1,1), line1(3,0),
-    //                point(1,-2), normal1(0.9,1), normal2(2,1), normal3(-1,1);
-    //    std::vector< cv::Point2d > lineVec;
-    //    lineVec.push_back(line0);
-    //    lineVec.push_back(line1);
+//    //    cv::Point2d line0(1,1), line1(3,0),
+//    //                point(1,-2), normal1(0.9,1), normal2(2,1), normal3(-1,1);
+//    //    std::vector< cv::Point2d > lineVec;
+//    //    lineVec.push_back(line0);
+//    //    lineVec.push_back(line1);
 
-    //    cv::Point2d interPt;
-    //    bool hastInter = splineBoundaryCalcs::getLineIntersection( interPt, lineVec, point, normal3 );
-    // test extractPlausibleSegment
-    //    cv::Point2d b1(0,0), b2(1,0), b3(2,0), b4(3,0), b5(3,1),
-    //            b6(4,2), b7(5,2), b8(6,2), b9(6,3), b10(6,4);
-    cv::Point2d b1(0.0,-250), b2(100,-250), b3(200,-250), b4(300,-300), b5(400,-400), b6(450, -500);
-    cv::Point2d c1(0.0,0.0), c2(100,0.0), c3(200,0.0), c4(300,-50), c5(400,-150), c6(450, -250);
+//    //    cv::Point2d interPt;
+//    //    bool hastInter = splineBoundaryCalcs::getLineIntersection( interPt, lineVec, point, normal3 );
+//    // test extractPlausibleSegment
+//    //    cv::Point2d b1(0,0), b2(1,0), b3(2,0), b4(3,0), b5(3,1),
+//    //            b6(4,2), b7(5,2), b8(6,2), b9(6,3), b10(6,4);
+//    cv::Point2d b1(0.0,-250), b2(100,-250), b3(200,-250), b4(300,-300), b5(400,-400), b6(450, -500);
+//    cv::Point2d c1(0.0,0.0), c2(100,0.0), c3(200,0.0), c4(300,-50), c5(400,-150), c6(450, -250);
 
-    std::vector< cv::Point2d > rightBoundary;
-    rightBoundary.push_back(b1);
-    rightBoundary.push_back(b2);
-    rightBoundary.push_back(b3);
-    //    rightBoundary.push_back(b4);
-    //    rightBoundary.push_back(b5);
-    //    rightBoundary.push_back(b6);
-    //    rightBoundary.push_back(b7);
-    //    rightBoundary.push_back(b8);
-    //    rightBoundary.push_back(b9);
-    //    rightBoundary.push_back(b10);
+//    std::vector< cv::Point2d > rightBoundary;
+//    rightBoundary.push_back(b1);
+//    rightBoundary.push_back(b2);
+//    rightBoundary.push_back(b3);
+//    //    rightBoundary.push_back(b4);
+//    //    rightBoundary.push_back(b5);
+//    //    rightBoundary.push_back(b6);
+//    //    rightBoundary.push_back(b7);
+//    //    rightBoundary.push_back(b8);
+//    //    rightBoundary.push_back(b9);
+//    //    rightBoundary.push_back(b10);
 
-    std::vector< cv::Point2d > middleBoundary;
-    middleBoundary.push_back(c1);
-    middleBoundary.push_back(c2);
-    middleBoundary.push_back(c3);
-    //    middleBoundary.push_back(c4);
-    //    middleBoundary.push_back(c5);
-    //    middleBoundary.push_back(c6);
+//    std::vector< cv::Point2d > middleBoundary;
+//    middleBoundary.push_back(c1);
+//    middleBoundary.push_back(c2);
+//    middleBoundary.push_back(c3);
+//    //    middleBoundary.push_back(c4);
+//    //    middleBoundary.push_back(c5);
+//    //    middleBoundary.push_back(c6);
 
-    //std::reverse( rightBoundary.begin(), rightBoundary.end() );
+//    //std::reverse( rightBoundary.begin(), rightBoundary.end() );
 
-    std::vector< cv::Point2d > leftBoundary;
+//    std::vector< cv::Point2d > leftBoundary;
 
-    cv::Point2d intersectionPoint;
+//    cv::Point2d intersectionPoint;
 
-    processing( intersectionPoint,rightBoundary, leftBoundary, middleBoundary );
+//    processing( intersectionPoint,rightBoundary, leftBoundary, middleBoundary );
 
     return 0;
 }

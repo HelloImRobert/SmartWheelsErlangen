@@ -105,7 +105,7 @@ class cSWE_LaneDetection : public adtf::cFilter
             void                        serializeLane               (cObjectPtr<IMediaCoder>& pCoder , std::string lane , const std::vector< Point2d >& spline );
             tResult                     transmitLanes               (const std::vector< Point2d >& leftSpline , const std::vector< Point2d >& middleSpline ,
                                                                      const std::vector< Point2d >& rightSpline );
-            tResult                     transmitCrossingIndicator   (bool isRealStopLine , int crossingType , cv::Point StopLinePoint1 , cv::Point StopLinePoint2 );
+            tResult                     transmitCrossingIndicator   ( const tBool isRealStopLine , const tInt8 crossingType , const cv::Point2d& StopLinePoint1 , const cv::Point2d& StopLinePoint2 );
 
             // Parameters for the algorithm
             double                      _ambigousAngle;

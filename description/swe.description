@@ -4,7 +4,7 @@
 		<language_version>3.00</language_version>
 		<author>odroid</author>
 		<date_creation>22.12.2014</date_creation>
-		<date_change>11.03.2015</date_change>
+		<date_change>21.03.2015</date_change>
 		<description>ADTF generated</description>
 	</header>
 	<units>
@@ -120,19 +120,6 @@
 			<element alignment="1" arraysize="5" byteorder="LE" bytepos="0" name="ArrayBoundary" type="Boundary" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="2505" name="Count" type="tInt8" />
 		</struct>
-		<struct alignment="1" name="ArrayRasterPoint" version="1">
-			<element alignment="1" arraysize="50" byteorder="LE" bytepos="0" name="rasterPoints" type="rasterPoint" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1600" name="ui32ArrayRasterPointTimestamp" type="tUInt32" />
-		</struct>
-		<struct alignment="1" name="rasterPoint" version="1">
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="xCoord" type="tFloat64" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="8" name="yCoord" type="tFloat64" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="16" name="trackIndicator" type="tInt8" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="17" name="maxSpeed" type="tFloat64" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="25" name="roadSignIndicator" type="tInt8" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="26" name="ID" type="tUInt16" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="28" name="ui32RasterPointTimestamp" type="tUInt32" />
-		</struct>
 		<struct alignment="1" name="tIntersectionsNew" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="intersecPoint" type="tPoint2d" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="20" name="Indicator" type="tInt8" />
@@ -198,14 +185,20 @@
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1505" name="hasMiddleBoundary" type="tBool" />
 		</struct>
 		<struct alignment="1" name="tCrossingIndicator" version="1">
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="isRealStopLine" type="tBool" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="1" name="crossingType" type="tInt8" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="2" name="StopLinePoint1" type="tPoint2d" />
-			<element alignment="1" arraysize="1" byteorder="LE" bytepos="22" name="StopLinePoint2" type="tPoint2d" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="StopLinePoint1" type="tPoint2d" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="20" name="StopLinePoint2" type="tPoint2d" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="40" name="isRealStopLine" type="tBool" />
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="41" name="crossingType" type="tInt8" />
 		</struct>
 		<struct alignment="1" name="tRoadSign" version="1">
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="fl32Imagesize" type="tFloat32" />
 			<element alignment="1" arraysize="1" byteorder="LE" bytepos="4" name="i8Identifier" type="tInt8" />
+		</struct>
+		<struct alignment="1" name="tGear" version="1">
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="tGearValue" type="tInt8" />
+		</struct>
+		<struct alignment="1" name="tTrajectory" version="1">
+			<element alignment="1" arraysize="1" byteorder="LE" bytepos="0" name="TrajectoryPoints" type="Boundary" />
 		</struct>
 	</structs>
 	<streams />
