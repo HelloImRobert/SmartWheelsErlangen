@@ -387,7 +387,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             {
                 m_checkPointOne = m_odometryData.distance_sum;
                 m_firstIR = true;
-                LOG_ERROR(cString("PP: SHORT!, IRcur: " + cString::FromFloat64(m_IRFrontRightCur)  ));
+                //LOG_ERROR(cString("PP: SHORT!, IRcur: " + cString::FromFloat64(m_IRFrontRightCur)  ));
             }
 
             if( m_IRFrontRightCur > TH_LONG && m_firstIR == true && m_searchState == 0)
