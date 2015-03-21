@@ -46,9 +46,11 @@
 #define INVALID_HIGH 9999.0f
 
 /*! Steering angles */
-#define STEER_RIGHT_MAX 21.0f             // Maximaler Lenkwinkel rechts
-#define STEER_LEFT_MAX -21.0f               // Maximaler Lenkwinkel links
+#define STEER_RIGHT_MAX 30.0f             // Maximaler Lenkwinkel rechts
+#define STEER_LEFT_MAX -30.0f               // Maximaler Lenkwinkel links
 #define STEER_NEUTRAL 0.0f                 // Lenkwinkel = 0
+
+#define TIMER_RESOLUTION        1000000.0f
 
 // +++ end_defines ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -99,14 +101,19 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
 
         // set filter properties
 
+        SetPropertyBool("Logging", false);
+        SetPropertyInt("Stop Time in ms", 1200);
+
+        SetPropertyFloat("A_LotSize", 765.0);
         SetPropertyFloat("A_StraightForward(mm)", 690.0);
         SetPropertyFloat("A_CentralAngle(DEG)",50.0);
         SetPropertyFloat("A_CounterAngle(DEG)",43.0);
+        SetPropertyFloat("A_CentralAngleSteering(0-1)", 1.0);
         SetPropertyBool("A_ActivateManeuvering", true);
         SetPropertyFloat("A_ManeuverAngleOne(DEG)", 35.0);
         SetPropertyFloat("A_ManeuverAngleTwo(DEG)", 17.0);
 
-
+        SetPropertyFloat("C_LotSize", 450.0);
         SetPropertyFloat("C_StraightForward(mm)", 50.0);
         SetPropertyFloat("C_HeadingAngleLeftForward(DEG)", 35.0);
         SetPropertyFloat("C_SteerAngleRightBackward(DEG)", 31.8);
@@ -229,6 +236,13 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
         CreateInputPins(__exception_ptr);
         CreateOutputPins(__exception_ptr);
 
+        m_logging = (tBool)GetPropertyBool("Logging", false);
+        m_stopTime =  (tInt32)GetPropertyInt("Stop Time in ms", 1200) * (TIMER_RESOLUTION / 1000.0);
+
+        m_AlongsideSize = (tFloat32)GetPropertyFloat("A_LotSize", 765.0);
+        m_CrossSize = (tFloat32)GetPropertyFloat("C_LotSize", 450.0);
+
+        m_centralAngleSteering = (tFloat32)GetPropertyFloat("A_CentralAngleSteering(0-1)", 1.0);
         m_centralAngle = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_CentralAngle(DEG)", 48.0);
         m_counterAngle = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_CounterAngle(DEG)", 43.0);
         m_manAngleOne = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_ManeuverAngleOne(DEG)");
@@ -242,6 +256,8 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
         m_perpendicularBackward = GetPropertyFloat("C_PerpendicularBackward(mm)");
         m_pullLeftStraight = GetPropertyFloat("C_PullLeftStraight(mm)");
         m_pullRightStraight = GetPropertyFloat("C_PullRightStraight(mm)");
+
+
     }
     else if (eStage == StageNormal)
     {
@@ -278,6 +294,7 @@ tResult cSWE_ParkPilot::Start(__exception)
     m_angleAbs = 0.0;
     m_rememberDist = 0.0;
 
+    m_startTimer = GetTime();
     //DEBUG TOGGLES: set all back to false after testing!!!
     m_searchActivated = false;
     m_minDistReached = false;
@@ -309,6 +326,11 @@ tResult cSWE_ParkPilot::Stop(__exception)
 tResult cSWE_ParkPilot::Shutdown(tInitStage eStage, __exception)
 {
     return cFilter::Shutdown(eStage,__exception_ptr);
+}
+
+tTimeStamp cSWE_ParkPilot::GetTime()
+{
+    return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
 }
 
 tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample)
@@ -372,7 +394,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             m_IRFrontRightCur = 10 * m_IRFrontRightCur;
 
             ///FOR TESTING
-            if(m_debug_bool == false)
+            if(m_debug_bool == false && GetTime() - m_startTimer >= m_stopTime)
             {
                 sendSteeringAngle( STEER_NEUTRAL );
                 sendSpeed( 1.0 );
@@ -394,12 +416,12 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             {
                 if( m_odometryData.distance_sum - m_checkPointOne >= 200 )
                 {
-                    LOG_ERROR(cString("PP: 1 Search Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
+                    //LOG_ERROR(cString("PP: 1 Search Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
                     m_searchState = 1;
                 }
                 else
                 {
-                    LOG_ERROR(cString("PP: 2 Search NOT Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
+                    //LOG_ERROR(cString("PP: 2 Search NOT Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
                     m_firstIR = false;
                     m_searchState = 0;
                 }
@@ -407,7 +429,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             else if(m_firstIR == true && m_searchState == 0 && (m_odometryData.distance_sum - m_checkPointOne >= 200) )
             {
                 m_searchState = 1;
-                LOG_ERROR(cString("PP: 3 Search Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
+                //LOG_ERROR(cString("PP: 3 Search Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
             }
 
             // Check whether we have passed the first car, then activate the search
@@ -546,6 +568,14 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             m_pCoderDescOdometry->Unlock(pCoder);
 
             m_angleAbs = m_angleAbs + m_odometryData.angle_heading;
+            if( m_angleAbs < 0)
+            {
+                m_angleAbs = m_angleAbs + (2 * M_PI);
+            }
+//            else if ( m_angleAbs > (2 * M_PI ) )
+//            {
+//                m_angleAbs = m_angleAbs - (2 * M_PI);
+//            }
             //LOG_ERROR(cString("PP: AngleOdo: " + cString::FromFloat64(m_odometryData.angle_heading) + "; AngleAbs: " + cString::FromFloat64(m_angleAbs)));
             //LOG_ERROR(cString("DS: DIST_SUM: " + cString::FromFloat64(m_odometryData.distance_sum) + "Angle: " + cString::FromFloat64(m_odometryData.angle_heading)));
 
@@ -597,7 +627,7 @@ tResult cSWE_ParkPilot::jumpIntoStates()
     {
         searchRoutineCross();
     }
-    else if( m_searchState == 104 && m_parkState > 200 && m_parkState < 300 )
+    else if( m_searchState == 103 && m_parkState > 200 && m_parkState < 300 )
     {
         parkRoutineAlongside();
     }
@@ -655,34 +685,24 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
             distTravelled = m_odometryData.distance_sum - m_distEntry;
 
             // too small, return to state 1
-            if( m_IRFrontRightCur <= TH_SHORT && distTravelled < ALONGSIDE_SIZE )
+            if( m_IRFrontRightCur <= TH_SHORT && distTravelled < m_AlongsideSize )
             {
                 m_searchState = 101;
             }
 
             // min size reached, proceed with state 3
-            if( distTravelled >= ALONGSIDE_SIZE )
+            if( distTravelled >= m_AlongsideSize )
             {
                 m_searchState = 103;
-            }
-            //LOG_ERROR(cString("PP:102 Next " + cString::FromInt(m_searchState) + "; DT: " + cString::FromFloat64(distTravelled) + "; DS: " + cString::FromFloat64(m_odometryData.distance_sum) + "DE: " + cString::FromFloat64(m_distEntry) ));
-            LOG_ERROR(cString("PP:102 Next " + cString::FromInt(m_searchState) + "; Lot size: " + cString::FromFloat64(distTravelled) ));
-            break;
-
-        case 103: // min size reached, try to get as much space as possible
-            distTravelled = m_odometryData.distance_sum - m_distEntry;
-            m_distExit = m_odometryData.distance_sum;
-
-            if( distTravelled >= ALONGSIDE_SIZE + EASY_ALONGSIDE || m_IRFrontRightCur <= TH_SHORT )
-            {
-                m_searchState = 104; // 0 = search ended
-                LOG_ERROR(cString("PP: LOT DETECTED with size: " + cString::FromFloat64(distTravelled) ));
                 m_parkState = 201;
+                m_distExit = m_odometryData.distance_sum;
+                m_angleAbs = 0.0;
+                LOG_ERROR(cString("PP: LOT DETECTED with size: " + cString::FromFloat64(distTravelled) ));
                 //sendParkState( 3 );
                 //sendBlink( BLINK_RIGHT );
-                m_angleAbs = 0.0;  //evtl wieder rausnehmen
             }
-            //LOG_ERROR(cString("PP: 103 Next State" + cString::FromInt(m_searchState) + "; DistTrav " + cString::FromFloat64(distTravelled) + "; parkState: " + cString::FromInt(m_parkState) ));
+            if(m_logging == true)
+                LOG_ERROR(cString("PP:102 Next " + cString::FromInt(m_searchState) + "; Measured: " + cString::FromFloat64(distTravelled) ));
             break;
 
         default:
@@ -707,13 +727,12 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
 
             if( m_odometryData.distance_sum >= (m_distStartPark + m_distExit) )
             {
-                m_angleAbs = 0; //optional
                 m_headingAtStart = m_angleAbs;
-                sendSpeed( -1 );
-                sendSteeringAngle(STEER_RIGHT_MAX);
+                sendSpeed( -1.0 );
+                sendSteeringAngle(STEER_RIGHT_MAX * m_centralAngleSteering);
                 m_parkState = 202;
             }
-            LOG_ERROR(cString("PP: 201 Next " + cString::FromInt(m_parkState) + "; still to go: " + cString::FromFloat64(m_distStartPark + m_distExit - m_odometryData.distance_sum) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
+            //LOG_ERROR(cString("PP: 201 Next " + cString::FromInt(m_parkState) + "; still to go: " + cString::FromFloat64(m_distStartPark + m_distExit - m_odometryData.distance_sum) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
             break;
 
         case 202: // ... steer max right until central angle + adjustment is reached and steer max left...
@@ -723,7 +742,7 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                 m_parkState = 203;
 
             }
-            LOG_ERROR(cString("PP: 202 Next " + cString::FromInt(m_parkState) + "; CenA: " + cString::FromFloat64(m_centralAngle/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
+            //LOG_ERROR(cString("PP: 202 Next " + cString::FromInt(m_parkState) + "; CenA: " + cString::FromFloat64((m_headingAtStart + m_centralAngle)/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
             break;
 
         case 203: // ... drive counterAngle backwards
@@ -741,7 +760,8 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                     m_parkState = 206;
                 }
             }
-            LOG_ERROR(cString("PP: 203 Next " + cString::FromInt(m_parkState) + "; CouA: " + cString::FromFloat64(m_counterAngle/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
+            if(m_logging == true)
+                LOG_ERROR(cString("PP: 203 Next " + cString::FromInt(m_parkState) + "; CouA: " + cString::FromFloat64((m_headingAtStart + m_counterAngle)/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
             break;
 
         //cases 204 and 205 are optional maneuvering cases!
@@ -753,7 +773,8 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                 sendSteeringAngle( STEER_LEFT_MAX );
                 sendSpeed( -1.0 );
             }
-            LOG_ERROR(cString("PP: 204 Next " + cString::FromInt(m_parkState) + "; ManOne: " + cString::FromFloat64(m_manAngleOne/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
+            if(m_logging == true)
+                LOG_ERROR(cString("PP: 204 Next " + cString::FromInt(m_parkState) + "; ManOne: " + cString::FromFloat64((m_headingAtStart + m_manAngleOne)/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
             break;
 
         case 205:
@@ -763,7 +784,8 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                 sendSteeringAngle(STEER_RIGHT_MAX);
                 sendSpeed( 1.0 );
             }
-            LOG_ERROR(cString("PP: 205 Next " + cString::FromInt(m_parkState) + "; ManTwo: " + cString::FromFloat64(m_manAngleOne/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
+            if(m_logging == true)
+                LOG_ERROR(cString("PP: 205 Next " + cString::FromInt(m_parkState) + "; ManTwo: " + cString::FromFloat64((m_headingAtStart + m_manAngleTwo)/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
             break;
 
         case 206:
@@ -776,7 +798,8 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                 //sendBlink( BLINK_STOP );
                 m_activeManeuvering = false;
             }
-            LOG_ERROR(cString("PP: 206 Next " + cString::FromInt(m_parkState) + "; HeadStart: " + cString::FromFloat64(m_headingAtStart/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
+            if(m_logging == true)
+                LOG_ERROR(cString("PP: 206 Next " + cString::FromInt(m_parkState) + "; HeadStart: " + cString::FromFloat64(m_headingAtStart/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
             break;
 
         // ///////////////////////////////////////////////////
@@ -881,13 +904,13 @@ tResult cSWE_ParkPilot::searchRoutineCross()
             distTravelled = m_odometryData.distance_sum - m_distEntry;
 
             // too small, return to state 1
-            if( m_IRFrontRightCur <= TH_SHORT && distTravelled < CROSS_SIZE )
+            if( m_IRFrontRightCur <= TH_SHORT && distTravelled < m_CrossSize )
             {
                 m_searchState = 1;
             }
 
             // min size reached
-            if( distTravelled >= CROSS_SIZE )
+            if( distTravelled >= m_CrossSize )
             {
                 m_searchState = 503;
                 m_distExit = m_odometryData.distance_sum;

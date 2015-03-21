@@ -67,12 +67,19 @@ private:
     tFloat32    m_manAngleTwo;
 
     //Properties
+    tFloat32    m_centralAngleSteering;
+    tBool       m_logging;
+    tFloat32    m_AlongsideSize;
+    tFloat32    m_CrossSize;
     tFloat32    m_headingAngleForward;
     tFloat32    m_steeringAnlgeBackward;
     tFloat32    m_perpendicularBackward;
     tFloat32    m_pullLeftStraight;
     tFloat32    m_pullRightStraight;
     tFloat32    m_straightForward;
+    tInt32      m_stopTime;
+
+    tInt32      m_startTimer;
 
     std::vector<tFloat32> m_initTest_vect;
 
@@ -119,6 +126,8 @@ private:
     tResult CreateInputPins(__exception = NULL);
     /*! creates all the output Pins*/
     tResult CreateOutputPins(__exception = NULL);
+
+    tTimeStamp GetTime();
 
     // Park functions
     tResult searchRoutineAlongside();
