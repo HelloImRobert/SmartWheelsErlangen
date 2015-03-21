@@ -13,8 +13,8 @@ ADTF_FILTER_PLUGIN("SWE KIControl", OID_ADTF_SWE_KICONTROL, cSWE_KIControl)
 cSWE_KIControl::cSWE_KIControl(const tChar* __info) : cFilter(__info)
 {
     SetPropertyStr("ManeuverFile", "");
-        SetPropertyBool("ManeuverFile" NSSUBPROP_FILENAME, tTrue);
-        SetPropertyStr("ManeuverFile" NSSUBPROP_FILENAME NSSUBSUBPROP_EXTENSIONFILTER, "XML Files (*.xml)");
+    SetPropertyBool("ManeuverFile" NSSUBPROP_FILENAME, tTrue);
+    SetPropertyStr("ManeuverFile" NSSUBPROP_FILENAME NSSUBSUBPROP_EXTENSIONFILTER, "XML Files (*.xml)");
 
 
 
@@ -75,7 +75,7 @@ tResult cSWE_KIControl::CreateInputPins(__exception)
 }
 
 
- 
+
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------OutputPins Erstellen-------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -132,7 +132,7 @@ tResult cSWE_KIControl::CreateOutputPins(__exception)
 
 
 
-//TODO: Pin fuer Kreuzungsdaten weiterleiten
+    //TODO: Pin fuer Kreuzungsdaten weiterleiten
 
 
 
@@ -147,7 +147,7 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
 {
     RETURN_IF_FAILED(cFilter::Init(eStage, __exception_ptr))
 
-    if (eStage == StageFirst)
+            if (eStage == StageFirst)
     {
         CreateInputPins(__exception_ptr);
         CreateOutputPins(__exception_ptr);
@@ -164,7 +164,7 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         abgebogen=false;
         roadfree=true;
         Signtype=0;
-		parking=false;
+        parking=false;
         adminstopp=false; //Wenn Wettkampf, auf True setzen
         status=0;
         Parksteuerung=0;
@@ -184,109 +184,109 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
 
         m_maneuverListFile = GetPropertyStr("ManeuverFile");
 
-          if (m_maneuverListFile.IsEmpty())
-          {
-              LOG_ERROR("DriverFilter: Maneuver file not found");
-              RETURN_ERROR(ERR_INVALID_FILE);
-          }
-          ADTF_GET_CONFIG_FILENAME(m_maneuverListFile);
+        if (m_maneuverListFile.IsEmpty())
+        {
+            LOG_ERROR("DriverFilter: Maneuver file not found");
+            RETURN_ERROR(ERR_INVALID_FILE);
+        }
+        ADTF_GET_CONFIG_FILENAME(m_maneuverListFile);
 
-              m_maneuverListFile = m_maneuverListFile.CreateAbsolutePath(".");
-
-
-              if (cFileSystem::Exists(m_maneuverListFile))
-                 {
-                     cDOM oDOM;
-                     oDOM.Load(m_maneuverListFile);
-                     cDOMElementRefList oSectorElems;
-                     cDOMElementRefList oManeuverElems;
-
-                     //read first Sector Elem
-                     if(IS_OK(oDOM.FindNodes("AADC-Maneuver-List/AADC-Sector", oSectorElems)))
-                     {
-                         //iterate through sectors
-                         for (cDOMElementRefList::iterator itSectorElem = oSectorElems.begin(); itSectorElem != oSectorElems.end(); ++itSectorElem)
-                         {
-                             //if sector found
-                             tSector sector;
-                             sector.id = (*itSectorElem)->GetAttributeUInt32("id");
-
-                             if(IS_OK((*itSectorElem)->FindNodes("AADC-Maneuver", oManeuverElems)))
-                             {
-                                 //iterate through maneuvers
-                                 for(cDOMElementRefList::iterator itManeuverElem = oManeuverElems.begin(); itManeuverElem != oManeuverElems.end(); ++itManeuverElem)
-                                 {
-                                     tAADC_Maneuver man;
-                                     man.id = (*itManeuverElem)->GetAttributeUInt32("id");
-                                     man.action = (*itManeuverElem)->GetAttribute("action");
-                                     sector.maneuverList.push_back(man);
-                                     if(man.action =="left")
-                                     {
-                                            Commands.push_back(1);
-                                     }
-                                     else if(man.action =="right")
-                                     {
-                                             Commands.push_back(2);
-                                     }
-                                     else if(man.action =="straight")
-                                     {
-                                             Commands.push_back(3);
-                                     }
-                                     else if(man.action =="parallel_parking")
-                                     {
-                                             Commands.push_back(4);
-                                     }
-                                     else if(man.action =="cross_parking")
-                                     {
-                                             Commands.push_back(5);
-                                     }
-                                     else if(man.action =="pull_out_left")
-                                     {
-                                             Commands.push_back(6);
-                                     }
-                                     else if(man.action =="pull_out_right")
-                                     {
-                                             Commands.push_back(7);
-                                     }
+        m_maneuverListFile = m_maneuverListFile.CreateAbsolutePath(".");
 
 
-                                 }
-                             }
+        if (cFileSystem::Exists(m_maneuverListFile))
+        {
+            cDOM oDOM;
+            oDOM.Load(m_maneuverListFile);
+            cDOMElementRefList oSectorElems;
+            cDOMElementRefList oManeuverElems;
 
-                             m_sectorList.push_back(sector);
-                         }
-                     }
-                     if (oSectorElems.size() > 0)
-                     {
-                         LOG_INFO("DriverFilter: Loaded Maneuver file successfully.");
-                     }
-                     else
-                     {
-                         LOG_ERROR("DriverFilter: no valid Maneuver Data found!");
-                         RETURN_ERROR(ERR_INVALID_FILE);
-                     }
-                 }
-                 else
-                 {
-                     LOG_ERROR("DriverFilter: no valid Maneuver File found!");
-                     RETURN_ERROR(ERR_INVALID_FILE);
-                 }
+            //read first Sector Elem
+            if(IS_OK(oDOM.FindNodes("AADC-Maneuver-List/AADC-Sector", oSectorElems)))
+            {
+                //iterate through sectors
+                for (cDOMElementRefList::iterator itSectorElem = oSectorElems.begin(); itSectorElem != oSectorElems.end(); ++itSectorElem)
+                {
+                    //if sector found
+                    tSector sector;
+                    sector.id = (*itSectorElem)->GetAttributeUInt32("id");
 
-              /*
+                    if(IS_OK((*itSectorElem)->FindNodes("AADC-Maneuver", oManeuverElems)))
+                    {
+                        //iterate through maneuvers
+                        for(cDOMElementRefList::iterator itManeuverElem = oManeuverElems.begin(); itManeuverElem != oManeuverElems.end(); ++itManeuverElem)
+                        {
+                            tAADC_Maneuver man;
+                            man.id = (*itManeuverElem)->GetAttributeUInt32("id");
+                            man.action = (*itManeuverElem)->GetAttribute("action");
+                            sector.maneuverList.push_back(man);
+                            if(man.action =="left")
+                            {
+                                Commands.push_back(1);
+                            }
+                            else if(man.action =="right")
+                            {
+                                Commands.push_back(2);
+                            }
+                            else if(man.action =="straight")
+                            {
+                                Commands.push_back(3);
+                            }
+                            else if(man.action =="parallel_parking")
+                            {
+                                Commands.push_back(4);
+                            }
+                            else if(man.action =="cross_parking")
+                            {
+                                Commands.push_back(5);
+                            }
+                            else if(man.action =="pull_out_left")
+                            {
+                                Commands.push_back(6);
+                            }
+                            else if(man.action =="pull_out_right")
+                            {
+                                Commands.push_back(7);
+                            }
+
+
+                        }
+                    }
+
+                    m_sectorList.push_back(sector);
+                }
+            }
+            if (oSectorElems.size() > 0)
+            {
+                LOG_INFO("DriverFilter: Loaded Maneuver file successfully.");
+            }
+            else
+            {
+                LOG_ERROR("DriverFilter: no valid Maneuver Data found!");
+                RETURN_ERROR(ERR_INVALID_FILE);
+            }
+        }
+        else
+        {
+            LOG_ERROR("DriverFilter: no valid Maneuver File found!");
+            RETURN_ERROR(ERR_INVALID_FILE);
+        }
+
+        /*
                * Man?ver
                * in m_sectorList stehen alle abschnitte drin, jeder abschnitt hat eine Id.
                * in den abschnitten stehen die verschiedenen commandos, mit fortlaufender id
 
                *
                */
-              Commandsector=0;
-              Commandsectormax=m_sectorList.size()-1;
-              CommandCountermax=m_sectorList[m_sectorList.size()-1].maneuverList.size()-1;
-             // CommandCountermax=m_sectorList[0].maneuverList.size()-1;
-              CommandCounter=0;
+        Commandsector=0;
+        Commandsectormax=m_sectorList.size()-1;
+        CommandCountermax=m_sectorList[m_sectorList.size()-1].maneuverList.size()-1;
+        // CommandCountermax=m_sectorList[0].maneuverList.size()-1;
+        CommandCounter=0;
 
 
-      /*
+        /*
        *Int werte in Commands:
        * 1=left
        * 2=right
@@ -357,32 +357,32 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
                 elementGetter << "tPoint[" << j << "].yCoord";
                 pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(objecte[j].y));
-                 elementGetter.str(std::string());
+                elementGetter.str(std::string());
             }
-              m_pCoderDescInputMeasured->Unlock(pCoder);
+            m_pCoderDescInputMeasured->Unlock(pCoder);
 
-     //      pCoder->Get("tPoint", (tVoid*)&objecte); //Werte auslesen
-          // pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
-//           for(int a=0;a<10;a++)
-//           {
+            //      pCoder->Get("tPoint", (tVoid*)&objecte); //Werte auslesen
+            // pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
+            //           for(int a=0;a<10;a++)
+            //           {
 
-//              // if(objecte[a].x==0 && objecte[a].y==2000+a)
-//                    //  LOG_ERROR("Standard wert nicht gut");
-//               string currentDestinationName , currentSourceName;
-//               {
-//                   // convoluted way to concatenate the arrayName with an integer, but standard C++
-//                   std::stringstream stringStream;
-//                   stringStream << "DestinationPointsiii" << a;
-//                   currentDestinationName = stringStream.str();
-//               }
-//               {
-//                   std::stringstream stringStream;
-//                   stringStream << "Sensor " << a << "xwert: "<<objecte[a].x <<" ywert: "<<objecte[a].y;
-//                   currentSourceName = stringStream.str();
-//               }
-//               LOG_ERROR(currentSourceName.c_str());
+            //              // if(objecte[a].x==0 && objecte[a].y==2000+a)
+            //                    //  LOG_ERROR("Standard wert nicht gut");
+            //               string currentDestinationName , currentSourceName;
+            //               {
+            //                   // convoluted way to concatenate the arrayName with an integer, but standard C++
+            //                   std::stringstream stringStream;
+            //                   stringStream << "DestinationPointsiii" << a;
+            //                   currentDestinationName = stringStream.str();
+            //               }
+            //               {
+            //                   std::stringstream stringStream;
+            //                   stringStream << "Sensor " << a << "xwert: "<<objecte[a].x <<" ywert: "<<objecte[a].y;
+            //                   currentSourceName = stringStream.str();
+            //               }
+            //               LOG_ERROR(currentSourceName.c_str());
 
-      //     }
+            //     }
 
 
             //Hier die Objekte auslesen, und in eigene Vecor bauen
@@ -407,25 +407,25 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
         {
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
-           // pCoder->Get("tPoint", (tVoid*)&points); //Werte auslesen
+            // pCoder->Get("tPoint", (tVoid*)&points); //Werte auslesen
 
             //Punkte liste fuellen
 
 
 
-//            stringstream elementGetter;
-//            for( size_t j = 0; j < 10; j++)
-//            {
-//                elementGetter << "tPoint[" << j << "].xCoord";
-//                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
-//                elementGetter.str(std::string());
+            //            stringstream elementGetter;
+            //            for( size_t j = 0; j < 10; j++)
+            //            {
+            //                elementGetter << "tPoint[" << j << "].xCoord";
+            //                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
+            //                elementGetter.str(std::string());
 
-//                elementGetter << "tPoint[" << j << "].yCoord";
-//                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
-//                elementGetter.str(std::string());
-//            }
+            //                elementGetter << "tPoint[" << j << "].yCoord";
+            //                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
+            //                elementGetter.str(std::string());
+            //            }
 
-        m_pCoderDescInputMeasured->Unlock(pCoder);
+            m_pCoderDescInputMeasured->Unlock(pCoder);
 
 
 
@@ -438,41 +438,41 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
             tInt8 value = 0;
             tFloat32 area = 0;
-           cObjectPtr<IMediaCoder> pCoder;
-           RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
 
-           pCoder->Get("i8Identifier", (tVoid*)&value);
-           pCoder->Get("fl32Imagesize", (tVoid*)&area);
-
-
-           m_pCoderDescInputMeasured->Unlock(pCoder);
+            pCoder->Get("i8Identifier", (tVoid*)&value);
+            pCoder->Get("fl32Imagesize", (tVoid*)&area);
 
 
+            m_pCoderDescInputMeasured->Unlock(pCoder);
 
 
-// So bekommen wir die Daten
-           //Vorfahrt gewaehren 1
 
-           //Vorfahrt an naechster Kreuzung 2
 
-           //Halt! Vorfahrt gewaehren (Stop) 3
+            // So bekommen wir die Daten
+            //Vorfahrt gewaehren 1
 
-           //Parken 4
+            //Vorfahrt an naechster Kreuzung 2
 
-           //Vorgeschriebene Fahrtrichtung geradeaus 5
+            //Halt! Vorfahrt gewaehren (Stop) 3
 
-           //Kreuzung 6
+            //Parken 4
 
-           //erstmal unwichtig
-           //Fussgaengerueberweg 7
+            //Vorgeschriebene Fahrtrichtung geradeaus 5
 
-           //Kreisverkehr 8
+            //Kreuzung 6
 
-           //Ueberholverbot 9
+            //erstmal unwichtig
+            //Fussgaengerueberweg 7
 
-           //Verbot der Einfahrt 10
+            //Kreisverkehr 8
 
-           //Einbahnstrasse 11
+            //Ueberholverbot 9
+
+            //Verbot der Einfahrt 10
+
+            //Einbahnstrasse 11
 
 
             if(parking&&value==4)//und wenn schildtyp parken.
@@ -485,22 +485,22 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                 {
                     SecondSigntype=4;
                 }
-			}
+            }
             else if(value==5)//wenn Nur gerade aus Schild
-			{
+            {
                 SecondSigntype=5;
-			}
+            }
             else if(value<=3 || value==6)//wenn schildtyp nicht parken
-			{
+            {
                 if(signsize>area)
                 {
                 }
                 else
                 {
-                   signsize=area;
-                   Signtype=value;
+                    signsize=area;
+                    Signtype=value;
                 }
-			}                 
+            }
 
         }
         //--------------------------------------------------------------Parkdaten einlesen----------------------------------------------------------------------------------------
@@ -521,7 +521,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             {
                 if(CommandCounter!=CommandCountermax)
                 {
-                   CommandCounter++;
+                    CommandCounter++;
                 }
                 else
                 {
@@ -532,14 +532,14 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             {
                 if(CommandCounter!=CommandCountermax)
                 {
-                   CommandCounter++;
+                    CommandCounter++;
                     Parksteuerung=0;
                 }
                 else
                 {
                     status=3;
                 }
-             }
+            }
             else if(value==3)
             {
                 Parksteuerung=3;
@@ -550,41 +550,41 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
         else if(pSource==&m_JuryStructInputPin)
         {
-                       tInt8 i8ActionID = -2;
-                       tInt16 i16entry = -1;
-                       cObjectPtr<IMediaCoder> pCoder;
-                       RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+            tInt8 i8ActionID = -2;
+            tInt16 i16entry = -1;
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
 
-                           pCoder->Get("i8ActionID", (tVoid*)&i8ActionID);
-                           pCoder->Get("i16ManeuverEntry", (tVoid*)&i16entry);
+            pCoder->Get("i8ActionID", (tVoid*)&i8ActionID);
+            pCoder->Get("i16ManeuverEntry", (tVoid*)&i16entry);
 
-                        if(i16entry>=0)
-                             CommandCounter= i16entry;
+            if(i16entry>=0)
+                CommandCounter= i16entry;
 
-                       if (i8ActionID==-1)
-                       {
-                           //scheinbar stopp befehl
-                        adminstopp=true;
-                        //SendtoJury(tInt8 i8StateID, tInt16 i16ManeuverEntry)
-                          // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Stop with maneuver ID %d",i16entry));
-                           //emit sendStop((int)i16entry);
-                       }
-                       else if (i8ActionID==0)
-                       {
-                           //Ready anforderung
-//TODO:: einfuegen was tut Jury
-                          // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Request Ready with maneuver ID %d",i16entry));
-                           //emit sendRequestReady((int)i16entry);
-                       }
-                       else if (i8ActionID==1)
-                       {
-                              adminstopp=false;
-                           //Start
-                          // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Run with maneuver ID %d",i16entry));
-                           //emit sendRun((int)i16entry);
-                       }
+            if (i8ActionID==-1)
+            {
+                //scheinbar stopp befehl
+                adminstopp=true;
+                //SendtoJury(tInt8 i8StateID, tInt16 i16ManeuverEntry)
+                // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Stop with maneuver ID %d",i16entry));
+                //emit sendStop((int)i16entry);
+            }
+            else if (i8ActionID==0)
+            {
+                //Ready anforderung
+                //TODO:: einfuegen was tut Jury
+                // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Request Ready with maneuver ID %d",i16entry));
+                //emit sendRequestReady((int)i16entry);
+            }
+            else if (i8ActionID==1)
+            {
+                adminstopp=false;
+                //Start
+                // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Run with maneuver ID %d",i16entry));
+                //emit sendRun((int)i16entry);
+            }
         }
-//TODO:: auch Markus schicken, das es Notbremsung gibt
+        //TODO:: auch Markus schicken, das es Notbremsung gibt
 
 
         //--------------------------------------------------------------Daten vom TC einlesen----------------------------------------------------------------------------------------
@@ -596,20 +596,20 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             int value=0;
             pCoder->Get("int8Value", (tVoid*)&value);
             m_pCoderDescInputMeasured->Unlock(pCoder);
-           if(value==0)
-           {
+            if(value==0)
+            {
 
-           }
-           else if(value==1)
-           {
-            abgebogen=true;
-           }
-           else if(value==2)
-           {
-            halteLinie=true;
-           }
+            }
+            else if(value==1)
+            {
+                abgebogen=true;
+            }
+            else if(value==2)
+            {
+                halteLinie=true;
+            }
 
-           /*
+            /*
             * TC rueckmeldungen:
             0=nichts besonderes
             1=bin abgebogen
@@ -657,7 +657,7 @@ tResult cSWE_KIControl::Parkroutine(tInt8 value)
     // ADAPT: m_oIntersectionPointLeft
     RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(m_oOutputParking.Transmit(pMediaSampleOutput));
-   RETURN_NOERROR;
+    RETURN_NOERROR;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------ObjectAvoidance-------------------------------------------------------------------------------------------------------------
@@ -666,7 +666,7 @@ tResult cSWE_KIControl::Parkroutine(tInt8 value)
 void cSWE_KIControl::ObjectAvoidance()
 {
 
-	float carwidth=450;
+    float carwidth=450;
     double site=carwidth/2;
     float Notbrems= 700;
     float Slowdist=1500;
@@ -674,305 +674,305 @@ void cSWE_KIControl::ObjectAvoidance()
 
     cv::Point2d pointtocheck;
 
-//Die werte f\FCr das Objekt array
-        int t=10;
-        int i=0;
-        int noObject=10;
-//Alle Objekte durchlaufen
-        for( i=0;i<t;i++)
-		{
+    //Die werte f\FCr das Objekt array
+    int t=10;
+    int i=0;
+    int noObject=10;
+    //Alle Objekte durchlaufen
+    for( i=0;i<t;i++)
+    {
 
-//Wenn objekte gleich 0,0 oder 9999,9999 nicht beachten
-          if((objecte[i].x!=0 && objecte[i].y!=0) &&(objecte[i].x!=9999 && objecte[i].y!=9999) && i!=9 && i!=8 && i!=7 && i!=3 && i!=2)
-          {
+        //Wenn objekte gleich 0,0 oder 9999,9999 nicht beachten
+        if((objecte[i].x!=0 && objecte[i].y!=0) &&(objecte[i].x!=9999 && objecte[i].y!=9999) && i!=9 && i!=8 && i!=7 && i!=3 && i!=2)
+        {
 
-			if(halteLinie)
-			{
-				/*pruefen ob Kreuzung frei
-				anhand des Schildes und der Kreuzungstypen bestimmen
-				kreuzungstypen:
-				1=geradeaus und links
-				2=geradeaus und rechts
-				3=gerade aus und beides
-				4=links und rechts
-				  Es gibt folgende Schildtypen:
+            if(halteLinie)
+            {
+                /*pruefen ob Kreuzung frei
+                anhand des Schildes und der Kreuzungstypen bestimmen
+                kreuzungstypen:
+                1=geradeaus und links
+                2=geradeaus und rechts
+                3=gerade aus und beides
+                4=links und rechts
+                  Es gibt folgende Schildtypen:
 
             1=geweahren
-			2=Vorfahrt
+            2=Vorfahrt
             3=halt
             4=Parken
             5=Nur gerade aus
-			6=Vorfahrt rechts
+            6=Vorfahrt rechts
 
 
 
-				*/
-				switch(Signtype)
-				{
-					case 2:
-						SpeedControl=1;
-						roadfree=true;
-						break;
-						break;
-                    case 1||3:
-						//immmer, die Kreuzung an sich pruefen
-                        if(kreuzungstyp==1)
-						{
-							//links und gerad aus pruefen
-                            m_boundary.first.x=0;
-                            m_boundary.first.y=0;
-//TODO:: richtige werte fuer zweiten Punkt
-                            m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
-                            m_boundary.second.y=0;
-
-
-
-                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].y;
-
-                            distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
-                            if(distline>0)
-                            {
-
-                                roadfree=false;
-                                break;
-                                break;
-                            }
-
-
-						}
-                        else if(kreuzungstyp==2)
-						{
-							//rechts und gerade aus pruefen
-                            m_boundary.first.x=0;
-                            m_boundary.first.y=0;
-
-                            m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
-                            m_boundary.second.y=0;
-
-
-
-                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].y;
-
-                            distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
-                            if(distline<0)
-                            {
-
-                                roadfree=false;
-                                break;
-                                break;
-                            }
-						}
-                        else if(kreuzungstyp==3)
-						{
-							//alles Pruefen
-                            m_boundary.first.x=0;
-                            m_boundary.first.y=0;
-
-                            m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
-                            m_boundary.second.y=0;
-
-
-
-                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].y;
-
-                            distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
-                            if(distline>0 ||distline<0)
-                            {
-
-                                roadfree=false;
-                                break;
-                                break;
-                            }
-						}
-                        else if(kreuzungstyp==4)
-						{
-							//rechts und links pruefen
-                            m_boundary.first.x=0;
-                            m_boundary.first.y=0;
-
-                            m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
-                            m_boundary.second.y=0;
-
-
-
-                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].y;
-
-                            distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
-                            if(distline>0 ||distline<0)
-                            {
-
-                                roadfree=false;
-                                break;
-                                break;
-                            }
-						}
-							roadfree=false;
-						break;
-						break;
-					case 6:
-							//immmer, die Kreuzung an sich pruefen
-                        if(kreuzungstyp==1)
-						{
-							// gerad aus pr\FCfen
-						}
-                        else if(kreuzungstyp==2||kreuzungstyp==3)
-						{
-							//rechts und gerade aus pruefen
-                            m_boundary.first.x=0;
-                            m_boundary.first.y=0;
-
-                            m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
-                            m_boundary.second.y=0;
-
-
-
-                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].y;
-
-                            distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
-                            if(distline<0)
-                            {
-
-                                roadfree=false;
-                                break;
-                                break;
-                            }
-						}
-                        else if(kreuzungstyp==4)
-						{
-							//rechts pruefen
-                            m_boundary.first.x=0;
-                            m_boundary.first.y=0;
-
-                            m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
-                            m_boundary.second.y=0;
-
-
-
-                            pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
-                            pointtocheck.y=objecte[i].y;
-
-                            distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
-                            if(distline<0)
-                            {
-
-                                roadfree=false;
-                                break;
-                                break;
-                            }
-						}
-							roadfree=false;
-						break;
-						break;
-				}
-			
-			}
-			else
-			{
-
-                //Strassenpunkte  auf 10 setzen
-                    int ti=10;
-                    int ia=0;
-                    //Alle Strassenpunkte durchlaufen
-                    for( ia=0;ia<ti;ia++)
+                */
+                switch(Signtype)
+                {
+                case 2:
+                    SpeedControl=1;
+                    roadfree=true;
+                    break;
+                    break;
+                case 1||3:
+                    //immmer, die Kreuzung an sich pruefen
+                    if(kreuzungstyp==1)
                     {
-                        if(ia==0)
-                        {
-                            m_boundary.first.x=0;
-                            m_boundary.first.y=0;
-                        }
-                        else
-                        {
-                            m_boundary.first.x=points[ia-1].x;
-                            m_boundary.first.y=points[ia-1].y;
+                        //links und gerad aus pruefen
+                        m_boundary.first.x=0;
+                        m_boundary.first.y=0;
+                        //TODO:: richtige werte fuer zweiten Punkt
+                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.y=0;
 
-                        }
-                        m_boundary.second.x=points[ia].x;
-                        m_boundary.second.y=points[ia].y;
+
 
                         pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
                         pointtocheck.y=objecte[i].y;
-                      distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
 
-
-                        if(distline<0)
-                            distline*=-1;
-
-
-
-
-                        if(distline<=site)
+                        distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
+                        if(distline>0)
                         {
 
-                            double distanz;//=sqrt(objecte[i].x*objecte[i].x+objecte[i].y*objecte[i].y);
-                            distanz=cv::norm(objecte[i]);
+                            roadfree=false;
+                            break;
+                            break;
+                        }
 
-                            if(distanz<=Notbrems)// && distanz>3
+
+                    }
+                    else if(kreuzungstyp==2)
+                    {
+                        //rechts und gerade aus pruefen
+                        m_boundary.first.x=0;
+                        m_boundary.first.y=0;
+
+                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.y=0;
+
+
+
+                        pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                        pointtocheck.y=objecte[i].y;
+
+                        distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
+                        if(distline<0)
+                        {
+
+                            roadfree=false;
+                            break;
+                            break;
+                        }
+                    }
+                    else if(kreuzungstyp==3)
+                    {
+                        //alles Pruefen
+                        m_boundary.first.x=0;
+                        m_boundary.first.y=0;
+
+                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.y=0;
+
+
+
+                        pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                        pointtocheck.y=objecte[i].y;
+
+                        distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
+                        if(distline>0 ||distline<0)
+                        {
+
+                            roadfree=false;
+                            break;
+                            break;
+                        }
+                    }
+                    else if(kreuzungstyp==4)
+                    {
+                        //rechts und links pruefen
+                        m_boundary.first.x=0;
+                        m_boundary.first.y=0;
+
+                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.y=0;
+
+
+
+                        pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                        pointtocheck.y=objecte[i].y;
+
+                        distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
+                        if(distline>0 ||distline<0)
+                        {
+
+                            roadfree=false;
+                            break;
+                            break;
+                        }
+                    }
+                    roadfree=false;
+                    break;
+                    break;
+                case 6:
+                    //immmer, die Kreuzung an sich pruefen
+                    if(kreuzungstyp==1)
+                    {
+                        // gerad aus pr\FCfen
+                    }
+                    else if(kreuzungstyp==2||kreuzungstyp==3)
+                    {
+                        //rechts und gerade aus pruefen
+                        m_boundary.first.x=0;
+                        m_boundary.first.y=0;
+
+                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.y=0;
+
+
+
+                        pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                        pointtocheck.y=objecte[i].y;
+
+                        distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
+                        if(distline<0)
+                        {
+
+                            roadfree=false;
+                            break;
+                            break;
+                        }
+                    }
+                    else if(kreuzungstyp==4)
+                    {
+                        //rechts pruefen
+                        m_boundary.first.x=0;
+                        m_boundary.first.y=0;
+
+                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.y=0;
+
+
+
+                        pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                        pointtocheck.y=objecte[i].y;
+
+                        distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
+                        if(distline<0)
+                        {
+
+                            roadfree=false;
+                            break;
+                            break;
+                        }
+                    }
+                    roadfree=false;
+                    break;
+                    break;
+                }
+
+            }
+            else
+            {
+
+                //Strassenpunkte  auf 10 setzen
+                int ti=10;
+                int ia=0;
+                //Alle Strassenpunkte durchlaufen
+                for( ia=0;ia<ti;ia++)
+                {
+                    if(ia==0)
+                    {
+                        m_boundary.first.x=0;
+                        m_boundary.first.y=0;
+                    }
+                    else
+                    {
+                        m_boundary.first.x=points[ia-1].x;
+                        m_boundary.first.y=points[ia-1].y;
+
+                    }
+                    m_boundary.second.x=points[ia].x;
+                    m_boundary.second.y=points[ia].y;
+
+                    pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
+                    pointtocheck.y=objecte[i].y;
+                    distline=getPerpendicDistance(pointtocheck);//negativer wert ist rechts
+
+
+                    if(distline<0)
+                        distline*=-1;
+
+
+
+
+                    if(distline<=site)
+                    {
+
+                        double distanz;//=sqrt(objecte[i].x*objecte[i].x+objecte[i].y*objecte[i].y);
+                        distanz=cv::norm(objecte[i]);
+
+                        if(distanz<=Notbrems)// && distanz>3
+                        {
+
+                            //Notbremsung
+                            SpeedControl=0;
+                            sendTC(0,0);
+                            ControlLight(9);
+
+                            //                               //  LOG_ERROR("MB:Ki Notbremsung");
+
+                            string currentDestinationName , currentSourceName;
                             {
-
-                                 //Notbremsung
-                                SpeedControl=0;
-                                sendTC(0,0);
-                                ControlLight(9);
-
-//                               //  LOG_ERROR("MB:Ki Notbremsung");
-
-                                string currentDestinationName , currentSourceName;
-                                {
-                                    // convoluted way to concatenate the arrayName with an integer, but standard C++
-                                    std::stringstream stringStream;
-                                    stringStream << "DestinationPointsiii" << i;
-                                    currentDestinationName = stringStream.str();
-                                }
-                                {
-                                    std::stringstream stringStream;
-                                    stringStream << "Sensor " << i << " Distanz "<< distanz << "xwert: "<<objecte[i].x <<" ywert: "<<objecte[i].y ;
-                                    currentSourceName = stringStream.str();
-                                }
-
-
-                             // LOG_ERROR(currentSourceName.c_str());
-
-
-                                return;
-
+                                // convoluted way to concatenate the arrayName with an integer, but standard C++
+                                std::stringstream stringStream;
+                                stringStream << "DestinationPointsiii" << i;
+                                currentDestinationName = stringStream.str();
                             }
-                            else if(Slowdist>=distanz && distanz>Notbrems)
                             {
-                                //langsames Hinterherfahren
-                                ControlLight(6);
-                                    SpeedControl=1;
-                            }
-                            else
-                            {
-                                //Objekte weit genug weg
-                                ControlLight(1);
-                                    SpeedControl=2;
+                                std::stringstream stringStream;
+                                stringStream << "Sensor " << i << " Distanz "<< distanz << "xwert: "<<objecte[i].x <<" ywert: "<<objecte[i].y ;
+                                currentSourceName = stringStream.str();
                             }
 
 
+                            // LOG_ERROR(currentSourceName.c_str());
+
+
+                            return;
+
+                        }
+                        else if(Slowdist>=distanz && distanz>Notbrems)
+                        {
+                            //langsames Hinterherfahren
+                            ControlLight(6);
+                            SpeedControl=1;
                         }
                         else
                         {
-
+                            //Objekte weit genug weg
+                            ControlLight(1);
                             SpeedControl=2;
                         }
 
+
+                    }
+                    else
+                    {
+
+                        SpeedControl=2;
                     }
 
-			}
-          }
-          else
-          {
-              noObject--;
-              if(noObject==0)
-                     SpeedControl=2;
-          }
+                }
+
+            }
         }
+        else
+        {
+            noObject--;
+            if(noObject==0)
+                SpeedControl=2;
+        }
+    }
 
     return ;
 }
@@ -983,7 +983,7 @@ void cSWE_KIControl::ObjectAvoidance()
 tResult cSWE_KIControl::sendTC(int speed, int type)
 {
 
-   /*Hier das senden an den TC rein(Speed, Punkt und Typ)
+    /*Hier das senden an den TC rein(Speed, Punkt und Typ)
     Typen:
     0=Notbremsung
     1=normales fahren
@@ -993,7 +993,7 @@ tResult cSWE_KIControl::sendTC(int speed, int type)
     5=Kreuzung gerade aus
     6=Parking(Steurung aus)
     Speed:
-    Stufen: 3,2,1,0,-1,-2
+    Stufen: 3,2,1,0,-1,-2 (Robert) -> Stufe 3 ist implementiert und sollte auch genutzt werden da 2 noch recht langsam ist
     
     */
     if(speed==0)
@@ -1031,7 +1031,7 @@ tResult cSWE_KIControl::sendTC(int speed, int type)
     RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(m_oOutputTC.Transmit(pMediaSampleOutput));
 
-RETURN_NOERROR;
+    RETURN_NOERROR;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------DriverCalc, das Gehirn-------------------------------------------------------------------------------------------------------------
@@ -1040,7 +1040,7 @@ RETURN_NOERROR;
 void cSWE_KIControl::DriverCalc()
 {
 
-/*
+    /*
  *
  * Daten in Punkte array schreiben
  *
@@ -1070,104 +1070,104 @@ void cSWE_KIControl::DriverCalc()
 
  */
 
-// TODO: Parken richtig einbauen, und die Kreuzungsgeschichte Korrekteinbinden
+    // TODO: Parken richtig einbauen, und die Kreuzungsgeschichte Korrekteinbinden
     switch (Commands[CommandCounter])
     {
-        //left-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        case 1:
-         // LOG_ERROR("MB: Links abbiegen jetzte aber richtig ");
-            if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
+    //left-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    case 1:
+        // LOG_ERROR("MB: Links abbiegen jetzte aber richtig ");
+        if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
+        {
+            sendTC(SpeedControl,1);
+
+            ControlLight(1);
+        }
+        else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
+        {
+
+
+            //pruefen ob wir schon an der HalteLinie stehen.
+            if(halteLinie)
             {
-                 sendTC(SpeedControl,1);
+                if(!hlsearch)
+                    ControlHL();
 
-                  ControlLight(1);
-            }
-            else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
-            {
+                //immer bisschen warten am besten aber nur 1 mal
+                tTimeStamp m_currTimeStamp= cSystem::GetTime();
+                while((cSystem::GetTime()-m_currTimeStamp)<5);
 
-
-                //pruefen ob wir schon an der HalteLinie stehen.
-                if(halteLinie)
+                //Hier muss Kreuzungstyp feststehen
+                if(SecondSigntype!=3 && kreuzungstyp!=2 )//alle typen bei dennen ein links abbiegen moeglich ist.
                 {
-					if(!hlsearch)
-						   ControlHL();
 
-                    //immer bisschen warten am besten aber nur 1 mal
-                        tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                        while((cSystem::GetTime()-m_currTimeStamp)<5);
+                    if(abgebogen)
+                    {
+                        if(CommandCounter!=CommandCountermax)
+                            CommandCounter++;
+                        else
+                        {
+                            status=3;
 
-					//Hier muss Kreuzungstyp feststehen
-					if(SecondSigntype!=3 && kreuzungstyp!=2 )//alle typen bei dennen ein links abbiegen moeglich ist.
-					{
-						
-						if(abgebogen)
-						{
-                            if(CommandCounter!=CommandCountermax)
-                                CommandCounter++;
-							else
-							{
-                                status=3;
-
-                                //Game Over sieg hier rein was passieren soll, wenn ziel erreicht
-							}
-							Signtype=0;
-							SecondSigntype=0;
-                            signsize=0;
-							abgebogen=false;
-							halteLinie=false;
-							roadfree=true;
-							kreuzungstyp=0;
-						}
-						else
-						{
-							if(roadfree)
-							{
-								sendTC(SpeedControl,2);
-								ControlLight(3);
-							}
-						}
-					}
-					else
-					{
-						if(abgebogen)
-						{
-							
-							Signtype=0;
-							SecondSigntype=0;
-                            signsize=0;
-							abgebogen=false;
-							halteLinie=false;
-							roadfree=true;
-							kreuzungstyp=0;
-						}
-						else
-						{
-							if(roadfree)
-							{
-								sendTC(SpeedControl,5);
-								ControlLight(1);
-							}
-						}
-					}
-
+                            //Game Over sieg hier rein was passieren soll, wenn ziel erreicht
+                        }
+                        Signtype=0;
+                        SecondSigntype=0;
+                        signsize=0;
+                        abgebogen=false;
+                        halteLinie=false;
+                        roadfree=true;
+                        kreuzungstyp=0;
+                    }
+                    else
+                    {
+                        if(roadfree)
+                        {
+                            sendTC(SpeedControl,2);
+                            ControlLight(3);
+                        }
+                    }
                 }
                 else
                 {
-                    if(hlsearch)
-                        ControlHL();
+                    if(abgebogen)
+                    {
 
-                    sendTC(SpeedControl,1);//1
-                     ControlLight(1);
+                        Signtype=0;
+                        SecondSigntype=0;
+                        signsize=0;
+                        abgebogen=false;
+                        halteLinie=false;
+                        roadfree=true;
+                        kreuzungstyp=0;
+                    }
+                    else
+                    {
+                        if(roadfree)
+                        {
+                            sendTC(SpeedControl,5);
+                            ControlLight(1);
+                        }
+                    }
                 }
+
             }
-         break;
+            else
+            {
+                if(hlsearch)
+                    ControlHL();
+
+                sendTC(SpeedControl,1);//1
+                ControlLight(1);
+            }
+        }
+        break;
         //right-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        case 2:
+    case 2:
         if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
         {
-             sendTC(SpeedControl,1);
-             LOG_INFO(cString::Format( "MB:KiLicht an "));
-              ControlLight(1);
+            sendTC(SpeedControl,1);
+            LOG_INFO(cString::Format( "MB:KiLicht an "));
+            ControlLight(1);
         }
         else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
         {
@@ -1176,7 +1176,7 @@ void cSWE_KIControl::DriverCalc()
             if(halteLinie)
             {
                 if(!hlsearch)
-                       ControlHL();
+                    ControlHL();
                 if(Signtype==5)
                 {
                     tTimeStamp m_currTimeStamp= cSystem::GetTime();
@@ -1193,7 +1193,7 @@ void cSWE_KIControl::DriverCalc()
                             CommandCounter++;
                         else
                         {
-                               status=3;
+                            status=3;
                         }
                         Signtype=0;
                         SecondSigntype=0;
@@ -1240,17 +1240,17 @@ void cSWE_KIControl::DriverCalc()
                     ControlHL();
 
                 sendTC(SpeedControl,1);
-                 ControlLight(1);
+                ControlLight(1);
             }
         }
         break;
         //straigth-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        case 3:
+    case 3:
         if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
         {
-             sendTC(SpeedControl,1);
+            sendTC(SpeedControl,1);
 
-              ControlLight(1);
+            ControlLight(1);
         }
         else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
         {
@@ -1262,7 +1262,7 @@ void cSWE_KIControl::DriverCalc()
             if(halteLinie)
             {
                 if(!hlsearch)
-                       ControlHL();
+                    ControlHL();
                 if(Signtype==5)
                 {
                     tTimeStamp m_currTimeStamp= cSystem::GetTime();
@@ -1279,7 +1279,7 @@ void cSWE_KIControl::DriverCalc()
                             CommandCounter++;
                         else
                         {
-                              status=3;
+                            status=3;
                         }
                         Signtype=0;
                         SecondSigntype=0;
@@ -1326,216 +1326,216 @@ void cSWE_KIControl::DriverCalc()
                     ControlHL();
 
                 sendTC(SpeedControl,1);
-                 ControlLight(1);
+                ControlLight(1);
             }
         }
         break;
         //Einparken1-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        case 4:
+    case 4:
 
-                    parking=true;
-                    //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das groesste schild ist das erkannt wird
-                    if(Parksteuerung==3)
+        parking=true;
+        //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das groesste schild ist das erkannt wird
+        if(Parksteuerung==3)
+        {
+            Parkroutine(5);
+            sendTC(SpeedControl,6);
+        }
+        else
+        {
+            if(SecondSigntype==4)
+            {
+                Parkroutine(1);
+            }
+            if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
+            {
+                sendTC(SpeedControl,1);
+
+                ControlLight(1);
+            }
+            else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
+            {
+
+                //an Schildtyp anpassen:
+                // rechts vor links, gewaehren und stop, stop und gewaehren gleich
+
+                //pruefen ob wir schon an der HalteLinie stehen.
+                if(halteLinie)
+                {
+                    if(!hlsearch)
+                        ControlHL();
+                    if(Signtype==5)
                     {
-                         Parkroutine(5);
-                          sendTC(SpeedControl,6);
+                        tTimeStamp m_currTimeStamp= cSystem::GetTime();
+                        while((cSystem::GetTime()-m_currTimeStamp)<5);
+                    }
+                    //Hier muss Kreuzungstyp feststehen
+
+                    if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus moeglich ist.
+                    {
+
+                        if(abgebogen)
+                        {
+
+                            Signtype=0;
+                            SecondSigntype=0;
+                            abgebogen=false;
+                            halteLinie=false;
+                            roadfree=true;
+                            kreuzungstyp=0;
+                        }
+                        else
+                        {
+                            if(roadfree)
+                            {
+                                sendTC(SpeedControl,5);
+                                ControlLight(1);
+                            }
+                        }
                     }
                     else
                     {
-                        if(SecondSigntype==4)
+                        if(abgebogen)
                         {
-                             Parkroutine(1);
+
+                            Signtype=0;
+                            SecondSigntype=0;
+                            abgebogen=false;
+                            halteLinie=false;
+                            roadfree=true;
+                            kreuzungstyp=0;
                         }
-                        if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
+                        else
                         {
-                             sendTC(SpeedControl,1);
-
-                              ControlLight(1);
-                        }
-                        else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
-                        {
-
-                            //an Schildtyp anpassen:
-                            // rechts vor links, gewaehren und stop, stop und gewaehren gleich
-
-                            //pruefen ob wir schon an der HalteLinie stehen.
-                            if(halteLinie)
+                            if(roadfree)
                             {
-                                if(!hlsearch)
-                                       ControlHL();
-                                if(Signtype==5)
-                                {
-                                    tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                                    while((cSystem::GetTime()-m_currTimeStamp)<5);
-                                }
-                                //Hier muss Kreuzungstyp feststehen
-
-                                if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus moeglich ist.
-                                {
-
-                                    if(abgebogen)
-                                    {
-
-                                        Signtype=0;
-                                        SecondSigntype=0;
-                                        abgebogen=false;
-                                        halteLinie=false;
-                                        roadfree=true;
-                                        kreuzungstyp=0;
-                                    }
-                                    else
-                                    {
-                                        if(roadfree)
-                                        {
-                                            sendTC(SpeedControl,5);
-                                            ControlLight(1);
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    if(abgebogen)
-                                    {
-
-                                        Signtype=0;
-                                        SecondSigntype=0;
-                                        abgebogen=false;
-                                        halteLinie=false;
-                                        roadfree=true;
-                                        kreuzungstyp=0;
-                                    }
-                                    else
-                                    {
-                                        if(roadfree)
-                                        {
-                                            sendTC(SpeedControl,0);
-                                            ControlLight(1);
-                                        }
-                                    }
-                                }
-
-                            }
-                            else
-                            {
-                                if(hlsearch)
-                                    ControlHL();
-
-                                sendTC(SpeedControl,1);
-                                 ControlLight(1);
+                                sendTC(SpeedControl,0);
+                                ControlLight(1);
                             }
                         }
                     }
 
+                }
+                else
+                {
+                    if(hlsearch)
+                        ControlHL();
 
-                    break;
+                    sendTC(SpeedControl,1);
+                    ControlLight(1);
+                }
+            }
+        }
+
+
+        break;
         //einparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        case 5:
+    case 5:
 
-             parking=true;
-             //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das groesste schild ist das erkannt wird
-             if(Parksteuerung==3)
-             {
-                  Parkroutine(5);
-                   sendTC(SpeedControl,6);
-             }
-             else
-             {
-                 if(SecondSigntype==4)
-                 {
-                      Parkroutine(1);
-                 }
-                     if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
-                     {
-                          sendTC(SpeedControl,1);
+        parking=true;
+        //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das groesste schild ist das erkannt wird
+        if(Parksteuerung==3)
+        {
+            Parkroutine(5);
+            sendTC(SpeedControl,6);
+        }
+        else
+        {
+            if(SecondSigntype==4)
+            {
+                Parkroutine(1);
+            }
+            if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
+            {
+                sendTC(SpeedControl,1);
 
-                           ControlLight(1);
-                     }
-                     else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
-                     {
+                ControlLight(1);
+            }
+            else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
+            {
 
-                         //an Schildtyp anpassen:
-                         // rechts vor links, gewaehren und stop, stop und gewaeren gleich
+                //an Schildtyp anpassen:
+                // rechts vor links, gewaehren und stop, stop und gewaeren gleich
 
-                         //pruefen ob wir schon an der HalteLinie stehen.
-                         if(halteLinie)
-                         {
-                             if(!hlsearch)
-                                    ControlHL();
-                             if(Signtype==5)
-                             {
-                                 tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                                 while((cSystem::GetTime()-m_currTimeStamp)<5);
-                             }
-                             //Hier muss Kreuzungstyp feststehen
+                //pruefen ob wir schon an der HalteLinie stehen.
+                if(halteLinie)
+                {
+                    if(!hlsearch)
+                        ControlHL();
+                    if(Signtype==5)
+                    {
+                        tTimeStamp m_currTimeStamp= cSystem::GetTime();
+                        while((cSystem::GetTime()-m_currTimeStamp)<5);
+                    }
+                    //Hier muss Kreuzungstyp feststehen
 
-                             if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus moeglich ist.
-                             {
+                    if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus moeglich ist.
+                    {
 
-                                 if(abgebogen)
-                                 {
+                        if(abgebogen)
+                        {
 
-                                     Signtype=0;
-                                     SecondSigntype=0;
-                                     abgebogen=false;
-                                     halteLinie=false;
-                                     roadfree=true;
-                                     kreuzungstyp=0;
-                                 }
-                                 else
-                                 {
-                                     if(roadfree)
-                                     {
-                                         sendTC(SpeedControl,5);
-                                         ControlLight(1);
-                                     }
-                                 }
-                             }
-                             else
-                             {
-                                 if(abgebogen)
-                                 {
+                            Signtype=0;
+                            SecondSigntype=0;
+                            abgebogen=false;
+                            halteLinie=false;
+                            roadfree=true;
+                            kreuzungstyp=0;
+                        }
+                        else
+                        {
+                            if(roadfree)
+                            {
+                                sendTC(SpeedControl,5);
+                                ControlLight(1);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if(abgebogen)
+                        {
 
-                                     Signtype=0;
-                                     SecondSigntype=0;
-                                     abgebogen=false;
-                                     halteLinie=false;
-                                     roadfree=true;
-                                     kreuzungstyp=0;
-                                 }
-                                 else
-                                 {
-                                     if(roadfree)
-                                     {
-                                         sendTC(SpeedControl,0);
-                                         ControlLight(1);
-                                     }
-                                 }
-                             }
+                            Signtype=0;
+                            SecondSigntype=0;
+                            abgebogen=false;
+                            halteLinie=false;
+                            roadfree=true;
+                            kreuzungstyp=0;
+                        }
+                        else
+                        {
+                            if(roadfree)
+                            {
+                                sendTC(SpeedControl,0);
+                                ControlLight(1);
+                            }
+                        }
+                    }
 
-                         }
-                         else
-                         {
-                             if(hlsearch)
-                                 ControlHL();
+                }
+                else
+                {
+                    if(hlsearch)
+                        ControlHL();
 
-                             sendTC(SpeedControl,1);
-                              ControlLight(1);
-                         }
-                     }
-                 }
-                    break;
+                    sendTC(SpeedControl,1);
+                    ControlLight(1);
+                }
+            }
+        }
+        break;
         //ausparken1-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        case 6:
+    case 6:
 
-                    SecondSigntype=0;
-                    Parkroutine(3);
-                    break;
+        SecondSigntype=0;
+        Parkroutine(3);
+        break;
         //ausparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        case 7:
+    case 7:
 
-                    SecondSigntype=0;
-                    Parkroutine(4);
-                    break;
+        SecondSigntype=0;
+        Parkroutine(4);
+        break;
 
     }
 
@@ -1564,33 +1564,33 @@ tResult cSWE_KIControl::ControlLight(int lights)
     */
     if(lights==9)
     {
-    cObjectPtr<IMediaCoder> pCoder;
+        cObjectPtr<IMediaCoder> pCoder;
 
-    //create new media sample
-    cObjectPtr<IMediaSample> pMediaSampleOutput;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+        //create new media sample
+        cObjectPtr<IMediaSample> pMediaSampleOutput;
+        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
 
-    //allocate memory with the size given by the descriptor
-    // ADAPT: m_pCoderDescPointLeft
-    cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderDescLightOutput->GetMediaSampleSerializer(&pSerializer);
-    tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSampleOutput->AllocBuffer(nSize);
+        //allocate memory with the size given by the descriptor
+        // ADAPT: m_pCoderDescPointLeft
+        cObjectPtr<IMediaSerializer> pSerializer;
+        m_pCoderDescLightOutput->GetMediaSampleSerializer(&pSerializer);
+        tInt nSize = pSerializer->GetDeserializedSize();
+        pMediaSampleOutput->AllocBuffer(nSize);
 
-    //write date to the media sample with the coder of the descriptor
-    // ADAPT: m_pCoderDescPointLeft
-    //cObjectPtr<IMediaCoder> pCoder;
-    //---------------------------------------Front scheinwerfer-----------------------------------------------------------------------------------------
-    RETURN_IF_FAILED(m_pCoderDescLightOutput->WriteLock(pMediaSampleOutput, &pCoder));
-    pCoder->Set("int8Value", (tVoid*)&(lights));
-    m_pCoderDescLightOutput->Unlock(pCoder);
+        //write date to the media sample with the coder of the descriptor
+        // ADAPT: m_pCoderDescPointLeft
+        //cObjectPtr<IMediaCoder> pCoder;
+        //---------------------------------------Front scheinwerfer-----------------------------------------------------------------------------------------
+        RETURN_IF_FAILED(m_pCoderDescLightOutput->WriteLock(pMediaSampleOutput, &pCoder));
+        pCoder->Set("int8Value", (tVoid*)&(lights));
+        m_pCoderDescLightOutput->Unlock(pCoder);
 
-    //transmit media sample over output pin
-    // ADAPT: m_oIntersectionPointLeft
-    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_oOutputLightControl.Transmit(pMediaSampleOutput));
-}
-RETURN_NOERROR;
+        //transmit media sample over output pin
+        // ADAPT: m_oIntersectionPointLeft
+        RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_oOutputLightControl.Transmit(pMediaSampleOutput));
+    }
+    RETURN_NOERROR;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------HalteLinien Steuerung-------------------------------------------------------------------------------------------------------------
@@ -1638,23 +1638,23 @@ double cSWE_KIControl::getPerpendicDistance(const cv::Point2d& referencePoint)
 }
 tResult cSWE_KIControl::SendtoJury(tInt8 i8StateID, tInt16 i16ManeuverEntry)
 {
-        cObjectPtr<IMediaSample> pMediaSample;
-        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+    cObjectPtr<IMediaSample> pMediaSample;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
 
-        cObjectPtr<IMediaSerializer> pSerializer;
-        m_pCoderDescDriverStruct->GetMediaSampleSerializer(&pSerializer);
-        tInt nSize = pSerializer->GetDeserializedSize();
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescDriverStruct->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
 
-        RETURN_IF_FAILED(pMediaSample->AllocBuffer(nSize));
-        {   // focus for sample write lock
-            __adtf_sample_write_lock_mediadescription(m_pCoderDescDriverStruct,pMediaSample,pCoder);
+    RETURN_IF_FAILED(pMediaSample->AllocBuffer(nSize));
+    {   // focus for sample write lock
+        __adtf_sample_write_lock_mediadescription(m_pCoderDescDriverStruct,pMediaSample,pCoder);
 
 
-            pCoder->Set("i8StateID", (tVoid*)&i8StateID);
-            pCoder->Set("i16ManeuverEntry", (tVoid*)&i16ManeuverEntry);
-        }
+        pCoder->Set("i8StateID", (tVoid*)&i8StateID);
+        pCoder->Set("i16ManeuverEntry", (tVoid*)&i16ManeuverEntry);
+    }
 
-        pMediaSample->SetTime(_clock->GetStreamTime());
-        m_oOutputDriverStruct.Transmit(pMediaSample);
-        RETURN_NOERROR;
+    pMediaSample->SetTime(_clock->GetStreamTime());
+    m_oOutputDriverStruct.Transmit(pMediaSample);
+    RETURN_NOERROR;
 }

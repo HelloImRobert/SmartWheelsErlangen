@@ -81,6 +81,36 @@ private:
     cv::Point2d m_input_trackingPoint;
 
 
+    /*Hier das senden an den TC rein(Speed, Punkt und Typ)
+    Typen:
+    0=Notbremsung
+    1=normales fahren
+    2=Links abbiegen
+    3=rechtsabbiegen
+    4=ueberholen
+    5=Kreuzung gerade aus
+    6=Parking(Steurung aus)
+    Speed:
+    Stufen: 3,2,1,0,-1,-2 (Robert) -> Stufe 3 ist implementiert und sollte auch genutzt werden da 2 noch recht langsam ist*/
+
+    enum my_status
+    {
+        NO_MANEUVER,
+        NORMAL_OPERATION,
+        EMERGENCY_STOP,
+        STOP_AT_STOPLINE_START,
+        STOP_AT_STOPLINE_INPROGRESS,
+        GO_STRAIGHT_START,
+        GO_STRAIGHT_INPROGRESS,
+        TURN_LEFT_START,
+        TURN_LEFT_INPROGRESS,
+        TURN_RIGHT_START,
+        TURN_RIGHT_INPROGRESS
+    };
+
+    tBool m_status_noSteering;
+    tBool m_status_noGears;
+
 
     /*! struct containing the odometry input data */
     typedef struct

@@ -117,6 +117,9 @@ tResult cSWE_TrackControl::Start(__exception)
     m_angleAbs = 0;
     m_old_steeringAngle = 0;
 
+    m_status_noSteering = false;
+    m_status_noGears = false;
+
     return cFilter::Start(__exception_ptr);
 }
 
@@ -290,6 +293,12 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngleCircle( const cv::Point2d& tracking
     {
         steeringAngle = m_old_steeringAngle;
     }
+
+    //keep somewhat sane values
+    if(steeringAngle > 0.785) //~45 degrees
+        steeringAngle = 0.785;
+    else if (steeringAngle < -0.785)
+        steeringAngle = -0.785;
 
     return steeringAngle;
 }
