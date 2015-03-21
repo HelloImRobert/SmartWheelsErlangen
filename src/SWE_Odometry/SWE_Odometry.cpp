@@ -80,6 +80,7 @@ SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWind
     SetPropertyFloat("Accelerometer Scaling", 1.0);
     SetPropertyFloat("Pulses per wheel revolution", 8.6);                                   //it should be 8.0 but you have to compensate a little for all those errors
     SetPropertyFloat("HighresDistanceDriftCompensation", 0.01);
+    SetPropertyBool("Use Heuristic pulse filter", true);                                    //Filter pulses that might be errornous
 }
 
 SWE_Odometry::~SWE_Odometry()
@@ -235,6 +236,7 @@ tResult SWE_Odometry::Init(tInitStage eStage, __exception)
         m_accelScaling = (tFloat32)GetPropertyFloat("Accelerometer Scaling", 1.0);
         m_tickPerTurn = (tFloat32)GetPropertyFloat("Pulses per wheel revolution", 8.6);
         m_distanceDriftCompensation = (tFloat32)GetPropertyFloat("HighresDistanceDriftCompensation", 0.01);
+        m_property_useHeuristicFilter = (tBool)GetPropertyBool("Use Heuristic pulse filter", true);
 
         if(m_setdirectionone)
             m_currentDirection = 1;
@@ -604,7 +606,8 @@ tResult  SWE_Odometry::CalcCombinedVelocity()
 tResult SWE_Odometry::ProcessPulses(tTimeStamp timeStamp)
 {
 
-    FilterPulses();
+    if (m_property_useHeuristicFilter)
+        FilterPulses();
 
     m_distanceAllSum_wheel = m_distanceAllSum_wheel + (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_left ) / 2.0)   +  (CalcDistance(m_currentDirection, (tFloat32)m_wheelDelta_right) / 2.0);
 

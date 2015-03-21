@@ -5,6 +5,7 @@ ADTF_FILTER_PLUGIN("SWE Motor Speed Controller", OID_ADTF_SWE_SPEEDCONTROL, Spee
 #define TIMER_RESOLUTION 1000000.0f
 #define MAX_OUTPUT 100.0f
 #define MIN_OUTPUT -100.0f
+#define INIT_LENGTH 160
 
 SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0), m_gear(0), m_currentState(0), m_lastState(0), m_goingForwards(0), m_lastSampleTime(0),m_timerStart(0), m_no_wait(true), m_last_pwm(0), m_last_brakeLights(0), m_last_reverseLights(0), m_last_DirectionSent(0), m_initRun(0)
 {
@@ -293,7 +294,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             //execute controller
             m_velocity = value;
 
-            if ( m_initRun > 80 )
+            if ( m_initRun > INIT_LENGTH )
             {
                 if (m_testRun == 0) //should the car cycle through the test procedure?
                 {
@@ -344,7 +345,7 @@ tResult SpeedControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
                     //DEBUG
                     //LOG_ERROR(cString("SC: SpeedControl: gear set to " + cString::FromInt32(m_gear)));
 
-                    if ( m_initRun > 80 )
+                    if ( m_initRun > INIT_LENGTH )
                     {
                         outputData = GetControllerValue();
                     }

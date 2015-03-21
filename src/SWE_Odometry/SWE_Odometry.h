@@ -182,6 +182,7 @@ class SWE_Odometry : public adtf::cFilter
     tFloat32 m_accelScaling;                //factor to scale the accelerometer values - scaling is applied after pitch compensation
     tFloat32 m_distanceDriftCompensation;
     tFloat32 m_tickPerTurn;
+    tBool m_property_useHeuristicFilter;
 
     /*! sliding window filter for the left wheel*/
     SWE_cSmartSlidingWindow m_SlidingWindowCntLeftWheel;
