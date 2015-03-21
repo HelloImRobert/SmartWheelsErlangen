@@ -37,6 +37,7 @@ class SWE_VideoPreprocessing : public adtf::cFilter
             bool _dumpVideo;
 
             tBitmapFormat _sColorBitMapOutputFormat;            /**< the inputformat of the video*/
+            tBitmapFormat _sColorBitMapOutputFormatCropped;            /**< the inputformat of the cropped video*/
             const tBitmapFormat*   _sBitMapInputFormat;    /**< the outputformat for the debug video*/
 
             // Parameters for the algorithm

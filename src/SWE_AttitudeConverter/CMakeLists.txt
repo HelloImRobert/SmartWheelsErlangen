@@ -1,4 +1,4 @@
-set(FILTER_NAME aadc_attitudeFilter)
+set(FILTER_NAME SWE_attitudeConverter)
 
 # Specify the filter module target
 adtf_add_filter(${FILTER_NAME}

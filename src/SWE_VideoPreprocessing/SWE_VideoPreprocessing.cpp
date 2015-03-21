@@ -106,6 +106,19 @@ tResult SWE_VideoPreprocessing::InitPinFormats()
     // set the format to the outputpin
     _oColorVideoOutputPin.SetFormat( &_sColorBitMapOutputFormat , NULL );
 
+
+    // setup the constant parameters of the Color outputformat
+    _sColorBitMapOutputFormatCropped.nBitsPerPixel = 24;
+    _sColorBitMapOutputFormatCropped.nPixelFormat = cImage::PF_RGB_888;
+    _sColorBitMapOutputFormatCropped.nPaletteSize = 0;
+    _sColorBitMapOutputFormatCropped.nWidth = CROP_WIDTH;
+    _sColorBitMapOutputFormatCropped.nHeight = 480 - CROP_HEIGHT;
+    _sColorBitMapOutputFormatCropped.nBytesPerLine = _sColorBitMapOutputFormatCropped.nWidth * 3;
+    _sColorBitMapOutputFormatCropped.nSize = _sColorBitMapOutputFormatCropped.nBytesPerLine * _sColorBitMapOutputFormatCropped.nHeight;
+
+    // set the format to the outputpin
+    _oColorVideoOutputPinCropped.SetFormat( &_sColorBitMapOutputFormatCropped , NULL );
+
     RETURN_NOERROR;
 }
 
@@ -226,16 +239,17 @@ tResult SWE_VideoPreprocessing::ProcessInput(IMediaSample* pMediaSample)
 
     // crop the image
     cv::Rect myROI( 0 , CROP_HEIGHT , CROP_WIDTH , image.rows - CROP_HEIGHT );
-    cv::Mat croppedImage( image , myROI );
+    cv::Mat croppedImage;
+    image(myROI).copyTo(croppedImage);
 
     // output
     if (_oColorVideoOutputPinCropped.IsConnected())
     {
-        cObjectPtr<IMediaSample> pNewRGBSample;
-        if (IS_OK(AllocMediaSample(&pNewRGBSample)))
+        cObjectPtr<IMediaSample> pNewRGBSample2;
+        if (IS_OK(AllocMediaSample(&pNewRGBSample2)))
         {
-            pNewRGBSample->Update(tmStreamTime, croppedImage.data, _sColorBitMapOutputFormat.nSize , 0);
-            _oColorVideoOutputPinCropped.Transmit(pNewRGBSample);
+            pNewRGBSample2->Update(tmStreamTime, croppedImage.data, _sColorBitMapOutputFormatCropped.nSize , 0);
+            _oColorVideoOutputPinCropped.Transmit(pNewRGBSample2);
         }
     }
 
