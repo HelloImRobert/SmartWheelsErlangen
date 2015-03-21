@@ -80,9 +80,9 @@ tResult SWE_Maneuver::CalcStep(tFloat32 heading, tInt32 distanceSum)
     RETURN_NOERROR;
 }
 
-tBool SWE_Maneuver::IsFinished()
+maneuvers SWE_Maneuver::GetStatus()
 {
-    return (m_state == 0) ? true : false;
+    return m_currentManeuver;
 }
 
 tResult SWE_Maneuver::CalcStep_p(tFloat32 heading, tInt32 distanceSum, tFloat32 stopLineDistance)
@@ -176,10 +176,12 @@ tInt32 SWE_Maneuver::StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFl
         if( ((_clock != NULL) ? _clock->GetTime () : cSystem::GetTime()) - startTime >= STOPLINE_WAIT_TIME) //wait a little to come to rest
         {
             state = 0;
+            m_currentManeuver = NO_MANEUVER;
         }
         break;
     default:
         state = 0;
+        m_currentManeuver = NO_MANEUVER;
     }
 
     return state;
@@ -202,11 +204,15 @@ tInt32 SWE_Maneuver::StateMachine_GS(tInt32 distanceSum, tInt32 state) //go stra
         state++;
     case 2:
         if ((distanceSum - startDistance) >= GS_DIST1) //distance reached?
+        {
             state = 0;
+            m_currentManeuver = NO_MANEUVER;
+        }
         break;
     default: //finished
         startDistance = 0;
         state = 0;
+        m_currentManeuver = NO_MANEUVER;
         break;
     }
 
@@ -260,12 +266,14 @@ tInt32 SWE_Maneuver::StateMachine_TL(tFloat32 heading, tInt32 distanceSum, tInt3
         {
             m_steeringAngleOut = STEER_NEUTRAL; // finished
             state = 0;
+            m_currentManeuver = NO_MANEUVER;
         }
 
         break;
     default: //finished
         startDistance = 0;
         state = 0;
+        m_currentManeuver = NO_MANEUVER;
         break;
     }
 
@@ -293,12 +301,14 @@ tInt32 SWE_Maneuver::StateMachine_TR(tFloat32 heading, tInt32 distanceSum, tInt3
             m_gearOut = 2;
             m_steeringAngleOut = STEER_NEUTRAL;
             state = 0;
+            m_currentManeuver = NO_MANEUVER;
         }
 
         break;
     default: //finished
         //startDistance = 0;
         state = 0;
+        m_currentManeuver = NO_MANEUVER;
         break;
     }
 

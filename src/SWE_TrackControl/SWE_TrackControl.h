@@ -38,13 +38,23 @@ protected: // overwrites cFilter
     tResult OnPinEvent(IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample);
 
 private:
+
+    enum my_status
+    {
+        IDLE,
+        NORMAL_OPERATION,
+        STOP_AT_STOPLINE_INPROGRESS,
+        GO_STRAIGHT_INPROGRESS,
+        TURN_INPROGRESS
+    };
+
     /*! creates all the input Pins*/
     tResult CreateInputPins(__exception = NULL);
     /*! creates all the output Pins*/
     tResult CreateOutputPins(__exception = NULL);
 
     /*! react to new inputs */
-    tResult ReactToInput();
+    tResult ReactToInput(tInt32 command);
 
     /*! calculate steering angle => sets wheel direction towards tracking point */
     tFloat64 CalcSteeringAngleTrajectory( const cv::Point2d& trackingPoint, const tInt8 intersectionIndicator );
@@ -65,6 +75,7 @@ private:
     /*! member variables */
 
     tBool m_property_useNewCalc;
+    tBool m_property_stopAtVirtualSL;
 
     tInt8 m_input_maxGear;
     tInt32   m_input_Command;
@@ -81,6 +92,13 @@ private:
     cv::Point2d m_input_trackingPoint;
 
 
+    /*
+    * TC rueckmeldungen:
+    0=nichts besonderes
+    1=bin abgebogen
+    2=stehe an haltelinie
+   */
+
     /*Hier das senden an den TC rein(Speed, Punkt und Typ)
     Typen:
     0=Notbremsung
@@ -93,21 +111,8 @@ private:
     Speed:
     Stufen: 3,2,1,0,-1,-2 (Robert) -> Stufe 3 ist implementiert und sollte auch genutzt werden da 2 noch recht langsam ist*/
 
-    enum my_status
-    {
-        NO_MANEUVER,
-        NORMAL_OPERATION,
-        EMERGENCY_STOP,
-        STOP_AT_STOPLINE_START,
-        STOP_AT_STOPLINE_INPROGRESS,
-        GO_STRAIGHT_START,
-        GO_STRAIGHT_INPROGRESS,
-        TURN_LEFT_START,
-        TURN_LEFT_INPROGRESS,
-        TURN_RIGHT_START,
-        TURN_RIGHT_INPROGRESS
-    };
 
+    my_status m_status_my_status;
     tBool m_status_noSteering;
     tBool m_status_noGears;
 

@@ -41,7 +41,7 @@ public:
      * @brief tell me if current maneuver has finished
      * @return is it finished true or false
      */
-    tBool IsFinished();
+    maneuvers GetStatus();
 
     /**
      * @brief tells you the currently recommended gear for speed control

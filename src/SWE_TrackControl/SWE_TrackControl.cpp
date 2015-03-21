@@ -18,7 +18,8 @@ cSWE_TrackControl::cSWE_TrackControl(const tChar* __info) : cFilter(__info), m_P
     m_property_useNewCalc = false;
 
     SetPropertyFloat("Wheelbase", 360);
-    SetPropertyBool("Use new angle calculation", false); //DEBUG
+    SetPropertyBool("Use new angle calculation", true);
+    SetPropertyBool("Stop at virtual stoplines", true); //DEBUG
 
 }
 
@@ -109,17 +110,18 @@ tResult cSWE_TrackControl::Init(tInitStage eStage, __exception)
 tResult cSWE_TrackControl::Start(__exception)
 {
 
-    m_property_useNewCalc = (tBool)SetPropertyBool("Use new angle calculation", false); //DEBUG
+    m_property_useNewCalc = (tBool)SetPropertyBool("Use new angle calculation", true);
+    m_property_stopAtVirtualSL = (tBool)GetPropertyBool("Stop at virtual stoplines", true); //DEBUG
 
     m_input_maxGear = 0;
-    m_input_Command = 1;
+    m_input_Command = -1;
     m_input_intersectionIndicator = 0;
     m_angleAbs = 0;
     m_old_steeringAngle = 0;
 
     m_status_noSteering = false;
     m_status_noGears = false;
-
+    m_status_my_status = IDLE;
     return cFilter::Start(__exception_ptr);
 }
 
@@ -169,7 +171,7 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
 
             // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
 
-            ReactToInput();
+            ReactToInput(-1);
 
         }
         else if(pSource == &m_oOdometry)
@@ -189,7 +191,7 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
 
             // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
 
-            ReactToInput();
+            ReactToInput(-1);
 
         }
         else if(pSource == &m_oCommands)
@@ -209,7 +211,7 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
 
             // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
 
-            ReactToInput();
+            ReactToInput(m_input_Command);
         }
         else if(pSource == &m_oCrossingIndicator)
         {
@@ -237,7 +239,7 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
 
             // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
 
-            ReactToInput();
+            ReactToInput(-1);
         }
         else
             RETURN_NOERROR;
@@ -303,12 +305,37 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngleCircle( const cv::Point2d& tracking
     return steeringAngle;
 }
 
-tResult cSWE_TrackControl::ReactToInput()
+tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 {
 
+    /*
+    * TC rueckmeldungen:
+    0= normal status
+    1= ended turn maneuver
+    2= stopped at stopline
+   */
+
+    /*Hier das senden an den TC rein(Speed, Punkt und Typ)
+    Typen:
+    0=Notbremsung
+    1=normales fahren
+    2=Links abbiegen
+    3=rechtsabbiegen
+    4=ueberholen
+    5=Kreuzung gerade aus
+    6= go idle (parking on)
+    7= steering off
+    Speed:
+    Stufen: 3,2,1,0,-1,-2 (Robert) -> Stufe 3 ist implementiert und sollte auch genutzt werden da 2 noch recht langsam ist*/
+
+
+    // -----------  init default behaviour ------------
     tFloat32 steeringAngle = 0;
     tInt8 outputGear;
+    tInt8 outputStatusReport;
 
+
+    outputStatusReport = 0;
     outputGear = m_input_maxGear;
 
 
@@ -322,8 +349,331 @@ tResult cSWE_TrackControl::ReactToInput()
     }
 
 
-    SendSteering(steeringAngle);
-    SendGear(outputGear); //DEBUG
+    // ---------- STATES ------------
+
+    switch(m_status_my_status)
+    {
+    case IDLE:
+
+        switch(command)
+        {
+        case -1: //no command
+
+
+        break;
+
+        case 0: //Emergency stop
+
+
+        break;
+
+        case 1: //follow road
+
+
+        break;
+
+        case 2: //turn left
+
+
+        break;
+
+        case 3: //turn right
+
+
+        break;
+
+        case 4: // overtake
+
+
+        break;
+
+        case 5: //go straight (crossroads)
+
+
+        break;
+
+        case 6: // go idle
+
+
+        break;
+
+        case 7: // speed off
+
+
+        break;
+        default:
+            break;
+        }
+
+        break;
+
+    case NORMAL_OPERATION:
+
+        switch(command)
+        {
+        case -1: //no command
+
+
+        break;
+
+        case 0: //Emergency stop
+
+
+        break;
+
+        case 1: //follow road
+
+
+        break;
+
+        case 2: //turn left
+
+
+        break;
+
+        case 3: //turn right
+
+
+        break;
+
+        case 4: // overtake
+
+
+        break;
+
+        case 5: //go straight (crossroads)
+
+
+        break;
+
+        case 6: // go idle
+
+
+        break;
+
+        case 7: // speed off
+
+
+        break;
+        default:
+            break;
+        }
+
+        break;
+
+
+    case STOP_AT_STOPLINE_INPROGRESS:
+
+        switch(command)
+        {
+        case -1: //no command
+
+
+        break;
+
+        case 0: //Emergency stop
+
+
+        break;
+
+        case 1: //follow road
+
+
+        break;
+
+        case 2: //turn left
+
+
+        break;
+
+        case 3: //turn right
+
+
+        break;
+
+        case 4: // overtake
+
+
+        break;
+
+        case 5: //go straight (crossroads)
+
+
+        break;
+
+        case 6: // go idle
+
+
+        break;
+
+        case 7: // speed off
+
+
+        break;
+        default:
+            break;
+        }
+
+        break;
+
+
+    case GO_STRAIGHT_INPROGRESS:
+
+        switch(command)
+        {
+        case -1: //no command
+
+
+        break;
+
+        case 0: //Emergency stop
+
+
+        break;
+
+        case 1: //follow road
+
+
+        break;
+
+        case 2: //turn left
+
+
+        break;
+
+        case 3: //turn right
+
+
+        break;
+
+        case 4: // overtake
+
+
+        break;
+
+        case 5: //go straight (crossroads)
+
+
+        break;
+
+        case 6: // go idle
+
+
+        break;
+
+        case 7: // speed off
+
+
+        break;
+        default:
+            break;
+        }
+
+        break;
+
+    case TURN_INPROGRESS:
+
+        switch(command)
+        {
+        case -1: //no command
+
+
+        break;
+
+        case 0: //Emergency stop
+
+
+        break;
+
+        case 1: //follow road
+
+
+        break;
+
+        case 2: //turn left
+
+
+        break;
+
+        case 3: //turn right
+
+
+        break;
+
+        case 4: // overtake
+
+
+        break;
+
+        case 5: //go straight (crossroads)
+
+
+        break;
+
+        case 6: // go idle
+
+
+        break;
+
+        case 7: // speed off
+
+
+        break;
+        default:
+            break;
+        }
+
+        break;
+
+
+    default:
+        break;
+
+    }
+
+
+
+
+    // ---------- OUTPUT DATA -------------
+
+    //no new command
+    m_input_Command = -1;
+
+
+    if (!m_status_noSteering)
+        SendSteering(steeringAngle);
+
+
+    // keep gear within boundries
+    if(outputGear >= 0)
+    {
+        if(m_input_maxGear >= 0 )
+        {
+            if (m_input_maxGear > outputGear)
+                outputGear = m_input_maxGear;
+        }
+        else // this combination is theoretically impossible
+        {
+            outputGear = 0;
+            LOG_ERROR(cString("TC: ERROR! Calculated Output Gear was: " + cString::FromInt32(outputGear) + " but Limit from KI was:" + cString::FromInt32(m_input_maxGear)));
+        }
+    }
+    if(outputGear < 0)
+    {
+        if(m_input_maxGear < 0 )
+        {
+            if(m_input_maxGear < outputGear)
+                outputGear = m_input_maxGear;
+        }
+        else
+        {
+            outputGear = 0;
+            LOG_ERROR(cString("TC: ERROR! Calculated Output Gear was: " + cString::FromInt32(outputGear) + " but Limit from KI was:" + cString::FromInt32(m_input_maxGear)));
+        }
+    }
+
+    if (!m_status_noGears)
+        SendGear(outputGear);
 
     SendTrackingPoint();
 
@@ -404,6 +754,9 @@ tResult cSWE_TrackControl::SendGear( const tInt8 outputGear )
 {
 
     tUInt32 timeStamp = 0;
+    tFloat32 my_outputGear;
+
+    my_outputGear = (tFloat32)outputGear;
 
     //create new media sample
     cObjectPtr<IMediaSample> pMediaSample;
@@ -419,7 +772,7 @@ tResult cSWE_TrackControl::SendGear( const tInt8 outputGear )
     {
         __adtf_sample_write_lock_mediadescription(m_pCoderDescGear, pMediaSample, pCoder);
 
-        pCoder->Set("tGearValue", (tVoid*)&(outputGear));
+        pCoder->Set("tGearValue", (tVoid*)&(my_outputGear));
     }
 
     //transmit media sample over output pin

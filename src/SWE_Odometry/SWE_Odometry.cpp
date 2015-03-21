@@ -721,7 +721,7 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
     // ---------- get deltas -----------
     time_intervall = (tFloat32)(time_now - time_last) / TIMESTAMP_RESOLUTION_ADTF ;
 
-    extrapol_heading = m_heading_now + GetExtrapolatedHeadingDiff(time_now);
+    extrapol_heading = m_heading_now ;//DEBUG + GetExtrapolatedHeadingDiff(time_now);
     heading_diff = GetAngleDiff(extrapol_heading, m_heading_lastStep) ;
 
     distance_driven = time_intervall * m_velocityCombined;
