@@ -34,15 +34,26 @@ ADTF_FILTER_PLUGIN("SWE_DistanceMeasurement", OID_ADTF_SWE_DISTANCEMEASUREMENT, 
 #define USS_SINUS 				0.258819
 #define USS_COSINUS 			0.965926
 #define CM_MM                   10          //Umrechnung cm in mm
+#define TIMER_RESOLUTION        1000000.0f
 
 SWE_DistanceMeasurement::SWE_DistanceMeasurement(const tChar* __info) : cFilter(__info)
 {
     SetPropertyFloat("Filter Strength", 0.7);
     SetPropertyFloat("IRscaler", 1.3);
-    _mean.uss_front_left = 0;
-    _mean.uss_front_right = 0;
-    _mean.uss_rear_right = 0;
-    _mean.uss_rear_left = 0;
+    SetPropertyInt("Stop Time in ms", 800);
+//    _mean.uss_front_left = INVALIDE_HIGH;
+//    _mean.uss_front_right = INVALIDE_HIGH;
+//    _mean.uss_rear_right = INVALIDE_HIGH;
+//    _mean.uss_rear_left = INVALIDE_HIGH;
+//    _mean.ir_front_center_long = INVALIDE_HIGH;
+//    _mean.ir_front_center_short = INVALIDE_HIGH;
+//    _mean.ir_front_right_long = INVALIDE_HIGH;
+//    _mean.ir_front_right_short = INVALIDE_HIGH;
+//    _mean.ir_front_left_long = INVALIDE_HIGH;
+//    _mean.ir_front_left_short = INVALIDE_HIGH;
+//    _mean.ir_rear_center_short = INVALIDE_HIGH;
+//    _mean.ir_rear_left_short = INVALIDE_HIGH;
+//    _mean.ir_rear_right_short = INVALIDE_HIGH;
 
 
 
@@ -121,6 +132,7 @@ tResult SWE_DistanceMeasurement::Init(tInitStage eStage, __exception)
     {
         _filter_strength = (tFloat32)GetPropertyFloat("Filter Strength");
         _IRscaler = (tFloat32)GetPropertyFloat("IRscaler");
+        _stopTime =  (tInt32)GetPropertyInt("Stop Time in ms", 800) * (TIMER_RESOLUTION / 1000.0);
     }
     else if(eStage == StageGraphReady)
     {
@@ -128,6 +140,17 @@ tResult SWE_DistanceMeasurement::Init(tInitStage eStage, __exception)
     }
 
     RETURN_NOERROR;
+}
+
+tResult SWE_DistanceMeasurement::Start(__exception)
+{
+    _timerStart = GetTime();
+    return cFilter::Start(__exception_ptr);
+}
+
+tTimeStamp SWE_DistanceMeasurement::GetTime()
+{
+    return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
 }
 
 tResult SWE_DistanceMeasurement::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample)
@@ -210,17 +233,17 @@ tResult SWE_DistanceMeasurement::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
             else if (pSource == &m_pin_input_ir_rear_right_short)
             {
                 _mean.ir_rear_right_short = weightedMean(signalValue,_mean.ir_rear_right_short);
+
+                if( GetTime() - _timerStart >= _stopTime)
+                {
+                    sendData();
+                }
             }
 
             // Transform and fusion Sensor Data into Vehicle COS and send Data
             transfrom();
     }
     RETURN_NOERROR;
-}
-
-tTimeStamp SWE_DistanceMeasurement::GetTime()
-{
-    return (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
 }
 
 
@@ -516,8 +539,6 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     
     _detected_array[9] = _transformed.ir_rear_right;
-
-	sendData();
 
     RETURN_NOERROR;
 }

@@ -258,10 +258,10 @@ tResult cSWE_LaneDetection::InitPinFormats()
     _sInternRepresentationBitMapOutputFormat.nBitsPerPixel = 24;
     _sInternRepresentationBitMapOutputFormat.nPixelFormat = cImage::PF_RGB_888;
     _sInternRepresentationBitMapOutputFormat.nPaletteSize = 0;
-    _sInternRepresentationBitMapOutputFormat.nWidth = 1280;
-    _sInternRepresentationBitMapOutputFormat.nHeight = 960;
-    _sInternRepresentationBitMapOutputFormat.nBytesPerLine = 1280 * 3;
-    _sInternRepresentationBitMapOutputFormat.nSize = _sInternRepresentationBitMapOutputFormat.nBytesPerLine * 960;
+    _sInternRepresentationBitMapOutputFormat.nWidth = 2 * IMAGE_WIDTH;
+    _sInternRepresentationBitMapOutputFormat.nHeight = 2 * IMAGE_HEIGHT;
+    _sInternRepresentationBitMapOutputFormat.nBytesPerLine = _sInternRepresentationBitMapOutputFormat.nWidth * 3;
+    _sInternRepresentationBitMapOutputFormat.nSize = _sInternRepresentationBitMapOutputFormat.nBytesPerLine * _sInternRepresentationBitMapOutputFormat.nHeight;
 
     // set the format to the outputpin
     _oInternRepresentationVideoOutputPin.SetFormat( &_sInternRepresentationBitMapOutputFormat , NULL );
