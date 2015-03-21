@@ -19,6 +19,7 @@ class cSWE_TrajectoryPlanning : public adtf::cFilter
     cInputPin m_oSplines;
 
     cOutputPin m_oIntersectionPoints;
+    cOutputPin m_oTrajectory;
 
 public:
     cSWE_TrajectoryPlanning(const tChar* __info);
@@ -45,6 +46,7 @@ private:
     cv::Point2d m_referencePoint;
 
     int processing(cv::Point2d& returnedPoint,
+                   std::vector<cv::Point2d> &trajectory,
                    const std::vector< cv::Point2d >& rightBoundary,
                    const std::vector< cv::Point2d >& leftBoundary,
                    const std::vector< cv::Point2d >& middleBoundary);
@@ -70,6 +72,7 @@ private:
     /*! Coder Descriptors for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescPoints;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescTrajectory;
 
 };
 

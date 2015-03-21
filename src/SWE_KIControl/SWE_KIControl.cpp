@@ -57,7 +57,7 @@ tResult cSWE_KIControl::CreateInputPins(__exception)
     RETURN_IF_FAILED(m_oInputObjectData.Create("ObjectData", new cMediaType(0, 0, 0, "tPointArray"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputObjectData));
 
-    RETURN_IF_FAILED(m_oInputRoadData.Create("RoadData", new cMediaType(0, 0, 0, "tPointArray"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oInputRoadData.Create("RoadData", new cMediaType(0, 0, 0, "tTrajectory"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputRoadData));
 
 
@@ -67,7 +67,7 @@ tResult cSWE_KIControl::CreateInputPins(__exception)
 
 
 
-    //TODO: Pin f¨¹r einlesen der Kreuzungsdaten
+    //TODO: Pin fuer einlesen der Kreuzungsdaten
 
 
 
@@ -132,7 +132,7 @@ tResult cSWE_KIControl::CreateOutputPins(__exception)
 
 
 
-//TODO: Pin f¨¹r Kreuzungsdaten weiterleiten
+//TODO: Pin fuer Kreuzungsdaten weiterleiten
 
 
 
@@ -413,17 +413,17 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
 
 
-            stringstream elementGetter;
-            for( size_t j = 0; j < 10; j++)
-            {
-                elementGetter << "tPoint[" << j << "].xCoord";
-                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
-                elementGetter.str(std::string());
+//            stringstream elementGetter;
+//            for( size_t j = 0; j < 10; j++)
+//            {
+//                elementGetter << "tPoint[" << j << "].xCoord";
+//                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
+//                elementGetter.str(std::string());
 
-                elementGetter << "tPoint[" << j << "].yCoord";
-                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
-                elementGetter.str(std::string());
-            }
+//                elementGetter << "tPoint[" << j << "].yCoord";
+//                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
+//                elementGetter.str(std::string());
+//            }
 
         m_pCoderDescInputMeasured->Unlock(pCoder);
 
@@ -516,7 +516,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             // value
             // 1= einparken fertig
             //2= ausparken fertig
-            //3= bin bereit Steuerung zu ¨¹bernehmen
+            //3= bin bereit Steuerung zu uebernehmen
             if(value==1 && (Commands[CommandCounter]==4 ||Commands[CommandCounter]==5))
             {
                 if(CommandCounter!=CommandCountermax)
@@ -572,7 +572,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                        else if (i8ActionID==0)
                        {
                            //Ready anforderung
-//TODO:: einf¨¹gen was tut Jury
+//TODO:: einfuegen was tut Jury
                           // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Request Ready with maneuver ID %d",i16entry));
                            //emit sendRequestReady((int)i16entry);
                        }
@@ -674,7 +674,7 @@ void cSWE_KIControl::ObjectAvoidance()
 
     cv::Point2d pointtocheck;
 
-//Die werte für das Objekt array
+//Die werte f\FCr das Objekt array
         int t=10;
         int i=0;
         int noObject=10;
@@ -715,13 +715,13 @@ void cSWE_KIControl::ObjectAvoidance()
 						break;
 						break;
                     case 1||3:
-						//immmer, die Kreuzung an sich prüfen
+						//immmer, die Kreuzung an sich pruefen
                         if(kreuzungstyp==1)
 						{
-							//links und gerad aus prüfen
+							//links und gerad aus pruefen
                             m_boundary.first.x=0;
                             m_boundary.first.y=0;
-//TODO:: richtige werte f¨¹r zweiten Punkt
+//TODO:: richtige werte fuer zweiten Punkt
                             m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
                             m_boundary.second.y=0;
 
@@ -743,7 +743,7 @@ void cSWE_KIControl::ObjectAvoidance()
 						}
                         else if(kreuzungstyp==2)
 						{
-							//rechts und gerade aus prüfen
+							//rechts und gerade aus pruefen
                             m_boundary.first.x=0;
                             m_boundary.first.y=0;
 
@@ -766,7 +766,7 @@ void cSWE_KIControl::ObjectAvoidance()
 						}
                         else if(kreuzungstyp==3)
 						{
-							//alles Prüfen
+							//alles Pruefen
                             m_boundary.first.x=0;
                             m_boundary.first.y=0;
 
@@ -789,7 +789,7 @@ void cSWE_KIControl::ObjectAvoidance()
 						}
                         else if(kreuzungstyp==4)
 						{
-							//rechts und links prüfen
+							//rechts und links pruefen
                             m_boundary.first.x=0;
                             m_boundary.first.y=0;
 
@@ -814,14 +814,14 @@ void cSWE_KIControl::ObjectAvoidance()
 						break;
 						break;
 					case 6:
-							//immmer, die Kreuzung an sich prüfen
+							//immmer, die Kreuzung an sich pruefen
                         if(kreuzungstyp==1)
 						{
-							// gerad aus prüfen
+							// gerad aus pr\FCfen
 						}
                         else if(kreuzungstyp==2||kreuzungstyp==3)
 						{
-							//rechts und gerade aus prüfen
+							//rechts und gerade aus pruefen
                             m_boundary.first.x=0;
                             m_boundary.first.y=0;
 
@@ -844,7 +844,7 @@ void cSWE_KIControl::ObjectAvoidance()
 						}
                         else if(kreuzungstyp==4)
 						{
-							//rechts prüfen
+							//rechts pruefen
                             m_boundary.first.x=0;
                             m_boundary.first.y=0;
 
@@ -874,10 +874,10 @@ void cSWE_KIControl::ObjectAvoidance()
 			else
 			{
 
-                //Straßenpunkte  auf 10 setzen
+                //Strassenpunkte  auf 10 setzen
                     int ti=10;
                     int ia=0;
-                    //Alle Straßenpunkte durchlaufen
+                    //Alle Strassenpunkte durchlaufen
                     for( ia=0;ia<ti;ia++)
                     {
                         if(ia==0)
@@ -1097,7 +1097,7 @@ void cSWE_KIControl::DriverCalc()
                         while((cSystem::GetTime()-m_currTimeStamp)<5);
 
 					//Hier muss Kreuzungstyp feststehen
-					if(SecondSigntype!=3 && kreuzungstyp!=2 )//alle typen bei dennen ein links abbiegen möglich ist.
+					if(SecondSigntype!=3 && kreuzungstyp!=2 )//alle typen bei dennen ein links abbiegen moeglich ist.
 					{
 						
 						if(abgebogen)
@@ -1184,7 +1184,7 @@ void cSWE_KIControl::DriverCalc()
                 }
                 //Hier muss Kreuzungstyp feststehen
 
-                if(SecondSigntype!=3 && kreuzungstyp!=1 )//alle typen bei dennen ein links abbiegen möglich ist.
+                if(SecondSigntype!=3 && kreuzungstyp!=1 )//alle typen bei dennen ein links abbiegen moeglich ist.
                 {
 
                     if(abgebogen)
@@ -1256,7 +1256,7 @@ void cSWE_KIControl::DriverCalc()
         {
 
             //an Schildtyp anpassen:
-            // rechts vor links, gewähren und stop, stop und gewähren gleich
+            // rechts vor links, gew\E4hren und stop, stop und gewaehren gleich
 
             //pruefen ob wir schon an der HalteLinie stehen.
             if(halteLinie)
@@ -1270,7 +1270,7 @@ void cSWE_KIControl::DriverCalc()
                 }
                 //Hier muss Kreuzungstyp feststehen
 
-                if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus möglich ist.
+                if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus moeglich ist.
                 {
 
                     if(abgebogen)
@@ -1334,7 +1334,7 @@ void cSWE_KIControl::DriverCalc()
         case 4:
 
                     parking=true;
-                    //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das größte schild ist das erkannt wird
+                    //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das groesste schild ist das erkannt wird
                     if(Parksteuerung==3)
                     {
                          Parkroutine(5);
@@ -1356,7 +1356,7 @@ void cSWE_KIControl::DriverCalc()
                         {
 
                             //an Schildtyp anpassen:
-                            // rechts vor links, gewähren und stop, stop und gewähren gleich
+                            // rechts vor links, gewaehren und stop, stop und gewaehren gleich
 
                             //pruefen ob wir schon an der HalteLinie stehen.
                             if(halteLinie)
@@ -1370,7 +1370,7 @@ void cSWE_KIControl::DriverCalc()
                                 }
                                 //Hier muss Kreuzungstyp feststehen
 
-                                if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus möglich ist.
+                                if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus moeglich ist.
                                 {
 
                                     if(abgebogen)
@@ -1432,7 +1432,7 @@ void cSWE_KIControl::DriverCalc()
         case 5:
 
              parking=true;
-             //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das größte schild ist das erkannt wird
+             //wennn Parkschild erkannt, sende Parken jetzt wenn parkschild das groesste schild ist das erkannt wird
              if(Parksteuerung==3)
              {
                   Parkroutine(5);
@@ -1454,7 +1454,7 @@ void cSWE_KIControl::DriverCalc()
                      {
 
                          //an Schildtyp anpassen:
-                         // rechts vor links, gewähren und stop, stop und gewähren gleich
+                         // rechts vor links, gewaehren und stop, stop und gewaeren gleich
 
                          //pruefen ob wir schon an der HalteLinie stehen.
                          if(halteLinie)
@@ -1468,7 +1468,7 @@ void cSWE_KIControl::DriverCalc()
                              }
                              //Hier muss Kreuzungstyp feststehen
 
-                             if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus möglich ist.
+                             if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus moeglich ist.
                              {
 
                                  if(abgebogen)

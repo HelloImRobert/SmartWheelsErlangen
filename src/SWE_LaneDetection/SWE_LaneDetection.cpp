@@ -1047,7 +1047,7 @@ tResult cSWE_LaneDetection::transmitLanes( const std::vector< Point2d >& leftSpl
 /**
  *
  */
-tResult cSWE_LaneDetection::transmitCrossingIndicator( bool isRealStopLine , int crossingType , cv::Point StopLinePoint1 , cv::Point StopLinePoint2 )
+tResult cSWE_LaneDetection::transmitCrossingIndicator( const tBool isRealStopLine , const tInt8 crossingType , const cv::Point2d& StopLinePoint1 , const cv::Point2d& StopLinePoint2 )
 {
     cObjectPtr<IMediaCoder> pCoder;
 
@@ -1244,7 +1244,11 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     transmitLanes(leftSpline,middleSpline,rightSpline);
 
     //TODO: STILL crashes;
-    //transmitCrossingIndicator();
+    tBool isRealStopLine = true;
+    tInt8 crossingType = 1;
+    cv::Point2d p1(1,2);
+    cv::Point2d p2(3,4);
+    transmitCrossingIndicator(isRealStopLine, crossingType, p1, p2);
 
     // transmit a video of the current result to the video outputpin
     if (_oColorVideoOutputPin.IsConnected())

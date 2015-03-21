@@ -18,6 +18,7 @@ class cSWE_TrackControl : public adtf::cFilter
     cInputPin m_oIntersectionPoints;
     cInputPin m_oCommands;   //commands from the KI
     cInputPin m_oOdometry;  //TODO
+    cInputPin m_oCrossingIndicator;
 
     cOutputPin m_oSteeringAngle;
     cOutputPin m_oMiddlePoint;
@@ -46,16 +47,16 @@ private:
     tResult ReactToInput();
 
     /*! calculate steering angle => sets wheel direction towards tracking point */
-    tFloat64 CalcSteeringAngleTrajectory( cv::Point2d trackingPoint, tInt8 intersectionIndicator );
+    tFloat64 CalcSteeringAngleTrajectory( const cv::Point2d& trackingPoint, const tInt8 intersectionIndicator );
 
     /*! calculate steering angle new version => let turning circle intersect with tracking point */
-    tFloat64 CalcSteeringAngleCircle( cv::Point2d trackingPoint, tInt8 intersectionIndicator );
+    tFloat64 CalcSteeringAngleCircle( const cv::Point2d& trackingPoint, const tInt8 intersectionIndicator );
 
     /*! set steering angle */
     tResult SendSteering(tFloat32 outputAngle);
 
     /*! set speed */
-    tResult SendGear(tFloat32 outputGear);
+    tResult SendGear( const tInt8 outputGear );
 
     /*! set speed */
     tResult SendTrackingPoint();
@@ -65,7 +66,7 @@ private:
 
     tBool m_property_useNewCalc;
 
-    tFloat32 m_input_maxGear;
+    tInt8 m_input_maxGear;
     tInt32   m_input_Command;
 
     tInt8 m_input_intersectionIndicator;
@@ -73,6 +74,8 @@ private:
     tFloat32 m_angleAbs;
 
     tFloat64 m_old_steeringAngle;
+
+    tFloat64 m_wheelbase;
 
     cv::Point2d m_PerpenticularPoint;
     cv::Point2d m_input_trackingPoint;
