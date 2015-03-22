@@ -766,7 +766,7 @@ tResult cSWE_ParkPilot::pullOutAlongsideRight()
             {
                 sendSteeringAngle( STEER_NEUTRAL );
                 m_pulloutState = 0;
-                m_parkTrigger = 999;
+                m_parkTrigger = 255;
                 //sendParkState( 2 );
                 //sendBlink( BLINK_STOP );
                 //reset all the bullshit

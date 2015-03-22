@@ -17,7 +17,7 @@ ADTF_FILTER_PLUGIN("SWE_Odometry", OID_ADTF_SWE_ODOMETRY, SWE_Odometry)
 //                                                   Init ADTF Filter
 // ****************************************************************************************************************
 
-SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWindowCntLeftWheel(21, (0.4 * TIMESTAMP_RESOLUTION)), m_SlidingWindowCntRightWheel(21, (0.4 * TIMESTAMP_RESOLUTION)), m_yawSlidingWindow(3), m_mutex()
+SWE_Odometry::SWE_Odometry(const tChar* __info) : cFilter(__info), m_SlidingWindowCntLeftWheel(21, (0.4 * TIMESTAMP_RESOLUTION)), m_SlidingWindowCntRightWheel(21, (0.4 * TIMESTAMP_RESOLUTION)), m_yawSlidingWindow(4), m_mutex()
 {
 
     m_velocityLeft = 0;
@@ -415,6 +415,7 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
         {
             tTimeStamp current_time;
             tTimeStamp timeStamp;
+            tFloat32 buffer;
             current_time = GetTime();
 
             //save last yaw data for extrapolation
@@ -425,12 +426,25 @@ tResult SWE_Odometry::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, 
             RETURN_IF_FAILED(m_pCoderDescSignal_yaw->Lock(pMediaSample, &pCoderInput));
 
             //get values from media sample
-            pCoderInput->Get("f32Value", (tVoid*)&m_heading_now);
+            pCoderInput->Get("f32Value", (tVoid*)&buffer);
             pCoderInput->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal_yaw->Unlock(pCoderInput);
 
-            //for extrapolation
-            m_yawSlidingWindow.addNewValue(m_heading_now, timeStamp);
+
+            //filter errors.....
+            if(fabs(buffer - m_heading_input_last) > 0.15)
+            {
+                // ignore
+            }
+            else
+            {
+                m_heading_now = buffer;
+                //for extrapolation
+                m_yawSlidingWindow.addNewValue(m_heading_now, timeStamp);
+            }
+
+            m_heading_input_last = buffer;
+
 
             //calc odometry step
             CalcOdometryStep(current_time,  m_lastPinEvent);
@@ -721,7 +735,7 @@ tResult SWE_Odometry::CalcOdometryStep(tTimeStamp time_now, tTimeStamp time_last
     // ---------- get deltas -----------
     time_intervall = (tFloat32)(time_now - time_last) / TIMESTAMP_RESOLUTION_ADTF ;
 
-    extrapol_heading = m_heading_now ;//DEBUG + GetExtrapolatedHeadingDiff(time_now);
+    extrapol_heading = m_heading_now + GetExtrapolatedHeadingDiff(time_now);
     heading_diff = GetAngleDiff(extrapol_heading, m_heading_lastStep) ;
 
     distance_driven = time_intervall * m_velocityCombined;
