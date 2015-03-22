@@ -321,7 +321,7 @@ tUInt32 cSWE_IntersecPointCalc::intersecPointCalc(std::pair<cv::Point2d, cv::Poi
         // if no intersection point found: DirectionToReferencePoint = -1
         for(unsigned int i = 0; i < boundaries.size(); i++)
         {
-            double distance;
+            double distance = 0;
 
             try
             {

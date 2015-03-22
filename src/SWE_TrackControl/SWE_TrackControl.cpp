@@ -800,6 +800,12 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 tResult cSWE_TrackControl::SendSteering(tFloat32 outputAngle)
 {
 
+
+    static tFloat32 lastOutput = 777;
+
+    // only send changes
+    if(lastOutput != outputAngle)
+    {
     // generate Coder object
     cObjectPtr<IMediaCoder> pCoder;
 
@@ -825,6 +831,9 @@ tResult cSWE_TrackControl::SendSteering(tFloat32 outputAngle)
     // ADAPT: m_oIntersectionPointLeft
     RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(m_oSteeringAngle.Transmit(pMediaSampleOutput));
+    }
+
+    lastOutput = outputAngle;
 
     RETURN_NOERROR;
 }
@@ -865,9 +874,12 @@ tResult cSWE_TrackControl::SendGear( const tInt8 outputGear )
 
     //tUInt32 timeStamp = 0;
     tFloat32 my_outputGear;
+    static tFloat32 lastOutput = 777;
 
     my_outputGear = (tFloat32)outputGear;
 
+    if(lastOutput != my_outputGear) // only send changes
+    {
     //create new media sample
     cObjectPtr<IMediaSample> pMediaSample;
     AllocMediaSample((tVoid**)&pMediaSample);
@@ -888,7 +900,9 @@ tResult cSWE_TrackControl::SendGear( const tInt8 outputGear )
     //transmit media sample over output pin
     pMediaSample->SetTime(_clock->GetStreamTime());
     m_oGear.Transmit(pMediaSample);
+    }
 
+    lastOutput = outputGear;
     RETURN_NOERROR;
 }
 

@@ -15,7 +15,7 @@ THIS SOFTWARE IS PROVIDED BY AUDI AG AND CONTRIBUTORS -AS IS- AND ANY EXPRESS OR
 #include "SWE_ControllerFilter.h"
 
 #define TIME_RESOLUTION_ADTF 1000000.0f 
-#define MINIMUM_TIME_BETWEEN_OUTPUTS 33333 //in microseconds
+#define MINIMUM_TIME_BETWEEN_OUTPUTS 30000 //in microseconds
 
 ADTF_FILTER_PLUGIN("SWE PID Controller", OID_ADTF_SWE_PIDCONTROLLER, SWE_ControllerFilter)
 
@@ -172,8 +172,9 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
             //DEBUG
             //LOG_ERROR(cString("PID: wait time " + cString::FromFloat64((GetTime() - m_lastOutputTime))));
 
-           // if((GetTime() - m_lastOutputTime) >= MINIMUM_TIME_BETWEEN_OUTPUTS) //prevent output spamming wich can lead to crashes
-           // {
+            //prevent output spamming wich can cause problems with the ardurino
+            if((GetTime() - m_lastOutputTime) >= MINIMUM_TIME_BETWEEN_OUTPUTS)
+            {
                 m_lastOutputTime = GetTime();
 
                 //create new media sample
@@ -196,7 +197,7 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
                 //transmit media sample over output pin
                 RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
                 RETURN_IF_FAILED(m_oOutputManipulated.Transmit(pMediaSample));
-            //}
+            }
 
         }
         else if (pSource == &m_oInputSetPoint)

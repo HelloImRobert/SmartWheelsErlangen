@@ -94,7 +94,7 @@ std::vector< cv::Point2d > splineBoundaryCalcs::calcSplineZeros( const std::vect
 
     // calculate zeros of spline segments
     // iterating through spline segments
-    for( int i = 0; i < splineCoeffs.size(); i++ )
+    for( tUInt32 i = 0; i < splineCoeffs.size(); i++ )
     {
         double coeffs[4] = {};
         // get coeffs of y-part of spline in current segment
