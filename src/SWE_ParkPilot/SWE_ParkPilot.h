@@ -3,8 +3,6 @@
 
 #include "stdafx.h"
 #include "math.h"
-#include <iostream>
-#include <fstream>
 
 
 #define OID_ADTF_SWE_PARKPILOT "adtf.swe.parkpilot"
@@ -18,7 +16,6 @@ class cSWE_ParkPilot : public adtf::cFilter
 
     // PINS
     cInputPin m_inputParkTrigger;
-    cInputPin m_inputObjectData;
     cInputPin m_pin_input_ir;
     cInputPin m_inputOdometry;
 
@@ -67,6 +64,10 @@ private:
     tFloat32    m_manAngleTwo;
 
     //Properties
+    tFloat32     m_pullFirst;
+    tFloat32     m_pullSecond;
+    tFloat32     m_pullThird;
+    tFloat32     m_pullFourth;
     tFloat32    m_centralAngleSteering;
     tBool       m_logging;
     tFloat32    m_AlongsideSize;
@@ -78,6 +79,7 @@ private:
     tFloat32    m_pullRightStraight;
     tFloat32    m_straightForward;
     tInt32      m_stopTime;
+    tFloat32    m_driftComp;
 
     tInt32      m_startTimer;
 
@@ -100,7 +102,7 @@ private:
     tInt16      m_parkState;
     tInt16      m_pulloutState;
 
-    tBool       m_debug_bool;
+    tBool       m_testing;
 
     cv::Point2d m_objects[10];
 
