@@ -16,7 +16,8 @@ class cSWE_ParkPilot : public adtf::cFilter
 
     // PINS
     cInputPin m_inputParkTrigger;
-    cInputPin m_pin_input_ir;
+    cInputPin m_pin_input_ir_right;
+    cInputPin m_pin_input_ir_left;
     cInputPin m_inputOdometry;
 
     cOutputPin m_outputSpeed;
@@ -80,6 +81,7 @@ private:
     tFloat32    m_straightForward;
     tInt32      m_stopTime;
     tFloat32    m_driftComp;
+    tFloat32    m_pullDriftComp;
 
     tInt32      m_startTimer;
 
@@ -158,7 +160,8 @@ private:
     cObjectPtr<IMediaTypeDescription> m_pCoderParkTrigger;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescOdometry;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescObjectData;
-    cObjectPtr<IMediaTypeDescription> m_pCoderIR;
+    cObjectPtr<IMediaTypeDescription> m_pCoderIRR;
+    cObjectPtr<IMediaTypeDescription> m_pCoderIRL;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescStop;
 
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSpeedOut;
