@@ -141,6 +141,7 @@ class SWE_Odometry : public adtf::cFilter
     tTimeStamp m_lastTimeStamp_wheels;
 
     tFloat32 m_heading_lastStep;        //heading after last odometry step
+    tFloat32 m_heading_input_last;
     tFloat32 m_heading_now;             //current reported heading (by sensor)
     tFloat32 m_pitch_now;               //current pitch angle
     tFloat32 m_accelerometerValue_now; //current accelerometer reading in mm/s²

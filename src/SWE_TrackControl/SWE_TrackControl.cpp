@@ -7,12 +7,15 @@
 #include <fstream>
 
 #define WHEELBASE 359 //distance between both axles in mm
+#define STATUS_NORMAL 0  //= normal status
+#define STATUS_ENDOFTURN 1  //= ended turn maneuver
+#define STATUS_ATSTOPLINE 2 //= stopped at stopline
 
 
 
 ADTF_FILTER_PLUGIN("SWE TrackControl", OID_ADTF_SWE_TRACKCONTROL, cSWE_TrackControl)
 
-cSWE_TrackControl::cSWE_TrackControl(const tChar* __info) : cFilter(__info), m_PerpenticularPoint(1.0, 0.0)
+cSWE_TrackControl::cSWE_TrackControl(const tChar* __info) : cFilter(__info), m_PerpenticularPoint(1.0, 0.0), m_oManeuverObject(_clock)
 {
     m_old_steeringAngle = 0.0;
     m_property_useNewCalc = false;
@@ -20,6 +23,10 @@ cSWE_TrackControl::cSWE_TrackControl(const tChar* __info) : cFilter(__info), m_P
     SetPropertyFloat("Wheelbase", 360);
     SetPropertyBool("Use new angle calculation", true);
     SetPropertyBool("Stop at virtual stoplines", true); //DEBUG
+
+    SetPropertyBool("Use Testmode", false);
+    SetPropertyInt("Testmode start command", 1);
+    SetPropertyInt("Testmode start speed", 2);
 
 }
 
@@ -49,8 +56,7 @@ tResult cSWE_TrackControl::CreateOutputPins(__exception)
     cObjectPtr<IMediaDescriptionManager> pDescManager;
     RETURN_IF_FAILED(_runtime->GetObject(OID_ADTF_MEDIA_DESCRIPTION_MANAGER,IID_ADTF_MEDIA_DESCRIPTION_MANAGER,(tVoid**)&pDescManager,__exception_ptr));
 
-    // Struct for Intersection Point Transmission
-    // TO ADAPT for new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
+    // Struct for steering angle Point Transmission
     tChar const * strDescSteeringAngle = pDescManager->GetMediaDescription("tSignalValue");
     RETURN_IF_POINTER_NULL(strDescSteeringAngle);
     cObjectPtr<IMediaType> pTypeSteeringAngle = new cMediaType(0, 0, 0, "tSignalValue", strDescSteeringAngle,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
@@ -60,7 +66,6 @@ tResult cSWE_TrackControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(RegisterPin(&m_oSteeringAngle));
 
     // Struct for Intersection Point Transmission
-    // TO ADAPT for new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
     tChar const * strDescMiddlePoint = pDescManager->GetMediaDescription("tPoint2d");
     RETURN_IF_POINTER_NULL(strDescMiddlePoint);
     cObjectPtr<IMediaType> pTypeMiddlePoint = new cMediaType(0, 0, 0, "tPoint2d", strDescMiddlePoint,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
@@ -70,7 +75,6 @@ tResult cSWE_TrackControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(RegisterPin(&m_oMiddlePoint));
 
     // Struct for Gear Output to Speed Control
-    // TO ADAPT for new Pin/Dadatype: strDescPointLeft, "tPoint2d", pTypePointLeft, m_pCoderDescPointLeft, m_oIntersectionPointLeft, "left_Intersection_Point" !!!!!!!!!!!!!!!!!!!!
     tChar const * strDescGear = pDescManager->GetMediaDescription("tGear");
     RETURN_IF_POINTER_NULL(strDescGear);
     cObjectPtr<IMediaType> pTypeGear = new cMediaType(0, 0, 0, "tGear", strDescGear,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
@@ -78,6 +82,17 @@ tResult cSWE_TrackControl::CreateOutputPins(__exception)
 
     RETURN_IF_FAILED(m_oGear.Create("Gear", pTypeGear, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oGear));
+
+
+    // Struct for status output to AI
+    tChar const * strDescStatus = pDescManager->GetMediaDescription("tInt8SignalValue");
+    RETURN_IF_POINTER_NULL(strDescStatus);
+    cObjectPtr<IMediaType> pTypeStatus = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescStatus,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeGear->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescStatus));
+
+    RETURN_IF_FAILED(m_oStatus.Create("TCData_to_AI", pTypeStatus, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oStatus));
+
 
     RETURN_NOERROR;
 }
@@ -113,6 +128,10 @@ tResult cSWE_TrackControl::Start(__exception)
     m_property_useNewCalc = (tBool)SetPropertyBool("Use new angle calculation", true);
     m_property_stopAtVirtualSL = (tBool)GetPropertyBool("Stop at virtual stoplines", true); //DEBUG
 
+    m_property_useTestMode = (tBool)GetPropertyBool("Use Testmode", false);
+    m_property_TestModeStartCommand = (tInt8)GetPropertyInt("Testmode start command", 1);
+    m_property_TestModeStartSpeed = (tInt8)GetPropertyInt("Testmode start speed", 2);
+
     m_input_maxGear = 0;
     m_input_Command = -1;
     m_input_intersectionIndicator = 0;
@@ -121,7 +140,28 @@ tResult cSWE_TrackControl::Start(__exception)
 
     m_status_noSteering = false;
     m_status_noGears = false;
-    m_status_my_status = IDLE;
+    m_status_my_state = IDLE;
+
+    m_oManeuverObject.Reset();
+
+    m_stoplineData.crossingType = 0;
+    m_stoplineData.isRealStopLine = false;
+    m_stoplineData.StopLinePoint1.x = 0;
+    m_stoplineData.StopLinePoint1.y = 0;
+    m_stoplineData.StopLinePoint2.x = 0;
+    m_stoplineData.StopLinePoint2.y = 0;
+
+    m_odometryData.angle_heading = 0;
+    m_odometryData.distance_sum = 0;
+    m_odometryData.velocity = 0;
+    m_odometryData.distance_x = 0;
+    m_odometryData.distance_y = 0;
+
+    m_firstRun = true;
+
+    SendGear(0);
+    SendSteering(0);
+
     return cFilter::Start(__exception_ptr);
 }
 
@@ -137,9 +177,9 @@ tResult cSWE_TrackControl::Shutdown(tInitStage eStage, __exception)
 
 tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample)
 {
+    m_mutex.Enter();
+
     // Necessary to get Datatype from INPUT pins (datatypes of output pins are defined in INIT)
-    // ADAPT: pMediaTypeDescInputMeasured, m_pCoderDescInputMeasured !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // NOCH SO BAUEN, DASS IN FKT CREATE_INPUT_PINS EINGEFUEGT WERDEN KANN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     cObjectPtr<IMediaType> pType;
     pSource->GetMediaType(&pType);
     if (pType != NULL)
@@ -171,7 +211,7 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
 
             // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
 
-            ReactToInput(-1);
+            ReactToInput(-1); //no command
 
         }
         else if(pSource == &m_oOdometry)
@@ -191,7 +231,15 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
 
             // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
 
-            ReactToInput(-1);
+            if((m_property_useTestMode) && (m_firstRun))
+            {
+                m_firstRun = false;
+                m_input_Command = m_property_TestModeStartCommand;
+                m_input_maxGear = m_property_TestModeStartSpeed;
+                ReactToInput(m_input_Command);
+            }
+            else
+                ReactToInput(-1); // no command
 
         }
         else if(pSource == &m_oCommands)
@@ -210,8 +258,8 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
 
 
             // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
-
             ReactToInput(m_input_Command);
+
         }
         else if(pSource == &m_oCrossingIndicator)
         {
@@ -222,33 +270,34 @@ tResult cSWE_TrackControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nPar
             cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
 
-            tBool isRealStopLine;
-            tInt crossingType;
-            cv::Point2d StopLinePoint1;
-            cv::Point2d StopLinePoint2;
-
             //get values from media sample (x and y exchanged to transform to front axis coo sys)
-            pCoder->Get("isRealStopLine", (tVoid*)&(isRealStopLine));
-            pCoder->Get("crossingType", (tVoid*)&(crossingType));
-            pCoder->Get("StopLinePoint1.xCoord", (tVoid*)&(StopLinePoint1.x));
-            pCoder->Get("StopLinePoint1.yCoord", (tVoid*)&(StopLinePoint1.y));
-            pCoder->Get("StopLinePoint2.xCoord", (tVoid*)&(StopLinePoint2.x));
-            pCoder->Get("StopLinePoint2.yCoord", (tVoid*)&(StopLinePoint2.y));
+            pCoder->Get("isRealStopLine", (tVoid*)&(m_stoplineData.isRealStopLine));
+            pCoder->Get("crossingType", (tVoid*)&(m_stoplineData.crossingType));
+            pCoder->Get("StopLinePoint1.xCoord", (tVoid*)&(m_stoplineData.StopLinePoint1.x));
+            pCoder->Get("StopLinePoint1.yCoord", (tVoid*)&(m_stoplineData.StopLinePoint1.y));
+            pCoder->Get("StopLinePoint2.xCoord", (tVoid*)&(m_stoplineData.StopLinePoint2.x));
+            pCoder->Get("StopLinePoint2.yCoord", (tVoid*)&(m_stoplineData.StopLinePoint2.y));
             m_pCoderDescInputMeasured->Unlock(pCoder);
 
 
             // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
 
-            ReactToInput(-1);
+            ReactToInput(99); //special command - new stopline data
         }
-        else
-            RETURN_NOERROR;
+
         // -------------------------------------------------------------------
 
     }
+
+    m_mutex.Leave();
+
     RETURN_NOERROR;
 }
 
+
+//---------------------------------------------------------------------------------------------------
+// --------------------------------  Calculate Steering Angle  --------------------------------------
+// --------------------------------------------------------------------------------------------------
 
 tFloat64 cSWE_TrackControl::CalcSteeringAngleTrajectory( const cv::Point2d& trackingPoint, const tInt8 intersectionIndicator )
 {
@@ -305,328 +354,382 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngleCircle( const cv::Point2d& tracking
     return steeringAngle;
 }
 
+
+
+//----------------------------------------------------------------------------------------
+// --------------------------------  State Machine  --------------------------------------
+// ---------------------------------------------------------------------------------------
+
 tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 {
 
-    /*
-    * TC rueckmeldungen:
-    0= normal status
-    1= ended turn maneuver
-    2= stopped at stopline
-   */
-
-    /*Hier das senden an den TC rein(Speed, Punkt und Typ)
-    Typen:
-    0=Notbremsung
-    1=normales fahren
-    2=Links abbiegen
-    3=rechtsabbiegen
-    4=ueberholen
-    5=Kreuzung gerade aus
-    6= go idle (parking on)
-    7= steering off
-    Speed:
-    Stufen: 3,2,1,0,-1,-2 (Robert) -> Stufe 3 ist implementiert und sollte auch genutzt werden da 2 noch recht langsam ist*/
-
 
     // -----------  init default behaviour ------------
-    tFloat32 steeringAngle = 0;
-    tInt8 outputGear;
-    tInt8 outputStatusReport;
+
+    m_outputSteeringAngle = 0;
+    m_outputGear = m_input_maxGear;
+    m_outputStatus = STATUS_NORMAL;
+
+    m_status_noGears = false;
+    m_status_noSteering = false;
 
 
-    outputStatusReport = 0;
-    outputGear = m_input_maxGear;
-
+    // calculate steering angle for normal operation (the default)
 
     if(m_property_useNewCalc) //two alternative modes of calculation
     {
-        steeringAngle = -180.0/CV_PI * ( CalcSteeringAngleCircle( m_input_trackingPoint, m_input_intersectionIndicator ) );
+        m_outputSteeringAngle = -180.0/CV_PI * ( CalcSteeringAngleCircle( m_input_trackingPoint, m_input_intersectionIndicator ) );
     }
     else
     {
-        steeringAngle = -180.0/CV_PI*( CalcSteeringAngleTrajectory( m_input_trackingPoint, m_input_intersectionIndicator ) );
+        m_outputSteeringAngle = -180.0/CV_PI*( CalcSteeringAngleTrajectory( m_input_trackingPoint, m_input_intersectionIndicator ) );
     }
 
 
     // ---------- STATES ------------
 
-    switch(m_status_my_status)
+    switch(m_status_my_state)
     {
-    case IDLE:
 
+
+
+    case IDLE:
         switch(command)
         {
-        case -1: //no command
-
-
-        break;
 
         case 0: //Emergency stop
 
+            GotoEMERGENCY_STOP();
 
-        break;
+            break;
 
         case 1: //follow road
 
+            GotoNORMAL_OPERATION();
 
-        break;
+            break;
 
         case 2: //turn left
 
+            GotoTURN_LEFT();
 
-        break;
+            break;
 
         case 3: //turn right
 
+            GotoTURN_RIGHT();
 
-        break;
+            break;
 
-        case 4: // overtake
+        case 4: // overtake - here normal operation
 
+            GotoNORMAL_OPERATION();
 
-        break;
+            break;
 
         case 5: //go straight (crossroads)
 
+            GotoGO_STRAIGHT();
 
-        break;
+            break;
 
-        case 6: // go idle
+        case 7: // no speed, follow road but only steer
+
+            GotoNO_SPEED();
+
+            break;
 
 
-        break;
+        default: // no (legal) command - stay in state
 
-        case 7: // speed off
+            //m_outputStatus= STATUS_NORMAL;
+            m_status_noSteering = true;
+            m_status_noGears = true;
 
-
-        break;
-        default:
             break;
         }
 
         break;
+
+
 
     case NORMAL_OPERATION:
-
         switch(command)
         {
-        case -1: //no command
-
-
-        break;
 
         case 0: //Emergency stop
 
+            GotoEMERGENCY_STOP();
 
-        break;
-
-        case 1: //follow road
-
-
-        break;
-
-        case 2: //turn left
-
-
-        break;
-
-        case 3: //turn right
-
-
-        break;
-
-        case 4: // overtake
-
-
-        break;
-
-        case 5: //go straight (crossroads)
-
-
-        break;
+            break;
 
         case 6: // go idle
 
+            GotoIDLE();
 
-        break;
+            break;
 
-        case 7: // speed off
+        case 7: // no speed
+
+            GotoNO_SPEED();
+
+            break;
+
+        case 99: // Stopline
+
+            GotoSTOPLINE();
+
+            break;
 
 
-        break;
-        default:
+        default: // no (legal) command - stay in state
+
+            m_outputStatus= STATUS_NORMAL;
+            m_status_noSteering = false;
+            m_status_noGears = false;
+            //use steering angle already calculated
+            m_outputGear = 3; //use max speed allowed
+
             break;
         }
 
         break;
+
+
 
 
     case STOP_AT_STOPLINE_INPROGRESS:
-
         switch(command)
         {
-        case -1: //no command
-
-
-        break;
 
         case 0: //Emergency stop
 
+            GotoEMERGENCY_STOP();
 
-        break;
-
-        case 1: //follow road
-
-
-        break;
-
-        case 2: //turn left
-
-
-        break;
-
-        case 3: //turn right
-
-
-        break;
-
-        case 4: // overtake
-
-
-        break;
-
-        case 5: //go straight (crossroads)
-
-
-        break;
+            break;
 
         case 6: // go idle
 
+            GotoIDLE();
 
-        break;
+            break;
 
-        case 7: // speed off
+        case 99: // new Stopline
+
+            //try to update with new stopline (might be rejected)
+            m_oManeuverObject.Start(TC_STOP_AT_STOPLINE, m_angleAbs, m_odometryData.distance_sum, m_stoplineData.StopLinePoint1.x, m_stoplineData.StopLinePoint2.x, m_stoplineData.isRealStopLine);
 
 
-        break;
-        default:
+            if(m_property_stopAtVirtualSL) //always stop at stopline
+                m_outputGear = m_oManeuverObject.GetGear();
+            else
+            {
+                if(m_oManeuverObject.GetStoplineType()) //when real stopline
+                    m_outputGear = m_oManeuverObject.GetGear();//... stop there
+                else
+                    m_outputGear = 3; //when virtual go as fast as allowed
+            }
+            // use normal steering angle
+
+            m_status_noGears = false;
+            m_status_noSteering = false;
+            m_outputStatus= STATUS_NORMAL;
+
+            break;
+
+
+        default: // no (legal) command - stay in state
+
+            //------------------- update data ------------------
+
+            m_oManeuverObject.CalcStep(m_angleAbs, m_odometryData.distance_sum);
+
+            if(m_property_stopAtVirtualSL) //always stop at stopline
+                m_outputGear = m_oManeuverObject.GetGear();
+            else
+            {
+                if(m_oManeuverObject.GetStoplineType()) //when real stopline
+                    m_outputGear = m_oManeuverObject.GetGear();//... stop there
+                else
+                    m_outputGear = 3; //when virtual go as fast as allowed
+            }
+            // use normal steering angle
+
+
+            // ------------- is maneuver finished? -------------
+
+            if (m_oManeuverObject.GetStatus() == TC_STOP_AT_STOPLINE)
+            {
+                m_status_noGears = false;
+                m_status_noSteering = false;
+                m_outputStatus= STATUS_NORMAL;
+            }
+            else //maneuver finished go to idle (but send last speed value)
+            {
+                m_status_my_state = IDLE;
+                m_status_noGears = false;
+                m_status_noSteering = false;
+                m_outputStatus= STATUS_ATSTOPLINE; //tell the AI we're stopped at a stopline
+            }
+
             break;
         }
 
         break;
+
 
 
     case GO_STRAIGHT_INPROGRESS:
-
         switch(command)
         {
-        case -1: //no command
-
-
-        break;
 
         case 0: //Emergency stop
 
+            GotoEMERGENCY_STOP();
 
-        break;
-
-        case 1: //follow road
-
-
-        break;
-
-        case 2: //turn left
-
-
-        break;
-
-        case 3: //turn right
-
-
-        break;
-
-        case 4: // overtake
-
-
-        break;
-
-        case 5: //go straight (crossroads)
-
-
-        break;
+            break;
 
         case 6: // go idle
 
+            GotoIDLE();
 
-        break;
-
-        case 7: // speed off
+            break;
 
 
-        break;
-        default:
+        default: // no (legal) command - stay in state
+
+            //------------------- update data ------------------
+
+            m_oManeuverObject.CalcStep(m_angleAbs, m_odometryData.distance_sum);
+
+            m_outputGear = m_oManeuverObject.GetGear();
+
+            //steering angle OK?
+            if( m_input_intersectionIndicator != 0 )
+            {
+                // use m_outputSteeringAngle already calculated
+            }
+            else
+                m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle();
+
+
+            // ------------- is maneuver finished? -------------
+
+            if(m_oManeuverObject.GetStatus() == NO_MANEUVER)
+            {
+                // return to normal operation
+                GotoNORMAL_OPERATION();
+                m_outputStatus = STATUS_ENDOFTURN;
+            }
+            else
+            {
+                m_outputStatus = STATUS_NORMAL;
+                m_status_noSteering = false;
+                m_status_noGears = false;
+            }
+
+
             break;
         }
 
         break;
+
+
+
 
     case TURN_INPROGRESS:
-
         switch(command)
         {
-        case -1: //no command
-
-
-        break;
 
         case 0: //Emergency stop
 
+            GotoEMERGENCY_STOP();
 
-        break;
-
-        case 1: //follow road
-
-
-        break;
-
-        case 2: //turn left
-
-
-        break;
-
-        case 3: //turn right
-
-
-        break;
-
-        case 4: // overtake
-
-
-        break;
-
-        case 5: //go straight (crossroads)
-
-
-        break;
+            break;
 
         case 6: // go idle
 
+            GotoIDLE();
 
-        break;
-
-        case 7: // speed off
+            break;
 
 
-        break;
-        default:
+        default: // no (legal) command - stay in state
+
+            //------------------- update data ------------------
+
+            m_oManeuverObject.CalcStep(m_angleAbs, m_odometryData.distance_sum);
+
+            m_outputGear = m_oManeuverObject.GetGear();
+            m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle();
+
+
+            // ------------- is maneuver finished? -------------
+
+            if(m_oManeuverObject.GetStatus() == NO_MANEUVER)
+            {
+                // return to normal operation
+                GotoNORMAL_OPERATION();
+                m_outputStatus = STATUS_ENDOFTURN;
+            }
+            else
+            {
+                m_outputStatus = STATUS_NORMAL;
+                m_status_noSteering = false;
+                m_status_noGears = false;
+            }
+
             break;
         }
 
         break;
+
+
+
+
+    case NO_SPEED:
+        switch(command)
+        {
+
+        case 0: //Emergency stop
+
+            GotoEMERGENCY_STOP();
+
+            break;
+
+        case 1: //follow road
+
+            GotoNORMAL_OPERATION();
+
+            break;
+
+        case 6: // go idle
+
+            GotoIDLE();
+
+            break;
+
+        default: // no (legal) command - stay in state
+
+            m_outputStatus= STATUS_NORMAL;
+            m_status_noSteering = false;
+            m_status_noGears = true;
+            //use steering angle already calculated
+
+            break;
+        }
+
+        break;
+
+
+
 
 
     default:
+        m_outputStatus= STATUS_NORMAL;
+        m_outputGear = 0;
+        m_status_my_state = IDLE;
+        LOG_ERROR(cString("TC: ERROR! Illegal command from KI "));
         break;
 
     }
@@ -636,56 +739,69 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
     // ---------- OUTPUT DATA -------------
 
-    //no new command
+    //reset command
     m_input_Command = -1;
 
-
+    //send steering angle
     if (!m_status_noSteering)
-        SendSteering(steeringAngle);
-
+    {
+        SendSteering(m_outputSteeringAngle);
+        m_old_steeringAngle = m_outputSteeringAngle;
+    }
 
     // keep gear within boundries
-    if(outputGear >= 0)
+    if(m_outputGear >= 0)
     {
         if(m_input_maxGear >= 0 )
         {
-            if (m_input_maxGear > outputGear)
-                outputGear = m_input_maxGear;
+            if (m_input_maxGear > m_outputGear)
+                m_outputGear = m_input_maxGear;
         }
-        else // this combination is theoretically impossible
+        else // this combination is invalid
         {
-            outputGear = 0;
-            LOG_ERROR(cString("TC: ERROR! Calculated Output Gear was: " + cString::FromInt32(outputGear) + " but Limit from KI was:" + cString::FromInt32(m_input_maxGear)));
+            m_outputGear = 0;
+            LOG_ERROR(cString("TC: ERROR! Calculated Output Gear was: " + cString::FromInt32(m_outputGear) + " but Limit from KI was:" + cString::FromInt32(m_input_maxGear)));
         }
     }
-    if(outputGear < 0)
+    if(m_outputGear < 0)
     {
         if(m_input_maxGear < 0 )
         {
-            if(m_input_maxGear < outputGear)
-                outputGear = m_input_maxGear;
+            if(m_input_maxGear < m_outputGear)
+                m_outputGear = m_input_maxGear;
         }
         else
         {
-            outputGear = 0;
-            LOG_ERROR(cString("TC: ERROR! Calculated Output Gear was: " + cString::FromInt32(outputGear) + " but Limit from KI was:" + cString::FromInt32(m_input_maxGear)));
+            m_outputGear = 0;
+            LOG_ERROR(cString("TC: ERROR! Calculated Output Gear was: " + cString::FromInt32(m_outputGear) + " but Limit from KI was:" + cString::FromInt32(m_input_maxGear)));
         }
     }
 
+    //send speed signal
     if (!m_status_noGears)
-        SendGear(outputGear);
+        SendGear(m_outputGear);
 
+    //send status to KI/central control
+    SendStatus(m_outputStatus);
+
+    //send tracking point for visualization
     SendTrackingPoint();
 
     RETURN_NOERROR;
 }
+
+
+
+//----------------------------------------------------------------------------------------
+// ------------------------------------  OUTPUT  -----------------------------------------
+// ---------------------------------------------------------------------------------------
+
 
 tResult cSWE_TrackControl::SendSteering(tFloat32 outputAngle)
 {
 
     // generate Coder object
     cObjectPtr<IMediaCoder> pCoder;
-    //RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
 
     //create new media sample
     cObjectPtr<IMediaSample> pMediaSampleOutput;
@@ -710,11 +826,6 @@ tResult cSWE_TrackControl::SendSteering(tFloat32 outputAngle)
     RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
     RETURN_IF_FAILED(m_oSteeringAngle.Transmit(pMediaSampleOutput));
 
-
-    /*
-
-      */
-
     RETURN_NOERROR;
 }
 
@@ -723,7 +834,6 @@ tResult cSWE_TrackControl::SendTrackingPoint()
 
     // generate Coder object
     cObjectPtr<IMediaCoder> pCoder;
-    //RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
 
     //create new media sample
     cObjectPtr<IMediaSample> pMediaSampleOutput;
@@ -753,7 +863,7 @@ tResult cSWE_TrackControl::SendTrackingPoint()
 tResult cSWE_TrackControl::SendGear( const tInt8 outputGear )
 {
 
-    tUInt32 timeStamp = 0;
+    //tUInt32 timeStamp = 0;
     tFloat32 my_outputGear;
 
     my_outputGear = (tFloat32)outputGear;
@@ -778,6 +888,153 @@ tResult cSWE_TrackControl::SendGear( const tInt8 outputGear )
     //transmit media sample over output pin
     pMediaSample->SetTime(_clock->GetStreamTime());
     m_oGear.Transmit(pMediaSample);
+
+    RETURN_NOERROR;
+}
+
+
+tResult cSWE_TrackControl::SendStatus( const tInt8 status )
+{
+
+    // generate Coder object
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDescStatus->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleOutput->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    //cObjectPtr<IMediaCoder> pCoder;
+    RETURN_IF_FAILED(m_pCoderDescStatus->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("int8Value", (tVoid*)&(status));
+    m_pCoderDescStatus->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    // ADAPT: m_oIntersectionPointLeft
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oStatus.Transmit(pMediaSampleOutput));
+
+    RETURN_NOERROR;
+}
+
+
+
+//----------------------------------------------------------------------------------------
+// ----------------------------  State Transitions ---------------------------------------
+// ---------------------------------------------------------------------------------------
+
+
+tResult cSWE_TrackControl::GotoIDLE()
+{
+
+    m_outputStatus= STATUS_NORMAL;
+    m_status_my_state = IDLE;
+    m_status_noSteering = true;
+    m_status_noGears = true;
+
+    RETURN_NOERROR;
+}
+
+tResult cSWE_TrackControl::GotoNORMAL_OPERATION()
+{
+
+    m_status_my_state = NORMAL_OPERATION;
+    m_outputStatus = STATUS_NORMAL;
+    m_status_noSteering = false;
+    m_status_noGears = false;
+
+    RETURN_NOERROR;
+}
+
+tResult cSWE_TrackControl::GotoTURN_LEFT()
+{
+
+    m_status_my_state = TURN_INPROGRESS;
+
+    //init turn
+    m_oManeuverObject.Reset();
+    m_oManeuverObject.Start(TC_TURN_LEFT, m_angleAbs, m_odometryData.distance_sum, 0 , 0, false);
+
+    m_outputStatus = STATUS_NORMAL;
+    m_status_noSteering = true;
+    m_status_noGears = true;
+
+    RETURN_NOERROR;
+}
+tResult cSWE_TrackControl::GotoTURN_RIGHT()
+{
+
+    m_status_my_state = TURN_INPROGRESS;
+
+    //init turn
+    m_oManeuverObject.Reset();
+    m_oManeuverObject.Start(TC_TURN_RIGHT, m_angleAbs, m_odometryData.distance_sum, 0 , 0, false);
+
+    m_outputStatus = STATUS_NORMAL;
+    m_status_noSteering = true;
+    m_status_noGears = true;
+
+    RETURN_NOERROR;
+}
+
+tResult cSWE_TrackControl::GotoGO_STRAIGHT()
+{
+
+    m_status_my_state = TURN_INPROGRESS;
+
+    //init turn
+    m_oManeuverObject.Reset();
+    m_oManeuverObject.Start(TC_GO_STRAIGHT, m_angleAbs, m_odometryData.distance_sum, 0 , 0, false);
+
+    m_outputStatus = STATUS_NORMAL;
+    m_status_noSteering = true;
+    m_status_noGears = true;
+
+    RETURN_NOERROR;
+}
+
+tResult cSWE_TrackControl::GotoEMERGENCY_STOP()
+{
+
+    m_outputStatus= STATUS_NORMAL;
+    m_outputGear = 0;
+    m_status_my_state = IDLE;
+    m_status_noSteering = true;
+    m_status_noGears = false;
+
+    RETURN_NOERROR;
+}
+
+tResult cSWE_TrackControl::GotoNO_SPEED()
+{
+
+    m_outputStatus= STATUS_NORMAL;
+    m_status_my_state = NO_SPEED;
+    m_status_noSteering = false;
+    m_status_noGears = true;
+
+    RETURN_NOERROR;
+}
+
+tResult cSWE_TrackControl::GotoSTOPLINE()
+{
+    m_outputStatus = STATUS_NORMAL;
+
+    m_oManeuverObject.Reset();
+
+    //if stopline accepted go to new state
+    if (m_oManeuverObject.Start(TC_STOP_AT_STOPLINE, m_angleAbs, m_odometryData.distance_sum, m_stoplineData.StopLinePoint1.x , m_stoplineData.StopLinePoint2.x, m_stoplineData.isRealStopLine) != 1)
+    {
+        m_status_my_state = STOP_AT_STOPLINE_INPROGRESS;
+        m_status_noGears = false;
+        m_status_noSteering = false;
+    }
 
     RETURN_NOERROR;
 }

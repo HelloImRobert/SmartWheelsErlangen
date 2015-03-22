@@ -991,14 +991,15 @@ tResult cSWE_KIControl::sendTC(int speed, int type)
     3=rechtsabbiegen
     4=ueberholen
     5=Kreuzung gerade aus
-    6=Parking(Steurung aus)
+    6=Parking( Steurung aus / idle)
+    7= speed signal off    (Robert)
     Speed:
-    Stufen: 3,2,1,0,-1,-2 (Robert) -> Stufe 3 ist implementiert und sollte auch genutzt werden da 2 noch recht langsam ist
+    Stufen: 3,2,1,0,-1,-2      (Robert) -> Stufe 3 ist implementiert und sollte auch genutzt werden da 2 noch recht langsam ist
     
     */
     if(speed==0)
     {
-        type=0;
+        type=0; //(Robert) besser echten emergency stop und stop aufgrund von hindernissen trennen => normaler stop nur speed = 0, damit kann ein gestopptes manoever wieder aufgenommen werden. Bei echtem emergency stop vllt. warnblinker an?
     }
 
 
