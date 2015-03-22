@@ -1,4 +1,12 @@
 #include "stdafx.h"
+#include "math.h"
+
+
+/*! SmartWheels-Erlangen (Robert de Temple)
+ * This class implements an easy way to define car maneuvers
+ * Once the maneuvers are started the neccessary steering angles and gears are updated according to the odometry data
+ * A simple heuristic prevents the registration of distant stoplines when still approaching another
+ */
 
 
 enum maneuvers
@@ -35,11 +43,11 @@ public:
      * @param stopLineXRight x coordinate of right stop line point
      * @return the neccessary steering angle
      */
-    tResult Start(maneuvers maneuver, tFloat32 headingSum, tInt32 distanceSum, tFloat32 stopLineXLeft = 0, tFloat32 stopLineXRight = 0);
+    tResult Start(maneuvers maneuver, tFloat32 headingSum, tInt32 distanceSum, tFloat32 stopLineXLeft = 0, tFloat32 stopLineXRight = 0, tBool isRealStopline = true); //TODO don't accept wrong stoplines
 
     /**
      * @brief tell me if current maneuver has finished
-     * @return is it finished true or false
+     * @return the status of the object NO_MANEUVER = maneuver finished
      */
     maneuvers GetStatus();
 
@@ -56,18 +64,26 @@ public:
     tFloat32 GetSteeringAngle();
 
     /**
+     * @brief tells you if the stopline being approached is real or not
+     * @return is stopline real?
+     */
+    tBool GetStoplineType();
+
+    /**
      * @brief calculate new step or update for maneuver
      * @param heading odometry: the current heading of the car
      * @param distanceSum odometry: the sum of the driven distance of the car
      * @return the neccessary steering angle
      */
-     tResult CalcStep(tFloat32 heading, tInt32 distanceSum);
+    tResult CalcStep(tFloat32 heading, tInt32 distanceSum);
+
+
 
     /**
      * @brief reset
      * @return success
      */
-    tResult reset();
+    tResult Reset();
 
     //DEBUG:
     tFloat32 debugvar;
@@ -75,7 +91,9 @@ public:
 
 private:
 
-        tResult CalcStep_p(tFloat32 heading, tInt32 distanceSum, tFloat32 stopLineDistance);
+    tBool TestStoplineDistance(tFloat32 newDistance, tFloat32 distanceSum);
+
+    tResult CalcStep_p(tFloat32 heading, tInt32 distanceSum, tFloat32 stopLineDistance);
 
 
     tInt32 StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFloat32 stopLineDistance);
@@ -114,5 +132,16 @@ private:
     tFloat32 m_gearOut;
 
     ucom::cObjectPtr<IReferenceClock> &_clock;
+
+    tBool m_stoplineType; // true if real stopline
+
+    tFloat32 m_stoplineDistance;
+
+    tFloat32 m_startStopLineDistance;
+    tFloat32 m_startDistance;
+
+
+
+
 };
 

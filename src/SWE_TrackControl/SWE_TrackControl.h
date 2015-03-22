@@ -2,14 +2,39 @@
 #define _SWE_TRACKCONTROL_H_
 
 #include "stdafx.h"
+#include "SWE_Maneuver.h"
 
 
 
 #define OID_ADTF_SWE_TRACKCONTROL "adtf.swe.trackcontrol"
 
 /*!
-* track controller
+* track controller SmartWheels Erlangen, Robert de Temple. Questions? Just ask ! robert punkt detemple kringel gmail punkt com
+* This Module realizes the calculation of steering angles for road following, emergency stops, the approach of stoplines and crossroads maneuvers like left and right turns
+*
+
+    TC talkback to AI/KI:
+    0 = everything normal
+    1 = finished turning maneuver (this includes going straight over crossroads)
+    2 = stopped at stopline
+
+
+    commands from AI/KI
+    0* = emergency stop     (ALWAYS works)
+    1 = follow road         (default behavior, stops at stoplines)
+    2 = turn left
+    3 = turn right
+    4 = pass obstacle       (not implemented)
+    5 = go straight         (crossroads)
+    6* = idle               (no outputs, like a reset -> all commands can be issued after this but stopline will be IGNORED)
+    7 = only steering       (follow road, no speed output, stoplines will be IGNORED)
+
+    Max Speed:
+    (Gears) 3,2,1,0,-1,-2 (-1, -2 not used here)
+
+    * these two commands will always be executed, no matter what state trackcontrol currently has, so be careful issuing these! All other commands (usually) finish first before accepting a new command.
 */
+
 class cSWE_TrackControl : public adtf::cFilter
 {
     ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_TRACKCONTROL, "SWE TrackControl", OBJCAT_DataFilter, "Track Control", 1, 0,0, "pre alpha version");
@@ -17,17 +42,17 @@ class cSWE_TrackControl : public adtf::cFilter
     // create pins
     cInputPin m_oIntersectionPoints;
     cInputPin m_oCommands;   //commands from the KI
-    cInputPin m_oOdometry;  //TODO
+    cInputPin m_oOdometry;
     cInputPin m_oCrossingIndicator;
 
     cOutputPin m_oSteeringAngle;
     cOutputPin m_oMiddlePoint;
-    cOutputPin m_oGear; //TODO
+    cOutputPin m_oGear;
+    cOutputPin m_oStatus;
 
 public:
     cSWE_TrackControl(const tChar* __info);
     virtual ~cSWE_TrackControl();
-
 
 
 protected: // overwrites cFilter
@@ -43,6 +68,7 @@ private:
     {
         IDLE,
         NORMAL_OPERATION,
+        NO_SPEED,
         STOP_AT_STOPLINE_INPROGRESS,
         GO_STRAIGHT_INPROGRESS,
         TURN_INPROGRESS
@@ -71,6 +97,20 @@ private:
     /*! set speed */
     tResult SendTrackingPoint();
 
+    /*! send status signals back to KI/AI */
+    tResult SendStatus( const tInt8 status );
+
+    /*! state transitions */
+
+    tResult GotoIDLE();
+    tResult GotoNORMAL_OPERATION();
+    tResult GotoTURN_LEFT();
+    tResult GotoTURN_RIGHT();
+    tResult GotoGO_STRAIGHT();
+    tResult GotoEMERGENCY_STOP();
+    tResult GotoNO_SPEED();
+    tResult GotoSTOPLINE();
+
 
     /*! member variables */
 
@@ -78,7 +118,7 @@ private:
     tBool m_property_stopAtVirtualSL;
 
     tInt8 m_input_maxGear;
-    tInt32   m_input_Command;
+    tInt32 m_input_Command;
 
     tInt8 m_input_intersectionIndicator;
 
@@ -91,30 +131,26 @@ private:
     cv::Point2d m_PerpenticularPoint;
     cv::Point2d m_input_trackingPoint;
 
+    tFloat32 m_outputSteeringAngle;
+    tInt8 m_outputGear;
+    tInt8 m_outputStatus;
 
-    /*
-    * TC rueckmeldungen:
-    0=nichts besonderes
-    1=bin abgebogen
-    2=stehe an haltelinie
-   */
+    my_status m_status_my_state;
 
-    /*Hier das senden an den TC rein(Speed, Punkt und Typ)
-    Typen:
-    0=Notbremsung
-    1=normales fahren
-    2=Links abbiegen
-    3=rechtsabbiegen
-    4=ueberholen
-    5=Kreuzung gerade aus
-    6=Parking(Steurung aus)
-    Speed:
-    Stufen: 3,2,1,0,-1,-2 (Robert) -> Stufe 3 ist implementiert und sollte auch genutzt werden da 2 noch recht langsam ist*/
-
-
-    my_status m_status_my_status;
     tBool m_status_noSteering;
     tBool m_status_noGears;
+
+    tBool m_property_useTestMode;
+    tInt8 m_property_TestModeStartCommand;
+    tInt8 m_property_TestModeStartSpeed;
+
+    tBool m_firstRun;
+
+    SWE_Maneuver m_oManeuverObject;
+
+
+    /*! Lock */
+    cCriticalSection m_mutex;
 
 
     /*! struct containing the odometry input data */
@@ -129,6 +165,15 @@ private:
 
     odometryData m_odometryData;
 
+    typedef struct
+    {
+        tBool isRealStopLine;
+        tInt crossingType;
+        cv::Point2d StopLinePoint1;
+        cv::Point2d StopLinePoint2;
+    }stoplineData;
+
+    stoplineData m_stoplineData;
 
 
     /*! Coder Descriptors for the pins*/
@@ -136,6 +181,7 @@ private:
     cObjectPtr<IMediaTypeDescription> m_pCoderDescSteeringAngle;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescMiddlePoint;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescGear;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescStatus;
 
 };
 
