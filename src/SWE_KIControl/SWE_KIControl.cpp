@@ -368,6 +368,8 @@ tResult cSWE_KIControl::Shutdown(tInitStage eStage, __exception)
 tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample)
 {
 
+    m_mutex.Enter(); //(Robert)
+
     cObjectPtr<IMediaType> pType;
     pSource->GetMediaType(&pType);
     if (pType != NULL)
@@ -470,7 +472,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                     elementGetter.str(std::string());
                 }
             }
-
+        m_pCoderDescInputMeasured->Unlock(pCoder);
 
 
 
@@ -601,6 +603,8 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
             pCoder->Get("i8ActionID", (tVoid*)&i8ActionID);
             pCoder->Get("i16ManeuverEntry", (tVoid*)&i16entry);
+
+            m_pCoderDescInputMeasured->Unlock(pCoder);
 
             if(i16entry>=0)
                 CommandCounter= i16entry;
@@ -751,6 +755,9 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
 
     }
+
+    m_mutex.Leave(); //(Robert)
+
     RETURN_NOERROR;
 }
 

@@ -393,16 +393,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
     if(m_property_useNewCalc) //two alternative modes of calculation
     {
-        if (DEBUG_OUTPUT)
-            LOG_ERROR(cString("TC: calculating steering angle circle:"));
-
         m_outputSteeringAngle = 180.0/CV_PI * (tFloat32)( CalcSteeringAngleCircle( m_input_trackingPoint, m_input_intersectionIndicator ) );
     }
     else
     {
-        if (DEBUG_OUTPUT)
-            LOG_ERROR(cString("TC: calculating steering angle normal:"));
-
         m_outputSteeringAngle = 180.0/CV_PI* (tFloat32)( CalcSteeringAngleTrajectory( m_input_trackingPoint, m_input_intersectionIndicator ) );
     }
 
@@ -478,10 +472,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
     case NORMAL_OPERATION:
-
+        /*
         if (DEBUG_OUTPUT)
             LOG_ERROR(cString("TC: in NORMAL_OPERATION  command:" + cString::FromInt32(command)));
-
+        */
         switch(command)
         {
 
@@ -525,7 +519,6 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
 
-
     case STOP_AT_STOPLINE_INPROGRESS:
 
         if (DEBUG_OUTPUT)
@@ -566,12 +559,19 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
             // use normal steering angle if not too close
-            if( (m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE) && (m_oManeuverObject.GetStoplineType() == true) && ((m_input_trackingPoint.y > 150) && ( m_input_intersectionIndicator != 0) ) ) //tracking point probably erronous?
+            if( (m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE) && (m_oManeuverObject.GetStoplineType() == true) && ( m_input_trackingPoint.y > 150 ) ) //tracking point probably erronous?
             {
-                m_oManeuverObject.GetSteeringAngle();
+                 // m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle(); DEBUG
+
+                 cv::Point2d newtrackingPoint;
+
+                 newtrackingPoint.x = (m_stoplineData.StopLinePoint1.x + m_stoplineData.StopLinePoint2.x) * 0.5;
+                 newtrackingPoint.y = (m_stoplineData.StopLinePoint1.y + m_stoplineData.StopLinePoint2.y) * 0.5;
+
+                 m_outputSteeringAngle = 180.0/CV_PI* (tFloat32)( CalcSteeringAngleTrajectory( newtrackingPoint, 1 ) );
             }
             else if (m_input_intersectionIndicator == 0) //no tracking point?
-                m_oManeuverObject.GetSteeringAngle();
+                 m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle();
 
 
             m_status_noGears = false;
@@ -599,12 +599,20 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
             // use normal steering angle if not too close
-            if( (m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE) && (m_oManeuverObject.GetStoplineType() == true) && ((m_input_trackingPoint.y > 150) && ( m_input_intersectionIndicator != 0) ) ) //tracking point probably erronous?
+            if( (m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE) && (m_oManeuverObject.GetStoplineType() == true) && (m_input_trackingPoint.y > 150)  ) //tracking point probably erronous?
             {
-                m_oManeuverObject.GetSteeringAngle();
+                 //m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle(); DEBUG
+
+                 cv::Point2d newtrackingPoint;
+
+                 newtrackingPoint.x = (m_stoplineData.StopLinePoint1.x + m_stoplineData.StopLinePoint2.x) * 0.5;
+                 newtrackingPoint.y = (m_stoplineData.StopLinePoint1.y + m_stoplineData.StopLinePoint2.y) * 0.5;
+
+                 m_outputSteeringAngle = 180.0/CV_PI* (tFloat32)( CalcSteeringAngleTrajectory( newtrackingPoint, 1 ) );
+
             }
             else if (m_input_intersectionIndicator == 0) //no tracking point?
-                m_oManeuverObject.GetSteeringAngle();
+                 m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle();
 
 
 
@@ -622,6 +630,11 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
                 m_status_noGears = false;
                 m_status_noSteering = false;
                 m_outputStatus= STATUS_ATSTOPLINE; //tell the AI we're stopped at a stopline
+                m_outputSteeringAngle = 0;
+
+                if(m_property_useTestMode)
+                    GotoTURN_LEFT();
+
             }
 
             break;
@@ -755,7 +768,6 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
 
-
     case NO_SPEED:
 
         if (DEBUG_OUTPUT)
@@ -834,7 +846,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
     }
 
     // keep gear within boundries
-    if(m_outputGear >= 0)
+    if(m_outputGear > 0)
     {
         if(m_input_maxGear >= 0 )
         {
@@ -849,7 +861,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
     }
     if(m_outputGear < 0)
     {
-        if(m_input_maxGear < 0 )
+        if(m_input_maxGear <= 0 )
         {
             if(m_input_maxGear > m_outputGear)
                 m_outputGear = m_input_maxGear;
@@ -862,7 +874,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
     }
 
     //send speed signal
-    if (!m_status_noGears)
+    if (m_status_noGears == false)
         SendGear(m_outputGear);
 
     //send status to KI/central control
@@ -1135,6 +1147,9 @@ tResult cSWE_TrackControl::GotoSTOPLINE()
     m_outputStatus = STATUS_NORMAL;
 
     m_oManeuverObject.Reset();
+
+    if (DEBUG_OUTPUT)
+        LOG_ERROR(cString("TC: got STOPLINE" ));
 
     //if stopline accepted go to new state
     if (m_oManeuverObject.Start(TC_STOP_AT_STOPLINE, m_angleAbs, m_odometryData.distance_sum, m_stoplineData.StopLinePoint1.x , m_stoplineData.StopLinePoint2.x, m_stoplineData.isRealStopLine) != 1)

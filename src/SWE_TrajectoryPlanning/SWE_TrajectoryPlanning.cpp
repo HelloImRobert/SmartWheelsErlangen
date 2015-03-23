@@ -322,7 +322,6 @@ tResult cSWE_TrajectoryPlanning::OnPinEvent(	IPin* pSource, tInt nEventCode, tIn
             //cObjectPtr<IMediaCoder> pCoder;
             RETURN_IF_FAILED(m_pCoderDescTrajectory->WriteLock(pMediaSampleOutput, &pCoder));
 
-
             {
                 stringstream elementSetter;
                 size_t end = std::min( static_cast< size_t >( 25 ), static_cast< size_t >( trajectory.size() ) );

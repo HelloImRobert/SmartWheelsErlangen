@@ -36,8 +36,8 @@ class cSWE_KIControl : public adtf::cFilter
     cInputPin m_oInputParkData;
     cInputPin m_oInputTC;
 
-   cInputPin  m_oCrossingIndicator;
-  cInputPin  m_JuryStructInputPin;
+    cInputPin  m_oCrossingIndicator;
+    cInputPin  m_JuryStructInputPin;
 
     //Was das?V
     cOutputPin m_oIntersectionPointLeft;  //cOutputPin m_oIntersectionPointRight;
@@ -46,7 +46,7 @@ class cSWE_KIControl : public adtf::cFilter
     cOutputPin m_oOutputDriverCourse;
     cOutputPin m_oOutputLightControl;
     cOutputPin m_oOutputTC;
-     cOutputPin m_oOutputLane;
+    cOutputPin m_oOutputLane;
     cOutputPin m_oOutputParking;
     cOutputPin m_oOutputDriverStruct;
     cOutputPin m_oOutputtclane;
@@ -71,27 +71,27 @@ private:
     tResult CreateInputPins(__exception = NULL);
     /*! creates all the output Pins*/
     tResult CreateOutputPins(__exception = NULL);
-double getPerpendicDistance(const cv::Point2d& referencePoint);
-	vector<int> Commands;
+    double getPerpendicDistance(const cv::Point2d& referencePoint);
+    vector<int> Commands;
 
     cv::Point2d objecte[10];
-     cv::Point2d points[10];
+    cv::Point2d points[10];
     std::vector< cv::Point2d > trajectory;
 
-int blinking;
-     int parkbefehl;
+    int blinking;
+    int parkbefehl;
     int CommandCounter;
-     int CommandCountermax;
+    int CommandCountermax;
     int Signtype;
     int status;
-	int SecondSigntype;
+    int SecondSigntype;
     int SpeedControl;
-	int kreuzungstyp;
+    int kreuzungstyp;
     bool halteLinie;
     bool hlsearch;
     bool abgebogen;
     bool roadfree;
-	bool parking;
+    bool parking;
     bool crosscall;
     bool crosscalldone;
     double Punktx;
@@ -105,7 +105,7 @@ int blinking;
     void ObjectAvoidance();
     void DriverCalc();
     tResult sendTC(int speed, int type);
-tResult transmitCrossingIndicator( const tBool isRealStopLine , const tInt8 crossingType , const cv::Point2d& StopLinePoint1 , const cv::Point2d& StopLinePoint2 );
+    tResult transmitCrossingIndicator( const tBool isRealStopLine , const tInt8 crossingType , const cv::Point2d& StopLinePoint1 , const cv::Point2d& StopLinePoint2 );
     typedef struct
     {
         tBool isRealStopLine;
@@ -118,7 +118,7 @@ tResult transmitCrossingIndicator( const tBool isRealStopLine , const tInt8 cros
 
 
     tResult Parkroutine(tInt8 value);
-     tResult sendtoLane(bool value);
+    tResult sendtoLane(bool value);
 
 
 
@@ -136,20 +136,25 @@ tResult transmitCrossingIndicator( const tBool isRealStopLine , const tInt8 cros
     //MB Objekte/Variablen die benoetigt werden output
     cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescTCOutput;
-     cObjectPtr<IMediaTypeDescription> m_pCoderDescParkOutput;
-        cObjectPtr<IMediaTypeDescription>  m_pCoderDescDriverStruct;
-        cObjectPtr<IMediaTypeDescription>  m_pCoderDescLane;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescParkOutput;
+    cObjectPtr<IMediaTypeDescription>  m_pCoderDescDriverStruct;
+    cObjectPtr<IMediaTypeDescription>  m_pCoderDescLane;
     /*! Coder Descriptors for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescPointLeft;
 
 
-   cObjectPtr<IMediaTypeDescription> m_pCoderDesctclane;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDesctclane;
 
     /*! this is the filename of the maneuver list*/
-     cFilename m_maneuverListFile;
-     /*! this is the list with all the loaded sections from the maneuver list*/
-        std::vector<tSector> m_sectorList;
+    cFilename m_maneuverListFile;
+    /*! this is the list with all the loaded sections from the maneuver list*/
+    std::vector<tSector> m_sectorList;
+
+
+
+    /*! Lock */
+    cCriticalSection m_mutex;
 };
 
 #endif // _SWE_KICONTROL_H_
