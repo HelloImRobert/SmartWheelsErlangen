@@ -22,7 +22,7 @@ class cSWE_ParkPilot : public adtf::cFilter
 
     cOutputPin m_outputSpeed;
     cOutputPin m_outputSteering;
-    cOutputPin m_outputParkState;
+    cOutputPin m_oOutputParking;
     cOutputPin m_outputBlink;
 
 
@@ -147,7 +147,7 @@ private:
     tResult sendSpeed(tFloat32 speed);
     tResult sendVelocity(tFloat32 vel);
     tResult sendSteeringAngle(tFloat32 steeringAngle);
-    tResult sendParkState(tInt8 parkState);
+    tResult sendParkState(tInt8 value);
     tResult sendBlink(tInt8 blink);
 
     tResult jumpIntoStates();

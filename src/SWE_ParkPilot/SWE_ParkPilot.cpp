@@ -70,16 +70,16 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
 
         //TESTING START
         m_parkState = 0;
-        m_parkTrigger = 2;
+        m_parkTrigger = 0;
 
         m_searchActivated = false;
         m_minDistReached = false;
         m_carStopped = false;
         m_parkAlongside = false;
-        m_parkCross = true;
+        m_parkCross = false;
         m_pullLeft = false;
         m_pullRight = false;
-        m_gotControl = true;
+        m_gotControl = false;
         //TESTING END
 
 
@@ -116,21 +116,21 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         SetPropertyBool("A_ActivateManeuvering", true);
         SetPropertyFloat("A_ManeuverAngleOne(DEG)", 35.0);
         SetPropertyFloat("A_ManeuverAngleTwo(DEG)", 17.0);
-        SetPropertyFloat("A_DriftCompensation", 5.0);
+        SetPropertyFloat("A_DriftCompensation", 0.0);
         SetPropertyFloat("AP_firstAnlge", 2.0);
         SetPropertyFloat("AP_secondAnlge", 15.0);
         SetPropertyFloat("AP_thirdAnlge", 22.0);
         SetPropertyFloat("AP_fourthAnlge", 37.0);
-        SetPropertyFloat("AP_DriftComp(DEG)", 13.0);
+        SetPropertyFloat("AP_DriftComp(DEG)", 0.0);
 
 
-        SetPropertyFloat("C_LotSize", 450.0);
-        SetPropertyFloat("C_StraightForward(mm)", 100.0);
+        SetPropertyFloat("C_LotSize", 400.0);
+        SetPropertyFloat("C_StraightForward(mm)", 60.0);
         SetPropertyFloat("C_HeadingAngleLeftForward(DEG)", 35.0);
-        SetPropertyFloat("C_PerpendicularBackward(mm)", 470.0);
+        SetPropertyFloat("C_PerpendicularBackward(mm)", 250.0);
 
-        SetPropertyFloat("C_PullLeftStraight(mm)", 720.0);
-        SetPropertyFloat("C_PullRightStraight(mm)", 300.0);
+        SetPropertyFloat("CP_PullLeftStraight(mm)", 720.0);
+        SetPropertyFloat("CP_PullRightStraight(mm)", 300.0);
 
 
 
@@ -224,15 +224,19 @@ tResult cSWE_ParkPilot::CreateOutputPins(__exception)
     RETURN_IF_FAILED(RegisterPin(&m_outputBlink));
 
     // PARKSTATE OUTPUT
-    tChar const * strDescParkOutput = pDescManager->GetMediaDescription("tInt8SignalValue");
-    RETURN_IF_POINTER_NULL(strDescParkOutput);
-    cObjectPtr<IMediaType> pTypeParkOutput = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescParkOutput,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
-    RETURN_IF_FAILED(pTypeParkOutput->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescParkOutput));
+    tChar const * strDescTCOutput2 = pDescManager->GetMediaDescription("tInt8SignalValue");
+    RETURN_IF_POINTER_NULL(strDescTCOutput2);
+    cObjectPtr<IMediaType> pTypeParkData = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescTCOutput2,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeParkData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescParkOutput));
 
-    RETURN_IF_FAILED(m_outputParkState.Create("Park_State", pTypeParkOutput, static_cast<IPinEventSink*> (this)));
-    RETURN_IF_FAILED(RegisterPin(&m_outputParkState));
+    RETURN_IF_FAILED(m_oOutputParking.Create("Parkinglooti", pTypeParkData, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputParking));
 
-    RETURN_NOERROR;
+
+
+ RETURN_NOERROR;
+
+
 }
 
 tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
@@ -252,7 +256,7 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
 
         // lot sizes
         m_AlongsideSize = (tFloat32)GetPropertyFloat("A_LotSize", 765.0);
-        m_CrossSize = (tFloat32)GetPropertyFloat("C_LotSize", 450.0);
+        m_CrossSize = (tFloat32)GetPropertyFloat("C_LotSize", 400.0);
 
         // alongside park and pull
         m_centralAngleSteering = (tFloat32)GetPropertyFloat("A_CentralAngleSteering(0-1max)", 1.0);
@@ -262,19 +266,19 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
         m_manAngleTwo = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_ManeuverAngleTwo(DEG)");
         m_activeManeuvering = (tBool)GetPropertyBool("A_ActivateManeuvering", false);
         m_distStartPark = GetPropertyFloat("A_StraightForward(mm)");
-        m_driftComp = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_DriftCompensation", 5.0);
+        m_driftComp = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_DriftCompensation", 0.0);
         m_pullFirst = DEG_TO_RAD * GetPropertyFloat("AP_firstAnlge", 2.0);
         m_pullSecond = DEG_TO_RAD * GetPropertyFloat("AP_secondAnlge", 15.0);
         m_pullThird = DEG_TO_RAD * GetPropertyFloat("AP_thirdAnlge", 22.0);
         m_pullFourth = DEG_TO_RAD * GetPropertyFloat("AP_fourthAnlge", 39.0);
-        m_pullDriftComp = DEG_TO_RAD * GetPropertyFloat("AP_DriftComp(DEG)", 13.0);
+        m_pullDriftComp = DEG_TO_RAD * GetPropertyFloat("AP_DriftComp(DEG)", 0.0);
 
         // cross park and pull
-        m_straightForward = GetPropertyFloat("C_StraightForward(mm)", 100.0);
+        m_straightForward = GetPropertyFloat("C_StraightForward(mm)", 60.0);
         m_headingAngleForward = DEG_TO_RAD * (tFloat32)GetPropertyFloat("C_HeadingAngleLeftForward(DEG)");
         m_perpendicularBackward = GetPropertyFloat("C_PerpendicularBackward(mm)");
-        m_pullLeftStraight = GetPropertyFloat("C_PullLeftStraight(mm)");
-        m_pullRightStraight = GetPropertyFloat("C_PullRightStraight(mm)");
+        m_pullLeftStraight = GetPropertyFloat("CP_PullLeftStraight(mm)");
+        m_pullRightStraight = GetPropertyFloat("CP_PullRightStraight(mm)");
 
 
     }
@@ -298,16 +302,16 @@ tResult cSWE_ParkPilot::Start(__exception)
 
     //TESTING START
     m_parkState = 0;
-    m_parkTrigger = 2;
+    m_parkTrigger = 0;
 
     m_searchActivated = false;
     m_minDistReached = false;
     m_carStopped = false;
     m_parkAlongside = false;
-    m_parkCross = true;
+    m_parkCross = false;
     m_pullLeft = false;
     m_pullRight = false;
-    m_gotControl = true;
+    m_gotControl = false;
     //TESTING END
     m_firstIR = false;
 
@@ -397,13 +401,15 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             m_IRFrontRightCur = 10 * m_IRFrontRightCur;
 
             ///FOR TESTING
-            if(m_testing == true && (m_parkTrigger <= 2) && (GetTime() - m_startTimer) >= m_stopTime)
-            {
-                sendSteeringAngle( STEER_NEUTRAL );
-                sendSpeed( 1.0 );
-                LOG_ERROR(cString("PP: Trigger set, going forward" ));
-                m_testing = false;
-            }
+//            if(m_testing == true && (m_parkTrigger <= 2) && (GetTime() - m_startTimer) >= m_stopTime)
+//            {
+//                sendSteeringAngle( STEER_NEUTRAL );
+//                sendSpeed( 1.0 );
+//                //sendParkState(1);
+//                //sendBlink(BLINK_LEFT);
+//                LOG_ERROR(cString("PP: Trigger set, going forward" ));
+//                m_testing = false;
+//            }
             //FOR TESTING
 
             if( m_IRFrontRightCur <= TH_SHORT && m_firstIR == false)
@@ -422,7 +428,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                 }
                 else
                 {
-                    LOG_ERROR(cString("PP: 2 Search NOT Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
+                    //LOG_ERROR(cString("PP: 2 Search NOT Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
                     m_firstIR = false;
                     m_searchState = 0;
                 }
@@ -469,9 +475,6 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 //            {
 //                m_angleAbs = m_angleAbs + m_odometryData.angle_heading;
 //            }
-
-            //LOG_ERROR(cString("PP: AngleOdo: " + cString::FromFloat64(m_odometryData.angle_heading) + "; AngleAbs: " + cString::FromFloat64(m_angleAbs)));
-            //LOG_ERROR(cString("DS: DIST_SUM: " + cString::FromFloat64(m_odometryData.distance_sum) + "Angle: " + cString::FromFloat64(m_odometryData.angle_heading)));
 
         }
 
@@ -604,8 +607,8 @@ tResult cSWE_ParkPilot::searchRoutineAlongside()
                 m_distExit = m_odometryData.distance_sum;
                 m_angleAbs = 0.0;
                 LOG_ERROR(cString("PP: LOT DETECTED with size: " + cString::FromFloat64(distTravelled) ));
-                //sendParkState( 3 );
-                //sendBlink( BLINK_RIGHT );
+                sendParkState( 3 );
+                sendBlink( BLINK_RIGHT );
             }
             if(m_logging == true)
                 LOG_ERROR(cString("PP:102 Next " + cString::FromInt(m_searchState) + "; Measured: " + cString::FromFloat64(distTravelled) ));
@@ -700,8 +703,8 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                 m_parkState = 208;
                 sendSpeed( 0 );
                 sendSteeringAngle( STEER_NEUTRAL );
-                //sendParkState ( 1 );
-                //sendBlink( BLINK_STOP );
+                sendParkState ( 1 );
+                sendBlink( BLINK_STOP );
                 m_activeManeuvering = false;
             }
             if(m_logging == true)
@@ -716,8 +719,8 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                 m_parkState = 208;
                 sendSpeed( 0 );
                 sendSteeringAngle(STEER_NEUTRAL);
-                //sendParkState ( 1 );
-                //sendBlink( BLINK_STOP );
+                sendParkState ( 1 );
+                sendBlink( BLINK_STOP );
                 m_rememberDist = m_odometryData.distance_sum;
             }
             LOG_ERROR(cString("PP: 206 Next State" + cString::FromInt(m_parkState) ));
@@ -737,7 +740,7 @@ tResult cSWE_ParkPilot::pullOutAlongsideRight()
     switch( m_pulloutState )
     {
         case 301:
-            //sendBlink( BLINK_LEFT );
+            sendBlink( BLINK_LEFT );
             m_headingAtStart = m_angleAbs;
             sendSteeringAngle(STEER_RIGHT_MAX);
             sendSpeed( -1 );
@@ -793,8 +796,8 @@ tResult cSWE_ParkPilot::pullOutAlongsideRight()
                 sendSteeringAngle( STEER_NEUTRAL );
                 m_pulloutState = 0;
                 m_parkTrigger = 99;   // fuer testcase sonst wieder 0 setzten
-                //sendParkState( 2 );
-                //sendBlink( BLINK_STOP );
+                sendParkState( 2 );
+                sendBlink( BLINK_STOP );
                 //reset all the bullshit
             }
             if(m_logging == true)
@@ -854,8 +857,8 @@ tResult cSWE_ParkPilot::searchRoutineCross()
                 m_searchState = 503;
                 m_distExit = m_odometryData.distance_sum;
                 m_parkState = 601;
-                //sendParkState( 3 );
-                //sendBlink( BLINK_RIGHT );
+                sendParkState( 3 );
+                sendBlink( BLINK_RIGHT );
 
             }
             if(m_logging == true)
@@ -917,8 +920,8 @@ tResult cSWE_ParkPilot::parkRoutineCross()
             if( m_odometryData.distance_sum <= (m_rememberDist - m_perpendicularBackward)  )
             {
                 sendSpeed( 0 );
-                //sendParkState ( 1 );
-                //sendBlink( BLINK_STOP );
+                sendParkState ( 1 );
+                sendBlink( BLINK_STOP );
                 m_parkState = 605;
             }
             if(m_logging == true)
@@ -939,7 +942,7 @@ tResult cSWE_ParkPilot::pullOutCrossLeft()
     switch( m_pulloutState )
     {
         case 801:
-            //sendBlink( BLINK_LEFT );
+            sendBlink( BLINK_LEFT );
             sendSpeed( 1 );
             if( m_IRFrontRightCur > 500 && m_IRFrontLeftCur > 500 )
             {
@@ -961,8 +964,8 @@ tResult cSWE_ParkPilot::pullOutCrossLeft()
             if( m_angleAbs >= (m_headingAtStart + M_PI_2) )
             {
                 sendSteeringAngle( STEER_NEUTRAL );
-                //sendParkState( 2 );
-                //sendBlink( BLINK_STOP );
+                sendParkState( 2 );
+                sendBlink( BLINK_STOP );
 
                 // set back all the stuff
                 m_parkTrigger = 0;
@@ -999,7 +1002,7 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
     switch( m_pulloutState )
     {
         case 701:
-            //sendBlink( BLINK_RIGHT );
+            sendBlink( BLINK_RIGHT );
             sendSpeed( 1 );
             if( m_IRFrontRightCur > 500 && m_IRFrontLeftCur > 500 )
             {
@@ -1021,8 +1024,8 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
             if( m_angleAbs >= (m_headingAtStart - M_PI_2) )
             {
                 sendSteeringAngle( STEER_NEUTRAL );
-                //sendParkState( 2 );
-                //sendBlink( BLINK_STOP );
+                sendParkState( 2 );
+                sendBlink( BLINK_STOP );
 
                 // set back all the stuff
                 m_parkTrigger = 0;
@@ -1102,31 +1105,34 @@ tResult cSWE_ParkPilot::sendSteeringAngle(tFloat32 steeringAngle)
 }
 
 
-tResult cSWE_ParkPilot::sendParkState(tInt8 parkState)
+tResult cSWE_ParkPilot::sendParkState(tInt8 value)
 {
     cObjectPtr<IMediaCoder> pCoder;
 
     //create new media sample
-    cObjectPtr<IMediaSample> pMediaSample;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+    cObjectPtr<IMediaSample> pMediaSampleOutput;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
 
     //allocate memory with the size given by the descriptor
+    // ADAPT: m_pCoderDescPointLeft
     cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderDescParkStateOut->GetMediaSampleSerializer(&pSerializer);
+    m_pCoderDescParkOutput->GetMediaSampleSerializer(&pSerializer);
     tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSample->AllocBuffer(nSize);
+    pMediaSampleOutput->AllocBuffer(nSize);
 
     //write date to the media sample with the coder of the descriptor
-    RETURN_IF_FAILED(m_pCoderDescParkStateOut->WriteLock(pMediaSample, &pCoder));
-    pCoder->Set("int8Value", (tVoid*)&(parkState));
-    m_pCoderDescParkStateOut->Unlock(pCoder);
+    // ADAPT: m_pCoderDescPointLeft
+    //cObjectPtr<IMediaCoder> pCoder;
+    //---------------------------------------parkwert----------------------------------------------------------------------------------------
+    RETURN_IF_FAILED(m_pCoderDescParkOutput->WriteLock(pMediaSampleOutput, &pCoder));
+    pCoder->Set("int8Value", (tVoid*)&(value));
+    m_pCoderDescParkOutput->Unlock(pCoder);
 
     //transmit media sample over output pin
-    //RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_outputParkState.Transmit(pMediaSample));
-
+    // ADAPT: m_oIntersectionPointLeft
+    RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputParking.Transmit(pMediaSampleOutput));
     RETURN_NOERROR;
-
 }
 
 
