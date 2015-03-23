@@ -64,6 +64,11 @@ tResult cSWE_KIControl::CreateInputPins(__exception)
     RETURN_IF_FAILED(m_JuryStructInputPin.Create("Jury_Struct", new cMediaType(0, 0, 0, "tJuryStruct"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_JuryStructInputPin));
 
+    RETURN_IF_FAILED(m_oCrossingIndicator.Create("Crossing_Indicator", new cMediaType(0, 0, 0, "tCrossingIndicator"), static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oCrossingIndicator));
+
+
+
 
 
 
@@ -128,11 +133,36 @@ tResult cSWE_KIControl::CreateOutputPins(__exception)
     RETURN_IF_FAILED(m_oOutputDriverStruct.Create("DriverStruct", pTypedriverstruct, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputDriverStruct));
     //--------------------------------------------------------------
+ //----------------------------------------------------Lanetrigger----------
+
+    tChar const * lanestr = pDescManager->GetMediaDescription("tBoolSignalValue");
+    RETURN_IF_POINTER_NULL(lanestr);
+
+    cObjectPtr<IMediaType> pTypelaneData = new cMediaType(0, 0, 0, "tBoolSignalValue", lanestr,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+
+    RETURN_IF_FAILED(pTypelaneData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescLane));
+
+    RETURN_IF_FAILED(m_oOutputLane.Create("Lanetrigger", pTypelaneData, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputLane));
+
+
+
+     //----------------------------------------------------tclane------
+    tChar const * lanestr2 = pDescManager->GetMediaDescription("tCrossingIndicator");
+    RETURN_IF_POINTER_NULL(lanestr2);
+
+    cObjectPtr<IMediaType> pTypelaneData2 = new cMediaType(0, 0, 0, "tCrossingIndicator", lanestr2,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+
+    RETURN_IF_FAILED(pTypelaneData2->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDesctclane));
+
+    RETURN_IF_FAILED(m_oOutputtclane.Create("Crossing_Indicatortotc", pTypelaneData2, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_oOutputtclane));
 
 
 
 
-    //TODO: Pin fuer Kreuzungsdaten weiterleiten
+
+
 
 
 
@@ -165,15 +195,22 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         roadfree=true;
         Signtype=0;
         parking=false;
+        crosscall=false;
         adminstopp=false; //Wenn Wettkampf, auf True setzen!!!!!!! GANNNZ WICHTIG SONST GEHT GAR NIX MIT JURY
         status=0;
         Parksteuerung=0;
         blinking=0;
+        crosscalldone=false;
         for(int a=0;a<10;a++)
         {
+        cv::Point2d dumm;
+            dumm.x=2000+a;
+            dumm.y=0;
+            trajectory.push_back(dumm);
 
-            trajectory.at(a).x=2000+a;
-            trajectory.at(a).y=0;
+
+          //  trajectory.at(a).x=2000+a;
+           // trajectory.at(a).y=0;
           //  points[a].x=2000+a;
            // points[a].y=0;
             objecte[a].x=2000+a;
@@ -585,6 +622,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                 roadfree=true;
                 Signtype=0;
                 parking=false;
+                crosscall=false;
                 status=0;
                 Parksteuerung=0;
                 for(int a=0;a<10;a++)
@@ -618,7 +656,66 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
             }
         }
+        //--------------------------------------------------------------Daten von kreuzungserkennung einlesen----------------------------------------------------------------------------------------
 
+        else if(pSource == &m_oCrossingIndicator)
+        {
+
+            // READ INPUT VALUES -------------------------------------------------------------------
+
+            // generate Coder object
+            cObjectPtr<IMediaCoder> pCoder;
+            RETURN_IF_FAILED(m_pCoderDescInputMeasured->Lock(pMediaSample, &pCoder));
+
+            //get values from media sample (x and y exchanged to transform to front axis coo sys)
+            pCoder->Get("isRealStopLine", (tVoid*)&(m_stoplineData.isRealStopLine));
+            pCoder->Get("crossingType", (tVoid*)&(m_stoplineData.crossingType));
+            pCoder->Get("StopLinePoint1.xCoord", (tVoid*)&(m_stoplineData.StopLinePoint1.x));
+            pCoder->Get("StopLinePoint1.yCoord", (tVoid*)&(m_stoplineData.StopLinePoint1.y));
+            pCoder->Get("StopLinePoint2.xCoord", (tVoid*)&(m_stoplineData.StopLinePoint2.x));
+            pCoder->Get("StopLinePoint2.yCoord", (tVoid*)&(m_stoplineData.StopLinePoint2.y));
+            m_pCoderDescInputMeasured->Unlock(pCoder);
+
+
+            // DO WHAT HAS TO BE DONE -------------------------------------------------------------------
+//            1=geradeaus und links
+//            2=geradeaus und rechts
+//            3=gerade aus und beides
+//            4=links und rechts
+            if(Commands[CommandCounter]>5)
+            {
+
+                if(m_stoplineData.crossingType == 4)
+                    parkbefehl=1;
+                else
+                      parkbefehl=2;
+
+            }
+            else if(Commands[CommandCounter]==3)
+            {
+
+               transmitCrossingIndicator(  m_stoplineData.isRealStopLine, m_stoplineData.crossingType , m_stoplineData.StopLinePoint1 , m_stoplineData.StopLinePoint2 );
+
+            }
+            else
+            {
+                if(crosscall)
+                {
+                    kreuzungstyp=m_stoplineData.crossingType ;
+
+                    crosscall=false;
+                    crosscalldone=true;
+                }
+                else
+                {
+                    if(!m_stoplineData.isRealStopLine)
+                        m_stoplineData.isRealStopLine=true;
+
+                    transmitCrossingIndicator(  m_stoplineData.isRealStopLine, m_stoplineData.crossingType , m_stoplineData.StopLinePoint1 , m_stoplineData.StopLinePoint2 );
+                }
+             }
+
+        }
 
 
         //--------------------------------------------------------------Daten vom TC einlesen----------------------------------------------------------------------------------------
@@ -656,6 +753,42 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
     }
     RETURN_NOERROR;
 }
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------Send to Lane-------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+ tResult cSWE_KIControl::sendtoLane(bool value)
+ {
+     cObjectPtr<IMediaCoder> pCoder;
+
+     //create new media sample
+     cObjectPtr<IMediaSample> pMediaSampleOutput;
+     RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleOutput));
+
+     //allocate memory with the size given by the descriptor
+     // ADAPT: m_pCoderDescPointLeft
+     cObjectPtr<IMediaSerializer> pSerializer;
+     m_pCoderDescLane->GetMediaSampleSerializer(&pSerializer);
+     tInt nSize = pSerializer->GetDeserializedSize();
+     pMediaSampleOutput->AllocBuffer(nSize);
+
+     //write date to the media sample with the coder of the descriptor
+     // ADAPT: m_pCoderDescPointLeft
+     //cObjectPtr<IMediaCoder> pCoder;
+     //---------------------------------------parkwert----------------------------------------------------------------------------------------
+     RETURN_IF_FAILED(m_pCoderDescLane->WriteLock(pMediaSampleOutput, &pCoder));
+     pCoder->Set("bValue", (tVoid*)&(value));
+     m_pCoderDescLane->Unlock(pCoder);
+
+     //transmit media sample over output pin
+     // ADAPT: m_oIntersectionPointLeft
+     RETURN_IF_FAILED(pMediaSampleOutput->SetTime(_clock->GetStreamTime()));
+     RETURN_IF_FAILED(m_oOutputLane.Transmit(pMediaSampleOutput));
+     RETURN_NOERROR;
+ }
+
 
 
 
@@ -1123,60 +1256,68 @@ void cSWE_KIControl::DriverCalc()
                 tTimeStamp m_currTimeStamp= cSystem::GetTime();
                 while((cSystem::GetTime()-m_currTimeStamp)<5); //(Robert)
 
-                //Hier muss Kreuzungstyp feststehen
-                if(SecondSigntype!=3 && kreuzungstyp!=2 )//alle typen bei dennen ein links abbiegen moeglich ist.
-                {
 
-                    if(abgebogen)
+                crosscall=true;
+                sendtoLane(true);
+                if(crosscalldone)
+                {
+                    //Hier muss Kreuzungstyp feststehen
+                    if(SecondSigntype!=3 && kreuzungstyp!=2 )//alle typen bei dennen ein links abbiegen moeglich ist.
                     {
-                        if(CommandCounter!=CommandCountermax)
-                            CommandCounter++;
+
+                        if(abgebogen)
+                        {
+                            if(CommandCounter!=CommandCountermax)
+                                CommandCounter++;
+                            else
+                            {
+                                status=3;
+
+                                //Game Over sieg hier rein was passieren soll, wenn ziel erreicht
+                            }
+                            Signtype=0;
+                            SecondSigntype=0;
+                            signsize=0;
+                            abgebogen=false;
+                            halteLinie=false;
+                            roadfree=true;
+                            crosscalldone=false;
+                            kreuzungstyp=0;
+                             crosscalldone=false;
+                        }
                         else
                         {
-                            status=3;
-
-                            //Game Over sieg hier rein was passieren soll, wenn ziel erreicht
+                            if(roadfree)
+                            {
+                                sendTC(SpeedControl,2);
+                                ControlLight(3);
+                            }
                         }
-                        Signtype=0;
-                        SecondSigntype=0;
-                        signsize=0;
-                        abgebogen=false;
-                        halteLinie=false;
-                        roadfree=true;
-                        kreuzungstyp=0;
                     }
                     else
                     {
-                        if(roadfree)
+                        if(abgebogen)
                         {
-                            sendTC(SpeedControl,2);
-                            ControlLight(3);
+
+                            Signtype=0;
+                            SecondSigntype=0;
+                            signsize=0;
+                            abgebogen=false;
+                            halteLinie=false;
+                            roadfree=true;
+                            kreuzungstyp=0;
+                             crosscalldone=false;
+                        }
+                        else
+                        {
+                            if(roadfree)
+                            {
+                                sendTC(SpeedControl,5);
+                                ControlLight(1);
+                            }
                         }
                     }
                 }
-                else
-                {
-                    if(abgebogen)
-                    {
-
-                        Signtype=0;
-                        SecondSigntype=0;
-                        signsize=0;
-                        abgebogen=false;
-                        halteLinie=false;
-                        roadfree=true;
-                        kreuzungstyp=0;
-                    }
-                    else
-                    {
-                        if(roadfree)
-                        {
-                            sendTC(SpeedControl,5);
-                            ControlLight(1);
-                        }
-                    }
-                }
-
             }
             else
             {
@@ -1210,7 +1351,10 @@ void cSWE_KIControl::DriverCalc()
                     while((cSystem::GetTime()-m_currTimeStamp)<5);
                 }
                 //Hier muss Kreuzungstyp feststehen
-
+                crosscall=true;
+                sendtoLane(true);
+                if(crosscalldone)
+                {
                 if(SecondSigntype!=3 && kreuzungstyp!=1 )//alle typen bei dennen ein links abbiegen moeglich ist.
                 {
 
@@ -1226,6 +1370,7 @@ void cSWE_KIControl::DriverCalc()
                         SecondSigntype=0;
                         abgebogen=false;
                         halteLinie=false;
+                        crosscalldone=false;
                         roadfree=true;
                         kreuzungstyp=0;
                     }
@@ -1247,6 +1392,7 @@ void cSWE_KIControl::DriverCalc()
                         SecondSigntype=0;
                         abgebogen=false;
                         halteLinie=false;
+                         crosscalldone=false;
                         roadfree=true;
                         kreuzungstyp=0;
                     }
@@ -1259,7 +1405,7 @@ void cSWE_KIControl::DriverCalc()
                         }
                     }
                 }
-
+}
             }
             else
             {
@@ -1296,7 +1442,10 @@ void cSWE_KIControl::DriverCalc()
                     while((cSystem::GetTime()-m_currTimeStamp)<5);
                 }
                 //Hier muss Kreuzungstyp feststehen
-
+                crosscall=true;
+                sendtoLane(true);
+                if(crosscalldone)
+                {
                 if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus moeglich ist.
                 {
 
@@ -1313,6 +1462,7 @@ void cSWE_KIControl::DriverCalc()
                         abgebogen=false;
                         halteLinie=false;
                         roadfree=true;
+                        crosscalldone=false;
                         kreuzungstyp=0;
                     }
                     else
@@ -1334,6 +1484,7 @@ void cSWE_KIControl::DriverCalc()
                         abgebogen=false;
                         halteLinie=false;
                         roadfree=true;
+                       crosscalldone=false;
                         kreuzungstyp=0;
                     }
                     else
@@ -1345,7 +1496,7 @@ void cSWE_KIControl::DriverCalc()
                         }
                     }
                 }
-
+}
             }
             else
             {
@@ -1373,7 +1524,8 @@ void cSWE_KIControl::DriverCalc()
             {
                       Parkroutine(1);
                          parkbefehl=1;
-            }
+            }                    
+
              if(Signtype==4 ||(Signtype==0 && kreuzungstyp==0)) // wenn wir im Parken modus oder kein Schild haben
             {
                 if(SpeedControl!=0)
@@ -1400,13 +1552,16 @@ void cSWE_KIControl::DriverCalc()
                         while((cSystem::GetTime()-m_currTimeStamp)<5);
                     }
                     //Hier muss Kreuzungstyp feststehen
-
+                    crosscall=true;
+                    sendtoLane(true);
+                    if(crosscalldone)
+                    {
                     if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus moeglich ist.
                     {
 
                         if(abgebogen)
                         {
-
+crosscalldone=false;
                             Signtype=0;
                             SecondSigntype=0;
                             abgebogen=false;
@@ -1433,6 +1588,7 @@ void cSWE_KIControl::DriverCalc()
                             abgebogen=false;
                             halteLinie=false;
                             roadfree=true;
+                           crosscalldone=false;
                             kreuzungstyp=0;
                         }
                         else
@@ -1444,7 +1600,7 @@ void cSWE_KIControl::DriverCalc()
                             }
                         }
                     }
-
+}
                 }
                 else
                 {
@@ -1502,13 +1658,16 @@ void cSWE_KIControl::DriverCalc()
                         while((cSystem::GetTime()-m_currTimeStamp)<5);
                     }
                     //Hier muss Kreuzungstyp feststehen
-
+                    crosscall=true;
+                    sendtoLane(true);
+                    if(crosscalldone)
+                    {
                     if(kreuzungstyp!=4 )//alle typen bei dennen ein gerade aus moeglich ist.
                     {
 
                         if(abgebogen)
                         {
-
+ crosscalldone=false;
                             Signtype=0;
                             SecondSigntype=0;
                             abgebogen=false;
@@ -1529,7 +1688,7 @@ void cSWE_KIControl::DriverCalc()
                     {
                         if(abgebogen)
                         {
-
+  crosscalldone=false;
                             Signtype=0;
                             SecondSigntype=0;
                             abgebogen=false;
@@ -1546,7 +1705,7 @@ void cSWE_KIControl::DriverCalc()
                             }
                         }
                     }
-
+}
                 }
                 else
                 {
@@ -1645,6 +1804,64 @@ void cSWE_KIControl::ControlHL()
     hlsearch=!hlsearch;
     //Enable or Disable HalteLinien
 }
+
+
+
+
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------Crossingindicator-------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+tResult cSWE_KIControl::transmitCrossingIndicator( const tBool isRealStopLine , const tInt8 crossingType , const cv::Point2d& StopLinePoint1 , const cv::Point2d& StopLinePoint2 )
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSampleCrossIndicator;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleCrossIndicator));
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderDesctclane->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSampleCrossIndicator->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    RETURN_IF_FAILED(m_pCoderDesctclane->WriteLock(pMediaSampleCrossIndicator, &pCoder));
+
+    pCoder->Set("isRealStopLine", (tVoid*)&(isRealStopLine));
+    pCoder->Set("crossingType", (tVoid*)&(crossingType));
+    pCoder->Set("StopLinePoint1.xCoord", (tVoid*)&(StopLinePoint1.x));
+    pCoder->Set("StopLinePoint1.yCoord", (tVoid*)&(StopLinePoint1.y));
+    pCoder->Set("StopLinePoint2.xCoord", (tVoid*)&(StopLinePoint2.x));
+    pCoder->Set("StopLinePoint2.yCoord", (tVoid*)&(StopLinePoint2.y));
+
+    m_pCoderDesctclane->Unlock(pCoder);
+
+    //transmit media sample over output pin
+
+    RETURN_IF_FAILED(pMediaSampleCrossIndicator->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputtclane.Transmit(pMediaSampleCrossIndicator));
+
+    RETURN_NOERROR;
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------Distanz zu geraden Funktion Mat-------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

@@ -35,6 +35,8 @@ class cSWE_KIControl : public adtf::cFilter
     cInputPin m_oInputSignData;
     cInputPin m_oInputParkData;
     cInputPin m_oInputTC;
+
+   cInputPin  m_oCrossingIndicator;
   cInputPin  m_JuryStructInputPin;
 
     //Was das?V
@@ -44,8 +46,10 @@ class cSWE_KIControl : public adtf::cFilter
     cOutputPin m_oOutputDriverCourse;
     cOutputPin m_oOutputLightControl;
     cOutputPin m_oOutputTC;
+     cOutputPin m_oOutputLane;
     cOutputPin m_oOutputParking;
     cOutputPin m_oOutputDriverStruct;
+    cOutputPin m_oOutputtclane;
     //cOutputPin m_oOutputManipulated;
 
 public:
@@ -88,6 +92,8 @@ int blinking;
     bool abgebogen;
     bool roadfree;
 	bool parking;
+    bool crosscall;
+    bool crosscalldone;
     double Punktx;
     double Punkty;
     bool adminstopp;
@@ -99,11 +105,23 @@ int blinking;
     void ObjectAvoidance();
     void DriverCalc();
     tResult sendTC(int speed, int type);
+tResult transmitCrossingIndicator( const tBool isRealStopLine , const tInt8 crossingType , const cv::Point2d& StopLinePoint1 , const cv::Point2d& StopLinePoint2 );
+    typedef struct
+    {
+        tBool isRealStopLine;
+        tInt crossingType;
+        cv::Point2d StopLinePoint1;
+        cv::Point2d StopLinePoint2;
+    }stoplineData;
 
-
+    stoplineData m_stoplineData;
 
 
     tResult Parkroutine(tInt8 value);
+     tResult sendtoLane(bool value);
+
+
+
     void ControlHL();
     tResult ControlLight(int lights);
     tResult SendtoJury(tInt8 i8StateID, tInt16 i16ManeuverEntry);
@@ -120,9 +138,13 @@ int blinking;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescTCOutput;
      cObjectPtr<IMediaTypeDescription> m_pCoderDescParkOutput;
         cObjectPtr<IMediaTypeDescription>  m_pCoderDescDriverStruct;
+        cObjectPtr<IMediaTypeDescription>  m_pCoderDescLane;
     /*! Coder Descriptors for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescPointLeft;
+
+
+   cObjectPtr<IMediaTypeDescription> m_pCoderDesctclane;
 
     /*! this is the filename of the maneuver list*/
      cFilename m_maneuverListFile;
