@@ -1,7 +1,7 @@
 
 #include "SWE_Maneuver.h"
 
-#define DEBUG_OUTPUT true //DEBUG
+#define DEBUG_OUTPUT false //DEBUG
 
 #define STEER_NEUTRAL 0
 #define STEER_LEFT 30

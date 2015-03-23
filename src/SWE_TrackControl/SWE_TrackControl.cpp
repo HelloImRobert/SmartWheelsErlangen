@@ -11,7 +11,7 @@
 #define STATUS_ENDOFTURN 1  //= ended turn maneuver
 #define STATUS_ATSTOPLINE 2 //= stopped at stopline
 #define DEBUG_OUTPUT false //DEBUG
-#define CLOSE_STOPLINE 350 //when approaching stopline this close, don't use camera steering anymore
+#define CLOSE_STOPLINE 1200 //when approaching stopline this close, be careful to use camera steering
 
 
 
@@ -20,7 +20,6 @@ ADTF_FILTER_PLUGIN("SWE TrackControl", OID_ADTF_SWE_TRACKCONTROL, cSWE_TrackCont
 cSWE_TrackControl::cSWE_TrackControl(const tChar* __info) : cFilter(__info), m_PerpenticularPoint(1.0, 0.0), m_oManeuverObject(_clock)
 {
     m_old_steeringAngle = 0.0;
-    m_property_useNewCalc = false;
     m_input_intersectionIndicator = 0;
 
     SetPropertyFloat("Wheelbase in mm", 359);
@@ -132,7 +131,7 @@ tResult cSWE_TrackControl::Init(tInitStage eStage, __exception)
 tResult cSWE_TrackControl::Start(__exception)
 {
 
-    m_property_useNewCalc =             (tBool)SetPropertyBool("Use new angle calculation", true);
+    m_property_useNewCalc =             (tBool)GetPropertyBool("Use new angle calculation", true);
     m_property_stopAtVirtualSL =        (tBool)GetPropertyBool("Stop at virtual stoplines", true);
     m_property_useTestMode =            (tBool)GetPropertyBool("Use Testmode", false);
     m_property_TestModeStartCommand =   (tInt8)GetPropertyInt("Testmode start command", 1);
@@ -145,7 +144,7 @@ tResult cSWE_TrackControl::Start(__exception)
     m_input_Command = -1;
     m_input_intersectionIndicator = 0;
     m_angleAbs = 0;
-    m_old_steeringAngle = 0;
+    m_old_steeringAngle = 0.0;
 
     m_status_noSteering = false;
     m_status_noGears = false;
@@ -323,7 +322,6 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngleTrajectory( const cv::Point2d& trac
         {
             steeringAngle = (-1.0)*steeringAngle;
         }
-        m_old_steeringAngle = steeringAngle;
     }
     else
     {
@@ -335,7 +333,7 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngleTrajectory( const cv::Point2d& trac
 
 tFloat64 cSWE_TrackControl::CalcSteeringAngleCircle( const cv::Point2d& trackingPoint, const tInt8 intersectionIndicator )
 {
-    tFloat64 steeringAngle = 0;
+    tFloat32 steeringAngle = 0;
 
     // transform tracking point in rear axis coo sys
     cv::Point2d trackingPoint_ra;
@@ -345,12 +343,11 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngleCircle( const cv::Point2d& tracking
     // calculate steering angle
     if( intersectionIndicator != 0 )
     {
-        double alpha = std::atan2( trackingPoint_ra.y, trackingPoint_ra.x );
-        double distance = cv::norm( trackingPoint_ra );
-        double radius = distance / ( 2* std::sin( alpha + 1e-3 ) );
+        tFloat32 alpha = (tFloat32)std::atan2( (tFloat32)trackingPoint_ra.y, (tFloat32)trackingPoint_ra.x );
+        tFloat32 distance = (tFloat32)cv::norm( trackingPoint_ra );
+        tFloat32 radius = (tFloat32)(distance / ( 2* std::sin( alpha + 1e-3 ) ));
 
-        steeringAngle = std::atan( m_wheelbase / radius );
-
+        steeringAngle = (tFloat32)std::atan( m_wheelbase / radius );
     }
     else
     {
@@ -362,6 +359,12 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngleCircle( const cv::Point2d& tracking
         steeringAngle = 0.785;
     else if (steeringAngle < -0.785)
         steeringAngle = -0.785;
+
+    //DEBUG
+    /*
+    if (DEBUG_OUTPUT)
+        LOG_ERROR(cString("TC: in Calc Steering Angle old angle: ") + cString::FromFloat64(m_old_steeringAngle) + cString("intersection Indicator: " + cString::FromInt32(intersectionIndicator)) );
+    */
 
     return steeringAngle;
 }
@@ -390,11 +393,17 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
     if(m_property_useNewCalc) //two alternative modes of calculation
     {
-        m_outputSteeringAngle = 180.0/CV_PI * ( CalcSteeringAngleCircle( m_input_trackingPoint, m_input_intersectionIndicator ) );
+        if (DEBUG_OUTPUT)
+            LOG_ERROR(cString("TC: calculating steering angle circle:"));
+
+        m_outputSteeringAngle = 180.0/CV_PI * (tFloat32)( CalcSteeringAngleCircle( m_input_trackingPoint, m_input_intersectionIndicator ) );
     }
     else
     {
-        m_outputSteeringAngle = 180.0/CV_PI*( CalcSteeringAngleTrajectory( m_input_trackingPoint, m_input_intersectionIndicator ) );
+        if (DEBUG_OUTPUT)
+            LOG_ERROR(cString("TC: calculating steering angle normal:"));
+
+        m_outputSteeringAngle = 180.0/CV_PI* (tFloat32)( CalcSteeringAngleTrajectory( m_input_trackingPoint, m_input_intersectionIndicator ) );
     }
 
 
@@ -557,7 +566,11 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
             // use normal steering angle if not too close
-            if(m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE)
+            if( (m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE) && (m_oManeuverObject.GetStoplineType() == true) && ((m_input_trackingPoint.y > 150) && ( m_input_intersectionIndicator != 0) ) ) //tracking point probably erronous?
+            {
+                m_oManeuverObject.GetSteeringAngle();
+            }
+            else if (m_input_intersectionIndicator == 0) //no tracking point?
                 m_oManeuverObject.GetSteeringAngle();
 
 
@@ -586,7 +599,11 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
             // use normal steering angle if not too close
-            if(m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE)
+            if( (m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE) && (m_oManeuverObject.GetStoplineType() == true) && ((m_input_trackingPoint.y > 150) && ( m_input_intersectionIndicator != 0) ) ) //tracking point probably erronous?
+            {
+                m_oManeuverObject.GetSteeringAngle();
+            }
+            else if (m_input_intersectionIndicator == 0) //no tracking point?
                 m_oManeuverObject.GetSteeringAngle();
 
 
@@ -779,8 +796,6 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
 
-
-
     default:
         m_outputStatus= STATUS_NORMAL;
         m_outputGear = 0;
@@ -806,11 +821,16 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
     if(m_property_InvSteering)
         m_outputSteeringAngle *= -1;
 
+
     //send steering angle
     if (!m_status_noSteering)
     {
         SendSteering(m_outputSteeringAngle);
-        m_old_steeringAngle = m_outputSteeringAngle;
+
+        if(m_property_InvSteering)
+            m_old_steeringAngle = -m_outputSteeringAngle;
+        else
+            m_old_steeringAngle = m_outputSteeringAngle;
     }
 
     // keep gear within boundries

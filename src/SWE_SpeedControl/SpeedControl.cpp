@@ -24,8 +24,8 @@ SpeedControl::SpeedControl(const tChar* __info) : cFilter(__info), m_velocity(0)
     SetPropertyFloat("Gear -2 PWM value", -25);
     SetPropertyFloat("Gear -2 speed threshold",-1000);
 
-    SetPropertyFloat("light brake strength", 0.03); //pwm value for light braking
-    SetPropertyFloat("strong brake strength",0.1);  //pwm value for strong braking
+    SetPropertyFloat("light brake strength", 0.1); //pwm value for light braking
+    SetPropertyFloat("strong brake strength",0.2);  //pwm value for strong braking
 
     SetPropertyFloat("acceleration boost", 1.1); //pwm boost value for acceleration 1.0 = no boost
 
@@ -205,11 +205,11 @@ tResult SpeedControl::Init(tInitStage eStage, __exception)
     m_setPoint_n2 = (m_threshold_n2 - m_threshold_n1) * 0.5 + m_threshold_n1;
 
 
-    m_lightBrake = -100*(tFloat32)GetPropertyFloat("light brake strength", 0.05);
-    m_inv_lightBrake = 100*(tFloat32)GetPropertyFloat("light brake strength", 0.05);
+    m_lightBrake = -100*(tFloat32)GetPropertyFloat("light brake strength", 0.1);
+    m_inv_lightBrake = 100*(tFloat32)GetPropertyFloat("light brake strength", 0.1);
 
-    m_strongBrake = -100*(tFloat32)GetPropertyFloat("strong brake strength",0.1);
-    m_inv_strongBrake = 100*(tFloat32)GetPropertyFloat("strong brake strength",0.1);
+    m_strongBrake = -100*(tFloat32)GetPropertyFloat("strong brake strength",0.2);
+    m_inv_strongBrake = 100*(tFloat32)GetPropertyFloat("strong brake strength",0.2);
 
     m_pwmScaler = (tFloat32)GetPropertyFloat("PWM scaler", 1.0);
 

@@ -126,9 +126,9 @@ private:
 
     tFloat32 m_angleAbs;
 
-    tFloat64 m_old_steeringAngle;
+    tFloat32 m_old_steeringAngle;
 
-    tFloat64 m_wheelbase;
+    tFloat32 m_wheelbase;
 
     cv::Point2d m_PerpenticularPoint;
     cv::Point2d m_input_trackingPoint;
