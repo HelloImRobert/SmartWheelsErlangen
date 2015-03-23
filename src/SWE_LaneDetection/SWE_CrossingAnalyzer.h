@@ -9,7 +9,8 @@ enum analysisResult
 {
     NORESULT,
     OPENING,
-    STOPLINE
+    STOPLINE,
+    CROSSINGDETECTION
 };
 
 class CrossingDescriptor
@@ -28,6 +29,7 @@ class CrossingAnalyzer
 
 public:
     CrossingDescriptor searchCrossings(BlobDescriptor* leftLaneBlob, BlobDescriptor* rightLaneBlob);
+    int classifyCrossings(std::vector< BlobDescriptor > &contours);
     CrossingAnalyzer();
 private:
 
@@ -44,6 +46,8 @@ private:
     double _higherLengthTresh;
     double _arcLengthThresh;
     double _angleTolerance;
+    double _veryLineLikeThresh;
+    double _minOuterBoundaryLength;
 
     double _higherFlatAngleThresh;
     double _higherFlatAngleThresh2;
