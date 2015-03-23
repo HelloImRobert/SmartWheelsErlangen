@@ -1126,6 +1126,7 @@ tResult cSWE_ParkPilot::sendParkState(tInt8 parkState)
     RETURN_IF_FAILED(m_outputParkState.Transmit(pMediaSample));
 
     RETURN_NOERROR;
+
 }
 
 

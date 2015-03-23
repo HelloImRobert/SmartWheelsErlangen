@@ -21,6 +21,7 @@ cSWE_TrackControl::cSWE_TrackControl(const tChar* __info) : cFilter(__info), m_P
 {
     m_old_steeringAngle = 0.0;
     m_property_useNewCalc = false;
+    m_input_intersectionIndicator = 0;
 
     SetPropertyFloat("Wheelbase in mm", 359);
     SetPropertyBool("Use new angle calculation", true);
@@ -350,7 +351,6 @@ tFloat64 cSWE_TrackControl::CalcSteeringAngleCircle( const cv::Point2d& tracking
 
         steeringAngle = std::atan( m_wheelbase / radius );
 
-        m_old_steeringAngle = steeringAngle;
     }
     else
     {
@@ -789,7 +789,6 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
         break;
 
     }
-
 
 
 

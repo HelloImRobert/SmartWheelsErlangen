@@ -32,7 +32,7 @@ cSWE_KIControl::~cSWE_KIControl()
 
 tResult cSWE_KIControl::CreateInputPins(__exception)
 {
-    //MB NeuetInt8SignalValue PinstPointstPointstPoints
+    //MB NeuetInt8SignalValue PinstPointstPointstPoints das MAgische es geht alles wieder Kommentarfeld
 
 
 
@@ -165,9 +165,10 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         roadfree=true;
         Signtype=0;
         parking=false;
-        adminstopp=false; //Wenn Wettkampf, auf True setzen
+        adminstopp=false; //Wenn Wettkampf, auf True setzen!!!!!!! GANNNZ WICHTIG SONST GEHT GAR NIX MIT JURY
         status=0;
         Parksteuerung=0;
+        blinking=0;
         for(int a=0;a<10;a++)
         {
             points[a].x=2000+a;
@@ -385,7 +386,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             //     }
 
 
-            //Hier die Objekte auslesen, und in eigene Vecor bauen
+
             if( adminstopp!=true)
             {
                 if(parking==false)
@@ -413,17 +414,17 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
 
 
-            //            stringstream elementGetter;
-            //            for( size_t j = 0; j < 10; j++)
-            //            {
-            //                elementGetter << "tPoint[" << j << "].xCoord";
-            //                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
-            //                elementGetter.str(std::string());
+                       stringstream elementGetter;
+                      for( size_t j = 0; j < 10; j++)
+                        {
+                           elementGetter << "tPoint[" << j << "].xCoord";
+                          pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
+                          elementGetter.str(std::string());
 
-            //                elementGetter << "tPoint[" << j << "].yCoord";
-            //                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
-            //                elementGetter.str(std::string());
-            //            }
+                          elementGetter << "tPoint[" << j << "].yCoord";
+                           pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
+                            elementGetter.str(std::string());
+                       }
 
             m_pCoderDescInputMeasured->Unlock(pCoder);
 
@@ -565,26 +566,51 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             {
                 //scheinbar stopp befehl
                 adminstopp=true;
-                //SendtoJury(tInt8 i8StateID, tInt16 i16ManeuverEntry)
-                // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Stop with maneuver ID %d",i16entry));
-                //emit sendStop((int)i16entry);
+
+                //Parkroutine für Markus das er weiß jetzt ist stopp
+                Parkroutine(0);
+
+
+                //Variablen neu Initialisieren
+                halteLinie=false;
+                hlsearch=false;
+                blinking=0;
+                abgebogen=false;
+                roadfree=true;
+                Signtype=0;
+                parking=false;
+                status=0;
+                Parksteuerung=0;
+                for(int a=0;a<10;a++)
+                {
+                    points[a].x=2000+a;
+                    points[a].y=0;
+                    objecte[a].x=2000+a;
+                    objecte[a].y=0;
+                }
+
+                signsize=0;
+
+
             }
             else if (i8ActionID==0)
             {
+
+                CommandCounter=i8ActionID;
+
                 //Ready anforderung
-                //TODO:: einfuegen was tut Jury
-                // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Request Ready with maneuver ID %d",i16entry));
-                //emit sendRequestReady((int)i16entry);
+                //TODO:: Ready an Jury senden
+
             }
             else if (i8ActionID==1)
             {
                 adminstopp=false;
+
                 //Start
-                // if(m_bDebugModeEnabled)  LOG_INFO(cString::Format("Driver Module: Received: Run with maneuver ID %d",i16entry));
-                //emit sendRun((int)i16entry);
+
             }
         }
-        //TODO:: auch Markus schicken, das es Notbremsung gibt
+
 
 
         //--------------------------------------------------------------Daten vom TC einlesen----------------------------------------------------------------------------------------
@@ -722,7 +748,7 @@ void cSWE_KIControl::ObjectAvoidance()
                         m_boundary.first.x=0;
                         m_boundary.first.y=0;
                         //TODO:: richtige werte fuer zweiten Punkt
-                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.x=200;//zweiter wert auf der anderen Seite der KReuzung
                         m_boundary.second.y=0;
 
 
@@ -747,7 +773,7 @@ void cSWE_KIControl::ObjectAvoidance()
                         m_boundary.first.x=0;
                         m_boundary.first.y=0;
 
-                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.x=200;//zweiter wert auf der anderen Seite der KReuzung
                         m_boundary.second.y=0;
 
 
@@ -770,7 +796,7 @@ void cSWE_KIControl::ObjectAvoidance()
                         m_boundary.first.x=0;
                         m_boundary.first.y=0;
 
-                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.x=200;//zweiter wert auf der anderen Seite der KReuzung
                         m_boundary.second.y=0;
 
 
@@ -793,7 +819,7 @@ void cSWE_KIControl::ObjectAvoidance()
                         m_boundary.first.x=0;
                         m_boundary.first.y=0;
 
-                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.x=200;//zweiter wert auf der anderen Seite der KReuzung
                         m_boundary.second.y=0;
 
 
@@ -825,7 +851,7 @@ void cSWE_KIControl::ObjectAvoidance()
                         m_boundary.first.x=0;
                         m_boundary.first.y=0;
 
-                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.x=200;//zweiter wert auf der anderen Seite der KReuzung
                         m_boundary.second.y=0;
 
 
@@ -848,7 +874,7 @@ void cSWE_KIControl::ObjectAvoidance()
                         m_boundary.first.x=0;
                         m_boundary.first.y=0;
 
-                        m_boundary.second.x=0;//zweiter wert auf der anderen Seite der KReuzung
+                        m_boundary.second.x=200;//zweiter wert auf der anderen Seite der KReuzung
                         m_boundary.second.y=0;
 
 
@@ -874,7 +900,7 @@ void cSWE_KIControl::ObjectAvoidance()
             else
             {
 
-                //Strassenpunkte  auf 10 setzen
+
                 int ti=10;
                 int ia=0;
                 //Alle Strassenpunkte durchlaufen
@@ -908,10 +934,10 @@ void cSWE_KIControl::ObjectAvoidance()
                     if(distline<=site)
                     {
 
-                        double distanz;//=sqrt(objecte[i].x*objecte[i].x+objecte[i].y*objecte[i].y);
+                        double distanz;
                         distanz=cv::norm(objecte[i]);
 
-                        if(distanz<=Notbrems)// && distanz>3
+                        if(distanz<=Notbrems)
                         {
 
                             //Notbremsung
@@ -951,7 +977,7 @@ void cSWE_KIControl::ObjectAvoidance()
                         {
                             //Objekte weit genug weg
                             ControlLight(1);
-                            SpeedControl=2;
+                            SpeedControl=3;
                         }
 
 
@@ -959,7 +985,7 @@ void cSWE_KIControl::ObjectAvoidance()
                     else
                     {
 
-                        SpeedControl=2;
+                        SpeedControl=3;
                     }
 
                 }
@@ -970,7 +996,7 @@ void cSWE_KIControl::ObjectAvoidance()
         {
             noObject--;
             if(noObject==0)
-                SpeedControl=2;
+                SpeedControl=3;
         }
     }
 
@@ -1042,15 +1068,7 @@ void cSWE_KIControl::DriverCalc()
 {
 
     /*
- *
- * Daten in Punkte array schreiben
- *
- * Bestimmt nicht die Geschwindikeit, die wird allein durch das immer aktive Objektmodul angegeben.
- *
- *
- *
- *
- *
+
        *Int werte in Commands:
        * 1=left
        * 2=right
@@ -1071,13 +1089,13 @@ void cSWE_KIControl::DriverCalc()
 
  */
 
-    // TODO: Parken richtig einbauen, und die Kreuzungsgeschichte Korrekteinbinden
+    // TODO: die Kreuzungsgeschichte Korrekteinbinden
     switch (Commands[CommandCounter])
     {
     //left-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 1:
         // LOG_ERROR("MB: Links abbiegen jetzte aber richtig ");
-        if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
+        if(Signtype==4 ||(Signtype==0 && kreuzungstyp==0)) // wenn wir im Parken modus oder kein Schild haben und keine Kreuzung
         {
             sendTC(SpeedControl,1);
 
@@ -1164,7 +1182,7 @@ void cSWE_KIControl::DriverCalc()
         break;
         //right-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 2:
-        if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
+         if(Signtype==4 ||(Signtype==0 && kreuzungstyp==0))// wenn wir im Parken modus oder kein Schild haben
         {
             sendTC(SpeedControl,1);
             LOG_INFO(cString::Format( "MB:KiLicht an "));
@@ -1247,7 +1265,7 @@ void cSWE_KIControl::DriverCalc()
         break;
         //straigth-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 3:
-        if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
+        if(Signtype==4 ||(Signtype==0 && kreuzungstyp==0)) // wenn wir im Parken modus oder kein Schild haben
         {
             sendTC(SpeedControl,1);
 
@@ -1348,7 +1366,7 @@ void cSWE_KIControl::DriverCalc()
                       Parkroutine(1);
                          parkbefehl=1;
             }
-            if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
+             if(Signtype==4 ||(Signtype==0 && kreuzungstyp==0)) // wenn wir im Parken modus oder kein Schild haben
             {
                 if(SpeedControl!=0)
                 sendTC(1,1);
@@ -1450,7 +1468,7 @@ void cSWE_KIControl::DriverCalc()
                 Parkroutine(2);
                 parkbefehl=2;
             }
-            if(Signtype==4 ||Signtype==0 ) // wenn wir im Parken modus oder kein Schild haben
+             if(Signtype==4 ||(Signtype==0 && kreuzungstyp==0)) // wenn wir im Parken modus oder kein Schild haben
             {
                 if(SpeedControl!=0)
                 sendTC(1,1);
@@ -1577,8 +1595,11 @@ tResult cSWE_KIControl::ControlLight(int lights)
     *
     *
     */
-    if(lights==9)
-    {
+    if(blinking!=lights && (lights==3 ||lights==5 || lights==1))
+       {
+
+        blinking=lights;
+
         cObjectPtr<IMediaCoder> pCoder;
 
         //create new media sample

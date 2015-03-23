@@ -74,7 +74,7 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
      cv::Point2d points[10];
 
 
-
+int blinking;
      int parkbefehl;
     int CommandCounter;
      int CommandCountermax;
