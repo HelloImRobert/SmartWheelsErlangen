@@ -292,7 +292,7 @@ CrossingDescriptor CrossingAnalyzer::fuseSidesToCrossing(const CrossingDescripto
         if (rightSide.result == OPENING && leftSide.result != OPENING)
         {
             crossing.result = OPENING;
-            crossing.type = 0;
+            crossing.type = 2;
             crossing.stopLine = rightSide.stopLine;
         }
         else if (leftSide.result == OPENING && rightSide.result != OPENING)
@@ -304,7 +304,7 @@ CrossingDescriptor CrossingAnalyzer::fuseSidesToCrossing(const CrossingDescripto
         else if (rightSide.result == OPENING && leftSide.result == OPENING)
         {
             crossing.result = OPENING;
-            crossing.type = 2;
+            crossing.type = 3;
 
             std::pair<cv::Point, cv::Point> averagedStopLine;
             averagedStopLine.first.x = (rightSide.stopLine.first + leftSide.stopLine.first).x / 2;

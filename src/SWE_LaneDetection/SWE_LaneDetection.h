@@ -73,6 +73,7 @@ class cSWE_LaneDetection : public adtf::cFilter
             void                        drawStopLine                    (cv::Mat image, const CrossingDescriptor crossing , cv::Scalar color );
             void                        drawResultImage                 (cv::Mat& image, const std::vector<BlobDescriptor>& blobs, const int outerLaneBoundariesIndicator,
                                                                          const std::vector< BlobDescriptor* > middleLaneBoundary);
+            void                        drawCrossing                    (const cv::Mat& image, const CrossingDescriptor& crossing);
             void                        project                         (const BlobDescriptor& inputBlob, BlobDescriptor& outputBlob ,
                                                                         const cv::Mat& projectionMatrix, int offset = 0 );
             void                        project                         (const std::vector< cv::Point2d >& inputContour, std::vector< cv::Point2d >& outputContour ,

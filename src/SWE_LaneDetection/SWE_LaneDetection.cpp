@@ -923,6 +923,38 @@ void cSWE_LaneDetection::drawStopLine(cv::Mat image, const CrossingDescriptor cr
     cv::line(image, firstPoint, secondPoint, color, 7);
 }
 
+void cSWE_LaneDetection::drawCrossing(const cv::Mat& image, const CrossingDescriptor& crossing)
+{
+    int fontFace = CV_FONT_HERSHEY_PLAIN;
+    double fontScale = 2;
+    int thickness = 3;
+
+    if (crossing.result == STOPLINE)
+    {
+        cv::putText(image, "STOP", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
+
+        drawStopLine(image, crossing, cv::Scalar(0, 0, 255));
+    }
+    if (crossing.type == 2)
+    {
+        cv::putText(image, "RIGHT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
+
+        drawStopLine(image, crossing, cv::Scalar(255,0,255));
+    }
+    if (crossing.type == 1)
+    {
+        cv::putText(image, "LEFT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0,0,255), thickness, 10);
+
+        drawStopLine(image, crossing, cv::Scalar(255, 255, 0));
+    }
+    if (crossing.type == 3)
+    {
+        cv::putText(image, "BOTH", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
+
+        drawStopLine(image, crossing, cv::Scalar(255, 255, 0));
+    }
+}
+
 /**
      * \brief A function drawing splines on images.
      * @param image the image to draw on
@@ -1271,35 +1303,8 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     if ( leftBoundaryPresentAndComplex || rightBoundaryPresentAndComplex )
     {
         CrossingDescriptor crossing = _analyzer.searchCrossings(leftLaneBlob, rightLaneBlob);
-
-        int fontFace = CV_FONT_HERSHEY_PLAIN;
-        double fontScale = 2;
-        int thickness = 3;
-
-        if (crossing.result == STOPLINE)
-        {
-            cv::putText(result, "STOP", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
-
-            drawStopLine(result, crossing, cv::Scalar(0, 0, 255));
-        }
-        if (crossing.type == 0)
-        {
-            cv::putText(result, "RIGHT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
-
-            drawStopLine(result, crossing, cv::Scalar(255,0,255));
-        }
-        if (crossing.type == 1)
-        {
-            cv::putText(result, "LEFT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0,0,255), thickness, 10);
-
-            drawStopLine(result, crossing, cv::Scalar(255, 255, 0));
-        }
-        if (crossing.type == 2)
-        {
-            cv::putText(result, "BOTH", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
-
-            drawStopLine(result, crossing, cv::Scalar(255, 255, 0));
-        }
+        drawCrossing( result , crossing );
+        transmitCrossingIndicator(crossing.isReal, crossing.type , crossing.stopLine.first , crossing.stopLine.second );
     }
 
     transformToCarCoords(rightSpline);
@@ -1307,13 +1312,6 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     transformToCarCoords(middleSpline);
 
     transmitLanes(leftSpline,middleSpline,rightSpline);
-
-    //TODO: STILL crashes;
-    tBool isRealStopLine = true;
-    tInt8 crossingType = 1;
-    cv::Point2d p1(1,2);
-    cv::Point2d p2(3,4);
-    transmitCrossingIndicator(isRealStopLine, crossingType, p1, p2);
 
     // transmit a video of the current result to the video outputpin
     if (_oColorVideoOutputPin.IsConnected())
