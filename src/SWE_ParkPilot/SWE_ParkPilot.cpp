@@ -356,17 +356,18 @@ tTimeStamp cSWE_ParkPilot::GetTime()
 tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample)
 {
 
-    // TIMER LOOP FOR TESTING ONLY!
+    // TIMER LOOP FOR TESTING ONLY! DEBUG
     if((GetTime() - m_startTimer) < m_stopTime)
     {
         RETURN_NOERROR;
     }
 
+    m_mutex.Enter(); //serialize the whole filter for data consistency
+
     cObjectPtr<IMediaType> pType;
     pSource->GetMediaType(&pType);
     RETURN_IF_POINTER_NULL(pSource);
 
-    m_mutex.Enter(); //serialize the whole filter for data consistency
 
     if( nEventCode == IPinEventSink::PE_MediaSampleReceived )
     {

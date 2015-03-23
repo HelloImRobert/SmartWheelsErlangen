@@ -8,7 +8,7 @@
 #define STEER_RIGHT -30
 
 #define CAR_LENGTH 0
-#define MAX_STOPLINE_JUMP 700
+#define MAX_STOPLINE_JUMP 500
 
 // maneuver elements
 // all headings are relative to maneuver start
@@ -18,7 +18,7 @@
 #define STOPLINE_DISTANCE_STOP 20
 #define STOPLINE_DISTANCE_CRAWL 300
 #define STOPLINE_DISTANCE_SLOW  1500
-#define STOPLINE_WAIT_TIME 2000000 //in microseconds
+#define STOPLINE_WAIT_TIME 500000 //in microseconds
 
 // go straight
 #define GS_DIST1 900
@@ -55,7 +55,6 @@ SWE_Maneuver::SWE_Maneuver(ucom::cObjectPtr<IReferenceClock> &clock): m_state(0)
 }
 
 SWE_Maneuver::~SWE_Maneuver(){}
-
 
 tResult SWE_Maneuver::Start(maneuvers maneuver, tFloat32 headingSum, tInt32 distanceSum, tFloat32 stopLineXLeft, tFloat32 stopLineXRight, tBool isRealStopline)
 {
@@ -179,6 +178,10 @@ tInt32 SWE_Maneuver::StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFl
 
         m_stoplineDistanceEst = (m_startStopLineDistance - (distanceSum - m_startDistance));
 
+
+        if (DEBUG_OUTPUT)
+            LOG_ERROR(cString("TC Man: in STOPLINE estDist:" + cString::FromFloat64(m_stoplineDistanceEst)));
+
         if(m_stoplineDistanceEst <= STOPLINE_DISTANCE_SLOW) //slow down if distances reached
         {
             if(m_stoplineDistanceEst <= STOPLINE_DISTANCE_CRAWL)
@@ -198,6 +201,12 @@ tInt32 SWE_Maneuver::StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFl
 
         break;
     case 3:
+
+        m_gearOut = 0;
+
+        if (DEBUG_OUTPUT)
+            LOG_ERROR(cString("TC Man: in waiting at STOPLINE" ));
+
         if( ((_clock != NULL) ? _clock->GetTime () : cSystem::GetTime()) - startTime >= STOPLINE_WAIT_TIME) //wait a little to come to rest
         {
             state = 0;
@@ -206,6 +215,9 @@ tInt32 SWE_Maneuver::StateMachine_STOPLINE(tInt32 distanceSum, tInt32 state, tFl
         }
         break;
     default:
+
+        m_gearOut = 0;
+
         state = 0;
         m_currentManeuver = NO_MANEUVER;
         m_stoplineDistanceEst = 100000;
@@ -249,9 +261,6 @@ tInt32 SWE_Maneuver::StateMachine_TL(tFloat32 heading, tInt32 distanceSum, tInt3
 {
     static tInt32 startDistance = 0;
     static tFloat32 startHeading = 0;
-
-    if (DEBUG_OUTPUT)
-        LOG_ERROR(cString("TC Man: in TL state:" + cString::FromInt32(state)));
 
     if (DEBUG_OUTPUT)
         LOG_ERROR(cString("TC Man: in TL state:" + cString::FromInt32(state)));
