@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <fstream>
+#include "SWE_CrossingAnalyzer.h"
 
 /**
  * @brief The cSWE_LaneDetection class
@@ -45,29 +46,6 @@ class cSWE_LaneDetection : public adtf::cFilter
             cOutputPin     m_oSplinesPin;
             cOutputPin     m_CrossingIndicatorPin;
 
-            enum Side
-            {
-                RIGHT,
-                LEFT,
-                AMBIGOUS
-            };
-
-            class BlobDescriptor
-            {
-            public:
-                std::vector< cv::Point > contour;
-                Side side;
-                double lengthContour;
-                double areaContour;
-                cv::Point centerOfGravity;
-                double angleOfMainDirection;
-                double distanceToReference;
-                double principalAxisLengthRatio;
-                vector<Point2d> eigen_vecs;
-                vector<double> eigen_vals;
-                bool complexBoundaryIndicator;
-            };
-
         protected:
 
             tResult Init(tInitStage eStage, __exception);
@@ -87,25 +65,29 @@ class cSWE_LaneDetection : public adtf::cFilter
             tResult                     InitPinFormats();
 
             // internal Functions
-            void                        getBlobDescriptions         (const std::vector< std::vector< cv::Point > >& contours , std::vector< BlobDescriptor >& blobs );
-            void                        getOrientation              (BlobDescriptor& blob );
-            int                         getOuterLaneBoundaries      (std::vector< BlobDescriptor >& blobs);
-            std::pair< size_t, size_t > contourToSpline             (const std::vector< cv::Point >& contour , const int splineSearchWidth , bool side = false );
-            void                        drawSpline                  (cv::Mat& image, const std::vector< cv::Point2d >& splinePoints , const cv::Scalar& color);
-            void                        drawResultImage             (cv::Mat& image, const std::vector<BlobDescriptor>& blobs, const int outerLaneBoundariesIndicator,
-                                                                     const std::vector< BlobDescriptor* > middleLaneBoundary);
-            void                        project                     (const BlobDescriptor& inputBlob, BlobDescriptor& outputBlob ,
-                                                                     const cv::Mat& projectionMatrix, int offset = 0 );
-            void                        project                     (const std::vector< cv::Point2d >& inputContour, std::vector< cv::Point2d >& outputContour ,
-                                                                     const cv::Mat& projectionMatrix, int offset = 0);
-            bool                        calculateDirectionHistogram (const BlobDescriptor& blob);
-            void                        transformToCarCoords        (std::vector< cv::Point2d >& spline );
-            void                        transformFromCarCoords      (std::vector< cv::Point2d >& spline );
+            void                        getBlobDescriptions             (const std::vector< std::vector< cv::Point > >& contours , std::vector< BlobDescriptor >& blobs );
+            void                        getOrientation                  (BlobDescriptor& blob );
+            int                         getOuterLaneBoundaries          (std::vector< BlobDescriptor >& blobs);
+            std::pair< size_t, size_t > contourToSpline                 (const std::vector< cv::Point >& contour , const int splineSearchWidth , bool side = false );
+            void                        drawSpline                      (cv::Mat& image, const std::vector< cv::Point2d >& splinePoints , const cv::Scalar& color);
+            void                        drawStopLine                    (cv::Mat image, const CrossingDescriptor crossing , cv::Scalar color );
+            void                        drawResultImage                 (cv::Mat& image, const std::vector<BlobDescriptor>& blobs, const int outerLaneBoundariesIndicator,
+                                                                         const std::vector< BlobDescriptor* > middleLaneBoundary);
+            void                        drawCrossing                    (const cv::Mat& image, const CrossingDescriptor& crossing);
+            void                        project                         (const BlobDescriptor& inputBlob, BlobDescriptor& outputBlob ,
+                                                                        const cv::Mat& projectionMatrix, int offset = 0 );
+            void                        project                         (const std::vector< cv::Point2d >& inputContour, std::vector< cv::Point2d >& outputContour ,
+                                                                         const cv::Mat& projectionMatrix, int offset = 0);
+            bool                        checkBoundaryPresentAndComplex  (BlobDescriptor* boundary);
+            bool                        calculateDirectionHistogram     (BlobDescriptor& blob);
+            void                        transformToCarCoords            (std::vector< cv::Point2d >& spline );
+            void                        transformFromCarCoords          (std::vector< cv::Point2d >& spline );
 
-            void                        serializeLane               (cObjectPtr<IMediaCoder>& pCoder , std::string lane , const std::vector< Point2d >& spline );
-            tResult                     transmitLanes               (const std::vector< Point2d >& leftSpline , const std::vector< Point2d >& middleSpline ,
-                                                                     const std::vector< Point2d >& rightSpline );
-            tResult                     transmitCrossingIndicator   ( const tBool isRealStopLine , const tInt8 crossingType , const cv::Point2d& StopLinePoint1 , const cv::Point2d& StopLinePoint2 );
+            void                        serializeLane                   (cObjectPtr<IMediaCoder>& pCoder , std::string lane , const std::vector< Point2d >& spline );
+            tResult                     transmitLanes                   (const std::vector< Point2d >& leftSpline , const std::vector< Point2d >& middleSpline ,
+                                                                         const std::vector< Point2d >& rightSpline );
+            tResult                     transmitCrossingIndicator       (const tBool isRealStopLine , const tInt8 crossingType , const cv::Point2d& StopLinePoint1 ,
+                                                                         const cv::Point2d& StopLinePoint2 );
 
             // Parameters for the algorithm
             double                      _ambigousAngle;
@@ -129,7 +111,7 @@ class cSWE_LaneDetection : public adtf::cFilter
             double                      _distFrontToFrontAxis;
             double                      _distSideImageToMid;
 
-
+            CrossingAnalyzer            _analyzer;
             std::string                 _pathExternalCameraParams;                  /**< Path to the xml with the points of the inverse perspective transformation*/
             FileStorage                 _inversePerspectiveFileStorage;             /**< Stream to deserialize the XML with the points*/
 

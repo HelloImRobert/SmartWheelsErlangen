@@ -59,7 +59,7 @@ cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
     SetPropertyFloat( RESULTVID_OFFSET_Y NSSUBPROP_MINIMUM  , 0 );
     SetPropertyFloat( RESULTVID_OFFSET_Y NSSUBPROP_MAXIMUM  , 9999 );
 
-    SetPropertyFloat( COUNT_OF_STDDEVS , 2.0);
+    SetPropertyFloat( COUNT_OF_STDDEVS , 3.0);
     SetPropertyBool( COUNT_OF_STDDEVS NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( COUNT_OF_STDDEVS NSSUBPROP_MINIMUM  , 0.5 );
     SetPropertyFloat( COUNT_OF_STDDEVS NSSUBPROP_MAXIMUM  , 10.0 );
@@ -115,7 +115,7 @@ cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
     SetPropertyFloat( LOWER_AREA_THRESHOLD NSSUBPROP_MINIMUM  , 0.0);
     SetPropertyFloat( LOWER_AREA_THRESHOLD NSSUBPROP_MAXIMUM  , 99999.0);
 
-    SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD , 5.5 );
+    SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD , 35 );
     SetPropertyBool( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD NSSUBPROP_MINIMUM  , 0.01);
     SetPropertyFloat( PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD NSSUBPROP_MAXIMUM  , 99999.0);
@@ -211,7 +211,7 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         _minOuterBoundaryLength = GetPropertyFloat(MIN_OUTER_BOUNDARY_LENGTH);
         _heightThresh = GetPropertyInt(HEIGHT_THRESHOLD);
         _draw = GetPropertyBool(DRAW_IMAGES),
-        _CountStdDevs = GetPropertyInt(COUNT_OF_STDDEVS);
+                _CountStdDevs = GetPropertyInt(COUNT_OF_STDDEVS);
         _lowerAreaThreshold = GetPropertyFloat(LOWER_AREA_THRESHOLD);
         _startHeight = GetPropertyInt(START_HEIGHT);
         _principalAxisLengthRatioThreshold = GetPropertyFloat(PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD);
@@ -222,6 +222,8 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         _distFrontToWarpedImageBottom = GetPropertyFloat(DIST_FRONT_TO_WARPED_IMAGE_BOTTOM);
         _distFrontToFrontAxis = GetPropertyFloat(DIST_FRONT_TO_FRONT_AXIS);
         _distSideImageToMid = GetPropertyFloat(DIST_SIDE_IMAGE_TO_MID);
+
+        _analyzer = CrossingAnalyzer();
 
         // read the parameters from a file and setup a transformation matrix
         InitTransformationMatrices( GetPropertyStr( CORRESPONDING_POINTS_XML ) );
@@ -431,7 +433,7 @@ tResult cSWE_LaneDetection::OnPinEvent(IPin* pSource,
     RETURN_ERROR(-1);
 }
 
-bool sort_arcLength( const cSWE_LaneDetection::BlobDescriptor& blob1, const cSWE_LaneDetection::BlobDescriptor blob2)
+bool sort_arcLength( const BlobDescriptor& blob1, const BlobDescriptor blob2)
 {
     return blob1.lengthContour > blob2.lengthContour;
 }
@@ -628,6 +630,12 @@ void cSWE_LaneDetection::getBlobDescriptions( const std::vector< std::vector< cv
 
             descriptor.complexBoundaryIndicator = calculateDirectionHistogram( descriptor );
 
+            // hack for the special case of very near stoplines on the right side
+            if(descriptor.complexBoundaryIndicator && descriptor.side == LEFT && descriptor.centerOfGravity.x > 300)
+            {
+                descriptor.side = RIGHT;
+            }
+
             // calculate the length of the contour
             descriptor.lengthContour = arcLength(contour, true);
 
@@ -703,7 +711,6 @@ int cSWE_LaneDetection::getOuterLaneBoundaries( std::vector< BlobDescriptor >& b
                 bool sameSide = firstBlob.side == blobs[1].side;
                 bool isNearer = cv::norm(firstBlob.centerOfGravity - approxCarPosition ) > cv::norm(blobs[1].centerOfGravity - approxCarPosition );
                 bool isOuterBoundary = blobs[1].lengthContour > 1.0 * _minOuterBoundaryLength;
-
                 if( sameSide && isNearer && isOuterBoundary )
                 {
                     blobs.erase(blobs.begin());
@@ -831,73 +838,121 @@ void cSWE_LaneDetection::drawResultImage(cv::Mat& image, const std::vector<BlobD
 {
     std::vector<Vec4i> hierarchy;
 
-		// draw the orientation properties for every plausible blob
-		for (size_t i = 0; i < blobs.size(); ++i)
-		{
-			const BlobDescriptor& blob = blobs[i];
-            cv::Point currentCenterOfGravity = ( _resultImageScaleFactor * blob.centerOfGravity ) + _resultImageOffsetVector;
+    // draw the orientation properties for every plausible blob
+    for (size_t i = 0; i < blobs.size(); ++i)
+    {
+        const BlobDescriptor& blob = blobs[i];
+        cv::Point currentCenterOfGravity = ( _resultImageScaleFactor * blob.centerOfGravity ) + _resultImageOffsetVector;
 
-            if(blob.complexBoundaryIndicator)
-            {
-                circle(image, currentCenterOfGravity, 8, CV_RGB(255, 0, 255), 2);
-            }
+        if(blob.complexBoundaryIndicator)
+        {
+            circle(image, currentCenterOfGravity, 8, CV_RGB(255, 0, 255), 2);
+        }
 
-			circle(image, currentCenterOfGravity, 3, CV_RGB(255, 0, 255), 2);
-            line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[0].x * _resultImageScaleFactor * blob.eigen_vals[0], blob.eigen_vecs[0].y * _resultImageScaleFactor * blob.eigen_vals[0]), CV_RGB(255, 255, 0));
-            line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[1].x * _resultImageScaleFactor * blob.eigen_vals[1], blob.eigen_vecs[1].y * _resultImageScaleFactor * blob.eigen_vals[1]), CV_RGB(255, 255, 0));
-		}
+        circle(image, currentCenterOfGravity, 3, CV_RGB(255, 0, 255), 2);
+        line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[0].x * _resultImageScaleFactor * blob.eigen_vals[0], blob.eigen_vecs[0].y * _resultImageScaleFactor * blob.eigen_vals[0]), CV_RGB(255, 255, 0));
+        line(image, currentCenterOfGravity, currentCenterOfGravity + 0.02 * Point(blob.eigen_vecs[1].x * _resultImageScaleFactor * blob.eigen_vals[1], blob.eigen_vecs[1].y * _resultImageScaleFactor * blob.eigen_vals[1]), CV_RGB(255, 255, 0));
+    }
 
-		// draw the outer lane boundaries
-        for (int i = 0; i < outerLaneBoundariesIndicator; i++)
-		{
-            std::vector< std::vector< cv::Point > > contourToPaint;
+    // draw the outer lane boundaries
+    for (int i = 0; i < outerLaneBoundariesIndicator; i++)
+    {
+        std::vector< std::vector< cv::Point > > contourToPaint;
 
-			const BlobDescriptor& blob = blobs[i];
-			
-			// choose the color depending on the recognition
-			Scalar color;
-			if (blob.side == LEFT)
-			{
-				color = cv::Scalar(255, 0, 0);
-			}
-			else if (blob.side == RIGHT)
-			{
-				color = cv::Scalar(0, 255, 0);
-			}
-			else
-			{
-				color = cv::Scalar(0, 0, 255);
-			}
+        const BlobDescriptor& blob = blobs[i];
 
-			// offset the contours to fit nicely into the resultImage
-            contourToPaint.push_back(blob.contour);
-			for (size_t j = 0; j < contourToPaint[0].size(); ++j)
-			{
-                contourToPaint[0][j] *= _resultImageScaleFactor;
-				contourToPaint[0][j] += _resultImageOffsetVector;
-			}
-			drawContours(image, contourToPaint, 0, color, 2, 8, hierarchy, 0, Point());
-		}
+        // choose the color depending on the recognition
+        Scalar color;
+        if (blob.side == LEFT)
+        {
+            color = cv::Scalar(255, 0, 0);
+        }
+        else if (blob.side == RIGHT)
+        {
+            color = cv::Scalar(0, 255, 0);
+        }
+        else
+        {
+            color = cv::Scalar(0, 0, 255);
+        }
 
-		// paint the middle lane boundary
-		cv::Scalar color = cv::Scalar(255, 255, 255);
-		std::vector < std::vector < cv::Point > > contourToDraw;
-		for (size_t i = 0; i < middleLaneBoundary.size(); ++i)
-		{
-			contourToDraw.push_back(middleLaneBoundary[i]->contour);
-			
-			// offset the contours to fit nicely into the resultImage
-			for (size_t j = 0; j < contourToDraw[i].size(); ++j)
-			{
-                contourToDraw[i][j] *= _resultImageScaleFactor;
-				contourToDraw[i][j] += _resultImageOffsetVector;
-			}
-		}
+        // offset the contours to fit nicely into the resultImage
+        contourToPaint.push_back(blob.contour);
+        for (size_t j = 0; j < contourToPaint[0].size(); ++j)
+        {
+            contourToPaint[0][j] *= _resultImageScaleFactor;
+            contourToPaint[0][j] += _resultImageOffsetVector;
+        }
+        drawContours(image, contourToPaint, 0, color, 2, 8, hierarchy, 0, Point());
+    }
 
-		for (size_t i = 0; i < middleLaneBoundary.size(); ++i)
-		{
-			drawContours(image, contourToDraw, i, color, 2, 8, hierarchy, 0, Point());
-		}
+    // paint the middle lane boundary
+    cv::Scalar color = cv::Scalar(255, 255, 255);
+    std::vector < std::vector < cv::Point > > contourToDraw;
+    for (size_t i = 0; i < middleLaneBoundary.size(); ++i)
+    {
+        contourToDraw.push_back(middleLaneBoundary[i]->contour);
+
+        // offset the contours to fit nicely into the resultImage
+        for (size_t j = 0; j < contourToDraw[i].size(); ++j)
+        {
+            contourToDraw[i][j] *= _resultImageScaleFactor;
+            contourToDraw[i][j] += _resultImageOffsetVector;
+        }
+    }
+
+    for (size_t i = 0; i < middleLaneBoundary.size(); ++i)
+    {
+        drawContours(image, contourToDraw, i, color, 2, 8, hierarchy, 0, Point());
+    }
+}
+
+void cSWE_LaneDetection::drawStopLine(cv::Mat image, const CrossingDescriptor crossing , cv::Scalar color )
+{
+    cv::Point firstPoint = crossing.stopLine.first;
+    cv::Point secondPoint = crossing.stopLine.second;
+
+    firstPoint.x *= _resultImageScaleFactor;
+    firstPoint.y *= _resultImageScaleFactor;
+    firstPoint += _resultImageOffsetVector;
+
+    secondPoint.x *= _resultImageScaleFactor;
+    secondPoint.y *= _resultImageScaleFactor;
+    secondPoint += _resultImageOffsetVector;
+
+    cv::line(image, firstPoint, secondPoint, color, 7);
+}
+
+void cSWE_LaneDetection::drawCrossing(const cv::Mat& image, const CrossingDescriptor& crossing)
+{
+    int fontFace = CV_FONT_HERSHEY_PLAIN;
+    double fontScale = 2;
+    int thickness = 3;
+
+    if (crossing.result == STOPLINE)
+    {
+        cv::putText(image, "STOP", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
+
+        drawStopLine(image, crossing, cv::Scalar(0, 0, 255));
+    }
+    if (crossing.type == 2)
+    {
+        cv::putText(image, "RIGHT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
+
+        drawStopLine(image, crossing, cv::Scalar(255,0,255));
+    }
+    if (crossing.type == 1)
+    {
+        cv::putText(image, "LEFT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0,0,255), thickness, 10);
+
+        drawStopLine(image, crossing, cv::Scalar(255, 255, 0));
+    }
+    if (crossing.type == 3)
+    {
+        cv::putText(image, "BOTH", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
+
+        drawStopLine(image, crossing, cv::Scalar(255, 255, 0));
+    }
 }
 
 /**
@@ -927,7 +982,7 @@ void cSWE_LaneDetection::drawSpline( cv::Mat& image , const std::vector< cv::Poi
      * @param image the image to draw on
      * @param blob a BlobDescriptor which should be examined
      */
-bool cSWE_LaneDetection::calculateDirectionHistogram( const BlobDescriptor& blob)
+bool cSWE_LaneDetection::calculateDirectionHistogram(BlobDescriptor& blob)
 {
     const std::vector< cv::Point >& contour = blob.contour;
     std::vector< cv::Point2d > directionVectors;
@@ -938,42 +993,31 @@ bool cSWE_LaneDetection::calculateDirectionHistogram( const BlobDescriptor& blob
 
     if (contour.size() > 1)
     {
-        for (size_t i = 1; i < contour.size(); ++i)
+        for (size_t i = 0; i < contour.size(); ++i)
         {
-            cv::Point2d directionVector = contour[i - 1] - contour[i];
-            if (static_cast<int> (directionVector.y) != 0 && static_cast<int> (directionVector.x) != 0)
-            {
-                directionVectors.push_back(directionVector);
-            }
-        }
-        {
-            cv::Point2d directionVector = contour[0] - contour[contour.size() - 1];
-            if(static_cast<int> (directionVector.y) != 0 && static_cast<int> (directionVector.x) != 0)
-            {
-                directionVectors.push_back(directionVector);
-            }
+            int next = (i + 1) % (contour.size());
+            cv::Point2d directionVector = contour[ next ] - contour[i];
+
+            directionVectors.push_back(directionVector);
+            double length = cv::norm(directionVector);
+            lengths.push_back(length);
+            double angle = std::atan2(directionVector.y , directionVector.x);
+            angles.push_back(angle);
         }
 
         for (size_t i = 0; i < directionVectors.size(); ++i)
         {
-            double length = cv::norm(directionVectors[i]);
-            lengths.push_back(length);
-            double angle = std::acos(directionVectors[i].x / length);
-            angles.push_back(angle);
-        }
-
-        for (size_t i = 1; i < angles.size(); i++)
-        {
-            double localCurvature = fabs(angles[i - 1] - angles[i]);
+            int next = (i + 1) % (directionVectors.size());
+            double localCurvature = fabs(angles[next] - angles[i]);
             curvature.push_back( localCurvature );
 
-            double lengthTresh = 40;
-            double curvatureThresh = 0.15;
+            double lengthTresh = 60;
+            double curvatureThresh = 0.2;
 
             double higherCurvatureThresh = 0.5 * CV_PI + curvatureThresh;
             double lowerCurvatureThresh = 0.5 * CV_PI - curvatureThresh;
 
-            bool bigLengths = lengths[i - 1] > lengthTresh && lengths[i] > lengthTresh;
+            bool bigLengths = lengths[next] > lengthTresh && lengths[i] > lengthTresh;
             bool bigCurvature = localCurvature > lowerCurvatureThresh && localCurvature < higherCurvatureThresh;
 
             if ( bigCurvature && bigLengths )
@@ -983,14 +1027,26 @@ bool cSWE_LaneDetection::calculateDirectionHistogram( const BlobDescriptor& blob
         }
     }
 
-    if (ninetyDegree > 1 && _draw)
+    if (ninetyDegree > 0 && _draw)
     {
-        std::vector< cv::Point2d > vec;
-        vec.push_back(blob.centerOfGravity);
-
-        perspectiveTransform(vec, vec, _backProjectionMatrix);
-
+        blob.directionVectors = directionVectors;
+        blob.angles = angles;
+        blob.lengths = lengths;
+        blob.curvature = curvature;
+        blob.ninetyDegree = ninetyDegree;
         return true;
+    }
+    return false;
+}
+
+bool cSWE_LaneDetection::checkBoundaryPresentAndComplex(BlobDescriptor* boundary)
+{
+    if (boundary != NULL)
+    {
+        if (boundary->complexBoundaryIndicator)
+        {
+            return true;
+        }
     }
     return false;
 }
@@ -1117,7 +1173,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     std::vector<Vec4i> hierarchy;
     findContours(thresholdedImage, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 
-    cv::Mat result = cv::Mat( 2 * image.rows, 2 * image.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::Mat result = cv::Mat( 2 * IMAGE_HEIGHT, 2 * IMAGE_WIDTH, CV_8UC3, cv::Scalar(0, 0, 0));
 
     // get enhanced Descriptions of the blobs with basic removal of candidates
     std::vector< BlobDescriptor > blobs;
@@ -1126,6 +1182,8 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     // get the outer Lane Boundaries
     int outerLaneBoundariesIndicator = getOuterLaneBoundaries( blobs );
 
+    BlobDescriptor* rightLaneBlob = NULL;
+    BlobDescriptor* leftLaneBlob = NULL;
     std::vector< cv::Point2d > rightSpline;
     std::vector< cv::Point2d > leftSpline;
 
@@ -1140,6 +1198,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
 
             if (indices.first != indices.second)
             {
+                rightLaneBlob = &blob;
                 for (size_t i = indices.first; i <= indices.second; ++i)
                 {
                     rightSpline.push_back( static_cast< cv::Point2d >( blob.contour[i] ));
@@ -1152,6 +1211,7 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
             std::pair< size_t, size_t > indices = contourToSpline(blob.contour, _splineSearchWidth, true);
             if (indices.first != indices.second)
             {
+                leftLaneBlob = &blob;
                 for (size_t i = indices.first; i <= indices.second; ++i)
                 {
                     leftSpline.push_back( static_cast< cv::Point2d >( blob.contour[i] ));
@@ -1237,18 +1297,21 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
         }
     }
 
+    bool leftBoundaryPresentAndComplex = checkBoundaryPresentAndComplex(leftLaneBlob);
+    bool rightBoundaryPresentAndComplex = checkBoundaryPresentAndComplex(rightLaneBlob);
+
+    if ( leftBoundaryPresentAndComplex || rightBoundaryPresentAndComplex )
+    {
+        CrossingDescriptor crossing = _analyzer.searchCrossings(leftLaneBlob, rightLaneBlob);
+        drawCrossing( result , crossing );
+        transmitCrossingIndicator(crossing.isReal, crossing.type , crossing.stopLine.first , crossing.stopLine.second );
+    }
+
     transformToCarCoords(rightSpline);
     transformToCarCoords(leftSpline);
     transformToCarCoords(middleSpline);
 
     transmitLanes(leftSpline,middleSpline,rightSpline);
-
-    //TODO: STILL crashes;
-    tBool isRealStopLine = true;
-    tInt8 crossingType = 1;
-    cv::Point2d p1(1,2);
-    cv::Point2d p2(3,4);
-    transmitCrossingIndicator(isRealStopLine, crossingType, p1, p2);
 
     // transmit a video of the current result to the video outputpin
     if (_oColorVideoOutputPin.IsConnected())
