@@ -1304,7 +1304,13 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     {
         CrossingDescriptor crossing = _analyzer.searchCrossings(leftLaneBlob, rightLaneBlob);
         drawCrossing( result , crossing );
-        transmitCrossingIndicator(crossing.isReal, crossing.type , crossing.stopLine.first , crossing.stopLine.second );
+
+        std::vector<Point2d> points;
+        points.push_back(crossing.stopLine.first);
+        points.push_back(crossing.stopLine.second);
+        transformToCarCoords(points);
+
+        transmitCrossingIndicator(crossing.isReal, crossing.type , points[0] , points[1] );
     }
 
     transformToCarCoords(rightSpline);
