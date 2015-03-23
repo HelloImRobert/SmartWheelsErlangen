@@ -72,7 +72,7 @@ double getPerpendicDistance(const cv::Point2d& referencePoint);
 
     cv::Point2d objecte[10];
      cv::Point2d points[10];
-
+    std::vector< cv::Point2d > trajectory;
 
 int blinking;
      int parkbefehl;
@@ -100,11 +100,15 @@ int blinking;
     void DriverCalc();
     tResult sendTC(int speed, int type);
 
+
+
+
     tResult Parkroutine(tInt8 value);
     void ControlHL();
     tResult ControlLight(int lights);
     tResult SendtoJury(tInt8 i8StateID, tInt16 i16ManeuverEntry);
     std::pair<cv::Point2d, cv::Point2d> m_boundary;
+
 
     //MB Objekte/Variablen die benoetigt werden Input
     cObjectPtr<IMediaTypeDescription> m_pCoderDescDriverDATA;

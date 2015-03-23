@@ -171,8 +171,11 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         blinking=0;
         for(int a=0;a<10;a++)
         {
-            points[a].x=2000+a;
-            points[a].y=0;
+
+            trajectory.at(a).x=2000+a;
+            trajectory.at(a).y=0;
+          //  points[a].x=2000+a;
+           // points[a].y=0;
             objecte[a].x=2000+a;
             objecte[a].y=0;
         }
@@ -412,21 +415,24 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
             //Punkte liste fuellen
 
+           // std::vector< cv::Point2d > trajectory;
+            {
+                tInt8 BoundaryArrayCountTemp = 0;
+                pCoder->Get("TrajectoryPoints.Count", (tVoid*)&(BoundaryArrayCountTemp));
+                trajectory.resize( BoundaryArrayCountTemp );
 
+                stringstream elementGetter;
+                for( int j = 0; j < BoundaryArrayCountTemp; j++)
+                {
+                    elementGetter << "TrajectoryPoints.Points[" << j << "].xCoord";
+                    pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(trajectory.at(j).x));
+                    elementGetter.str(std::string());
 
-//                       stringstream elementGetter;
-//                      for( size_t j = 0; j < 10; j++)
-//                        {
-//                           elementGetter << "tPoint[" << j << "].xCoord";
-//                          pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
-//                          elementGetter.str(std::string());
-
-//                          elementGetter << "tPoint[" << j << "].yCoord";
-//                           pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
-//                            elementGetter.str(std::string());
-//                       }
-
-//            m_pCoderDescInputMeasured->Unlock(pCoder);
+                    elementGetter << "TrajectoryPoints.Points[" << j << "].yCoord";
+                    pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(trajectory.at(j).y));
+                    elementGetter.str(std::string());
+                }
+            }
 
 
 
@@ -583,8 +589,10 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                 Parksteuerung=0;
                 for(int a=0;a<10;a++)
                 {
-                    points[a].x=2000+a;
-                    points[a].y=0;
+                    trajectory.at(a).x=2000+a;
+                    trajectory.at(a).y=0;
+                   // points[a].x=2000+a;
+                   // points[a].y=0;
                     objecte[a].x=2000+a;
                     objecte[a].y=0;
                 }
@@ -639,7 +647,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             * TC rueckmeldungen:
             0=nichts besonderes
             1=bin abgebogen
-            2=stehe an haltelinie
+            2=stehe an haltelinieelementGetter
            */
 
         }
@@ -901,7 +909,7 @@ void cSWE_KIControl::ObjectAvoidance()
             {
 
 
-                int ti=10;
+                int ti=trajectory.size();//10;
                 int ia=0;
                 //Alle Strassenpunkte durchlaufen
                 for( ia=0;ia<ti;ia++)
@@ -913,12 +921,12 @@ void cSWE_KIControl::ObjectAvoidance()
                     }
                     else
                     {
-                        m_boundary.first.x=points[ia-1].x;
-                        m_boundary.first.y=points[ia-1].y;
+                        m_boundary.first.x=trajectory[ia-1].x;
+                        m_boundary.first.y=trajectory[ia-1].y;
 
                     }
-                    m_boundary.second.x=points[ia].x;
-                    m_boundary.second.y=points[ia].y;
+                    m_boundary.second.x=trajectory[ia].x;
+                    m_boundary.second.y=trajectory[ia].y;
 
                     pointtocheck.x=objecte[i].x;//Punkt aus der Objekte liste
                     pointtocheck.y=objecte[i].y;
