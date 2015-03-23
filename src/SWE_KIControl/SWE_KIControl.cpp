@@ -412,21 +412,24 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
             //Punkte liste fuellen
 
+            std::vector< cv::Point2d > trajectory;
+            {
+                tInt8 BoundaryArrayCountTemp = 0;
+                pCoder->Get("TrajectoryPoints.Count", (tVoid*)&(BoundaryArrayCountTemp));
+                trajectory.resize( BoundaryArrayCountTemp );
 
+                stringstream elementGetter;
+                for( int j = 0; j < BoundaryArrayCountTemp; j++)
+                {
+                    elementGetter << "TrajectoryPoints.Points[" << j << "].xCoord";
+                    pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(trajectory.at(j).x));
+                    elementGetter.str(std::string());
 
-                       stringstream elementGetter;
-                      for( size_t j = 0; j < 10; j++)
-                        {
-                           elementGetter << "tPoint[" << j << "].xCoord";
-                          pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].x));
-                          elementGetter.str(std::string());
-
-                          elementGetter << "tPoint[" << j << "].yCoord";
-                           pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(points[j].y));
-                            elementGetter.str(std::string());
-                       }
-
-            m_pCoderDescInputMeasured->Unlock(pCoder);
+                    elementGetter << "TrajectoryPoints.Points[" << j << "].yCoord";
+                    pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(trajectory.at(j).y));
+                    elementGetter.str(std::string());
+                }
+            }
 
 
 

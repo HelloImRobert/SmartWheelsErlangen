@@ -161,6 +161,9 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
 
             if (eStage == StageFirst)
     {
+        RETURN_IF_FAILED(m_oInputTrigger.Create("KI_Trigger", new cMediaType(0, 0, 0, "tBoolSignalValue"), static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&m_oInputTrigger));
+
         // register a Video Input
         RETURN_IF_FAILED(_oVideoInputPin.Create("Video_Input", IPin::PD_Input, static_cast<IPinEventSink*>(this)));
         RETURN_IF_FAILED(RegisterPin(&_oVideoInputPin));
@@ -385,6 +388,10 @@ tResult cSWE_LaneDetection::OnPinEvent(IPin* pSource,
         if(pSource == &_oVideoInputPin)
         {
             ProcessInput(pMediaSample);
+        }
+        if(pSource == &m_oInputTrigger)
+        {
+            _determineCrossing = true;
         }
         else if(pSource == &m_oIntersectionPoints)
         {
@@ -1300,17 +1307,31 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
     bool leftBoundaryPresentAndComplex = checkBoundaryPresentAndComplex(leftLaneBlob);
     bool rightBoundaryPresentAndComplex = checkBoundaryPresentAndComplex(rightLaneBlob);
 
-    if ( leftBoundaryPresentAndComplex || rightBoundaryPresentAndComplex )
+    if( _determineCrossing )
     {
-        CrossingDescriptor crossing = _analyzer.searchCrossings(leftLaneBlob, rightLaneBlob);
-        drawCrossing( result , crossing );
+        //TODO
+        int resultType = 2;
 
-        std::vector<Point2d> points;
-        points.push_back(crossing.stopLine.first);
-        points.push_back(crossing.stopLine.second);
-        transformToCarCoords(points);
+        cv::Point2d dummyStopLineFirst(-1.0,-1.0);
+        cv::Point2d dummyStopLineSecond(-1.0,-1.0);
+        transmitCrossingIndicator(false,resultType,dummyStopLineFirst,dummyStopLineSecond);
 
-        transmitCrossingIndicator(crossing.isReal, crossing.type , points[0] , points[1] );
+        _determineCrossing = false;
+    }
+    else
+    {
+        if ( leftBoundaryPresentAndComplex || rightBoundaryPresentAndComplex )
+        {
+            CrossingDescriptor crossing = _analyzer.searchCrossings(leftLaneBlob, rightLaneBlob);
+            drawCrossing( result , crossing );
+
+            std::vector<Point2d> points;
+            points.push_back(crossing.stopLine.first);
+            points.push_back(crossing.stopLine.second);
+            transformToCarCoords(points);
+
+            transmitCrossingIndicator(crossing.isReal, crossing.type , points[0] , points[1] );
+        }
     }
 
     transformToCarCoords(rightSpline);
