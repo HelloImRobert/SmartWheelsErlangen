@@ -82,6 +82,8 @@ private:
     tInt32      m_stopTime;
     tFloat32    m_driftComp;
     tFloat32    m_pullDriftComp;
+    tFloat32    m_pullLeftAngle;
+    tFloat32    m_pullRightAngle;
 
     tInt32      m_startTimer;
 
