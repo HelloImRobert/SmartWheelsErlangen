@@ -139,7 +139,7 @@ tResult cSWE_TrackControl::Start(__exception)
     m_property_InvSteering =            (tBool)GetPropertyBool("InvertSteering", true);
     m_property_StoplineWheelDist =      (tInt32)GetPropertyInt("Stopdist Stopline to Wheel in mm", 120);
     m_property_SteeringDeadAngle =      (tFloat32)GetPropertyFloat("Steering Dead angle in degree", 3);
-
+m_outputStatusSave=-1;
     m_input_maxGear = 0;
     m_input_Command = -1;
     m_input_intersectionIndicator = 0;
@@ -877,9 +877,12 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
     if (m_status_noGears == false)
         SendGear(m_outputGear);
 
-    //send status to KI/central control
-    SendStatus(m_outputStatus);
-
+    //send status to KI/central control test von Michael
+    if(m_outputStatus!=m_outputStatusSave)
+    {
+        m_outputStatusSave=m_outputStatus;
+        SendStatus(m_outputStatus);
+    }
     //send tracking point for visualization
     SendTrackingPoint();
 
