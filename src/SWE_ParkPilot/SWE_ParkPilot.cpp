@@ -381,13 +381,14 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
            pCoder->Get("int8Value", (tVoid*)&m_parkTrigger);
            m_pCoderParkTrigger->Unlock(pCoder);
 
+           LOG_ERROR(cString("PP: Recieved Trigger " + cString::FromInt(m_parkTrigger) ));
            if( m_parkTrigger == GOT_CONTROL )
            {
                m_gotControl = true;
            }
            else if( m_parkTrigger == 0 )
            {
-               sendSpeed( 0 );
+               sendSpeed( 0 ); // cause for bugs? (robert)
            }
 
         }
