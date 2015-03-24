@@ -51,6 +51,7 @@ class cSWE_LaneDetection : public adtf::cFilter
 
             tResult Init(tInitStage eStage, __exception);
             tResult Shutdown(tInitStage eStage, __exception);
+            tResult Start(__exception = NULL);
 
             // implements IPinEventSink
             tResult OnPinEvent( IPin* pSource , tInt nEventCode , tInt nParam1 ,  tInt nParam2 , IMediaSample* pMediaSample );
@@ -64,6 +65,9 @@ class cSWE_LaneDetection : public adtf::cFilter
             tResult                     ProcessInput(IMediaSample* pSample);
             tResult                     InitTransformationMatrices( std::string pathExternalCameraParams );
             tResult                     InitPinFormats();
+
+            tTimeStamp _timerStart;
+            tBool _hassent;
 
             // internal Functions
             void                        getBlobDescriptions             (const std::vector< std::vector< cv::Point > >& contours , std::vector< BlobDescriptor >& blobs , std::vector<BlobDescriptor> &allBlobs);
