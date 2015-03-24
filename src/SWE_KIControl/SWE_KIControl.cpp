@@ -1735,6 +1735,9 @@ crosscalldone=false;
     case 6:
 
         SecondSigntype=0;
+
+        if(parkbefehl==0)
+         sendtoLane(true);
         if(parkbefehl==1)
              Parkroutine(3);
         else
@@ -1744,6 +1747,10 @@ crosscalldone=false;
     case 7:
 
         SecondSigntype=0;
+
+         if(parkbefehl==0)
+              sendtoLane(true);
+
            if(parkbefehl==1)
                   Parkroutine(4);
            else
