@@ -204,6 +204,15 @@ cSWE_LaneDetection::~cSWE_LaneDetection()
 
 }
 
+tResult cSWE_LaneDetection::Start(__exception)
+{
+
+    _timerStart = (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
+    _hassent = false;
+
+    RETURN_NOERROR;
+}
+
 /**
  * @brief cSWE_LaneDetection::Init
  * @param eStage the current stage of initalization
@@ -1197,34 +1206,42 @@ tResult cSWE_LaneDetection::transmitLanes( const std::vector< Point2d >& leftSpl
  */
 tResult cSWE_LaneDetection::transmitCrossingIndicator( const tBool isRealStopLine , const tInt8 crossingType , const cv::Point2d& StopLinePoint1 , const cv::Point2d& StopLinePoint2 )
 {
-    cObjectPtr<IMediaCoder> pCoder;
 
-    //create new media sample
-    cObjectPtr<IMediaSample> pMediaSampleCrossIndicator;
-    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleCrossIndicator));
+    tTimeStamp current_time;
 
-    //allocate memory with the size given by the descriptor
-    cObjectPtr<IMediaSerializer> pSerializer;
-    m_pCoderDescCrossingIndicator->GetMediaSampleSerializer(&pSerializer);
-    tInt nSize = pSerializer->GetDeserializedSize();
-    pMediaSampleCrossIndicator->AllocBuffer(nSize);
+    current_time = (_clock != NULL) ? _clock->GetTime () : cSystem::GetTime();
 
-    //write date to the media sample with the coder of the descriptor
-    RETURN_IF_FAILED(m_pCoderDescCrossingIndicator->WriteLock(pMediaSampleCrossIndicator, &pCoder));
+    if(_hassent || (( current_time - _timerStart) >= 10000000 )) //(Robert)
+    {
+        cObjectPtr<IMediaCoder> pCoder;
 
-    pCoder->Set("isRealStopLine", (tVoid*)&(isRealStopLine));
-    pCoder->Set("crossingType", (tVoid*)&(crossingType));
-    pCoder->Set("StopLinePoint1.xCoord", (tVoid*)&(StopLinePoint1.x));
-    pCoder->Set("StopLinePoint1.yCoord", (tVoid*)&(StopLinePoint1.y));
-    pCoder->Set("StopLinePoint2.xCoord", (tVoid*)&(StopLinePoint2.x));
-    pCoder->Set("StopLinePoint2.yCoord", (tVoid*)&(StopLinePoint2.y));
+        //create new media sample
+        cObjectPtr<IMediaSample> pMediaSampleCrossIndicator;
+        RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSampleCrossIndicator));
 
-    m_pCoderDescCrossingIndicator->Unlock(pCoder);
+        //allocate memory with the size given by the descriptor
+        cObjectPtr<IMediaSerializer> pSerializer;
+        m_pCoderDescCrossingIndicator->GetMediaSampleSerializer(&pSerializer);
+        tInt nSize = pSerializer->GetDeserializedSize();
+        pMediaSampleCrossIndicator->AllocBuffer(nSize);
 
-    //transmit media sample over output pin
+        //write date to the media sample with the coder of the descriptor
+        RETURN_IF_FAILED(m_pCoderDescCrossingIndicator->WriteLock(pMediaSampleCrossIndicator, &pCoder));
 
-    RETURN_IF_FAILED(pMediaSampleCrossIndicator->SetTime(_clock->GetStreamTime()));
-    RETURN_IF_FAILED(m_CrossingIndicatorPin.Transmit(pMediaSampleCrossIndicator));
+        pCoder->Set("isRealStopLine", (tVoid*)&(isRealStopLine));
+        pCoder->Set("crossingType", (tVoid*)&(crossingType));
+        pCoder->Set("StopLinePoint1.xCoord", (tVoid*)&(StopLinePoint1.x));
+        pCoder->Set("StopLinePoint1.yCoord", (tVoid*)&(StopLinePoint1.y));
+        pCoder->Set("StopLinePoint2.xCoord", (tVoid*)&(StopLinePoint2.x));
+        pCoder->Set("StopLinePoint2.yCoord", (tVoid*)&(StopLinePoint2.y));
+
+        m_pCoderDescCrossingIndicator->Unlock(pCoder);
+
+        //transmit media sample over output pin
+
+        RETURN_IF_FAILED(pMediaSampleCrossIndicator->SetTime(_clock->GetStreamTime()));
+        RETURN_IF_FAILED(m_CrossingIndicatorPin.Transmit(pMediaSampleCrossIndicator));
+    }
 
     RETURN_NOERROR;
 }

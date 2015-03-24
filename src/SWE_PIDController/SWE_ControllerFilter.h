@@ -103,6 +103,10 @@ private:
     tBool m_useFF;
     tBool m_offMeansOff;
     tBool m_useAutoSampleTime;
+    tBool m_useManualSetP;
+
+    tFloat32 m_property_manualSetPoint;
+
 
     /*! last time the output was used */
     tTimeStamp m_lastOutputTime;

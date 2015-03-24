@@ -39,6 +39,9 @@ SWE_ControllerFilter::SWE_ControllerFilter(const tChar* __info) : cFilter(__info
     SetPropertyInt("Controller Type", 1);
     SetPropertyStr("Controller Type" NSSUBPROP_VALUELISTNOEDIT, "0@OFF|1@P|2@PI|3@PID");
 
+    SetPropertyFloat("manual SetPoint",800);
+    SetPropertyBool("Use manual SetPoint", false);
+
     m_lastOutputTime = 0;
 }
 
@@ -84,6 +87,9 @@ tResult SWE_ControllerFilter::Init(tInitStage eStage, __exception)
         CreateInputPins(__exception_ptr);
         CreateOutputPins(__exception_ptr);
 
+        m_property_manualSetPoint = (tFloat32)GetPropertyFloat("manual SetPoint",800);
+        m_useManualSetP = (tBool)GetPropertyBool("Use manual SetPoint", false);
+
         m_Kp = (tFloat32)GetPropertyFloat("Controller Kp value",0.01);
         m_Ki = (tFloat32)GetPropertyFloat("Controller Ki value",0.015);
         m_Kd = (tFloat32)GetPropertyFloat("Controller Kd value",0.01);
@@ -126,6 +132,9 @@ tResult SWE_ControllerFilter::Start(__exception)
     m_lastMeasuredError = 0;
     m_lastOutputTime = 0;
     m_controllerStrength = 1.0;
+
+    if(m_useManualSetP)
+        m_setPoint = m_property_manualSetPoint;
 }
 
 tResult SWE_ControllerFilter::Stop(__exception)
@@ -213,7 +222,10 @@ tResult SWE_ControllerFilter::OnPinEvent(    IPin* pSource, tInt nEventCode, tIn
             pCoder->Get("f32Value", (tVoid*)&value);
             pCoder->Get("ui32ArduinoTimestamp", (tVoid*)&timeStamp);
             m_pCoderDescSignal->Unlock(pCoder);
-            m_setPoint = value;
+
+            if(!m_useManualSetP)
+                m_setPoint = value;
+
         }
         else if (pSource == &m_oInputFeedForward)
         {
