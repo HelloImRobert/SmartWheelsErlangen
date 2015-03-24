@@ -368,7 +368,7 @@ tResult cSWE_KIControl::Shutdown(tInitStage eStage, __exception)
 tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1, tInt nParam2, IMediaSample* pMediaSample)
 {
 
-    m_mutex.Enter(); //(Robert)
+   // m_mutex.Enter(); //(Robert)
 
     cObjectPtr<IMediaType> pType;
     pSource->GetMediaType(&pType);
@@ -429,11 +429,14 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
 
 
-            if( adminstopp!=true)
+            if( adminstopp==false)
             {
                 if(parking==false)
                 {
                     ObjectAvoidance();
+
+
+                    //testfalle
 
                 }
 
@@ -756,7 +759,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
     }
 
-    m_mutex.Leave(); //(Robert)
+   // m_mutex.Leave(); //(Robert)
 
     RETURN_NOERROR;
 }
@@ -1515,7 +1518,8 @@ void cSWE_KIControl::DriverCalc()
             }
         }
         break;
-        //Einparken1-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+        //parallel parken-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 4:
 
         parking=true;
@@ -1622,7 +1626,7 @@ crosscalldone=false;
 
 
         break;
-        //einparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        //querparken-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 5:
 
         parking=true;
@@ -1725,21 +1729,23 @@ crosscalldone=false;
             }
         }
         break;
-        //ausparken1-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+        //pull_out_left-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 6:
 
         SecondSigntype=0;
         if(parkbefehl==1)
              Parkroutine(3);
         else
-            Parkroutine(4);
+            Parkroutine(5);
         break;
-        //ausparken2-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        //pull_out_right-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 7:
 
         SecondSigntype=0;
            if(parkbefehl==1)
-                  Parkroutine(5);
+                  Parkroutine(4);
            else
                     Parkroutine(6);
         break;
