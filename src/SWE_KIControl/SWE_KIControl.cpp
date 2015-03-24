@@ -433,6 +433,8 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             {
                 if(parking==false)
                 {
+                    if(status==3)
+                        SendtoJury(2, CommandCounter);
                     ObjectAvoidance();
 
 
@@ -653,12 +655,18 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
                 //Ready anforderung
                 //TODO:: Ready an Jury senden
-
+                //0 ready
+                //-1 error
+                //1 running
+                //2 complete
+                //
+                //
+                SendtoJury(0, CommandCounter);
             }
             else if (i8ActionID==1)
             {
                 adminstopp=false;
-
+                CommandCounter=i16entry;
                 //Start
 
             }
