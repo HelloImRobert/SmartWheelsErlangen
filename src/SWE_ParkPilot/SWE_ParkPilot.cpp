@@ -74,7 +74,7 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         m_pulloutState = 0;
 
         m_parkState = 0;
-        m_parkTrigger = 5;  // always initialise with 10 !
+        m_parkTrigger = 10;  // always initialise with 10 !
 
         m_gotControl = true;
         m_outOfLot = false;
@@ -308,7 +308,7 @@ tResult cSWE_ParkPilot::Start(__exception)
     m_pulloutState = 0;
 
     m_parkState = 0;
-    m_parkTrigger = 5;  //always initialise with 10
+    m_parkTrigger = 10;  //always initialise with 10
 
     m_gotControl = true;
     m_outOfLot = false;
@@ -355,10 +355,10 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 {
 
     // TIMER LOOP FOR TESTING ONLY! DEBUG
-    if((GetTime() - m_startTimer) < m_stopTime)
-    {
-        RETURN_NOERROR;
-    }
+//    if((GetTime() - m_startTimer) < m_stopTime)
+//    {
+//        RETURN_NOERROR;
+//    }
 
     m_mutex.Enter(); //serialize the whole filter for data consistency
 
@@ -388,7 +388,7 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
            }
            else if( m_parkTrigger == 0 )
            {
-               sendSpeed( 0 ); // cause for bugs? (robert)
+               sendSpeed( 0 ); // cause for bugs? (robert) noooope (markus)
            }
 
         }
@@ -405,15 +405,15 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             m_IRFrontRightCur = 10 * m_IRFrontRightCur;
 
             ///FOR TESTING
-            if(m_testing == true && (GetTime() - m_startTimer) >= m_stopTime)
-            {
-                sendSteeringAngle( STEER_NEUTRAL );
-                sendSpeed( 1.0 );
-                LOG_ERROR(cString("PP: Trigger set, going forward" ));
-                m_parkTrigger = 5;
-                m_testing = false;
-            }
-            ///FOR TESTING
+//            if(m_testing == true && (GetTime() - m_startTimer) >= m_stopTime)
+//            {
+//                sendSteeringAngle( STEER_NEUTRAL );
+//                sendSpeed( 1.0 );
+//                LOG_ERROR(cString("PP: Trigger set, going forward" ));
+//                m_parkTrigger = 5;
+//                m_testing = false;
+//            }
+//            ///FOR TESTING
 
             if( m_IRFrontRightCur <= TH_SHORT && m_firstIR == false)
             {
