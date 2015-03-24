@@ -13,31 +13,29 @@ bool sort_yValContour(const cv::Point& point1, const cv::Point& point2)
 
 CrossingAnalyzer::CrossingAnalyzer()
 {
-    _leftOfCenterThresh = 150;
-    _lowerLengthTresh = 320;
-    _higherLengthTresh = 600;
-    _arcLengthThresh = 50;
-    _angleTolerance = 0.5;
+
+}
+
+CrossingAnalyzer::CrossingAnalyzer
+        (
+            int leftOfCenterThresh, double lowerLengthThresh , double higherLengthTresh ,
+            double arcLengthThresh , double angleTolerance , double veryLineLikeThresh ,
+            double minOuterBoundaryLength , double distanceLowestPointToSecondIndexThresh ,
+            int lowerOffset , int upperOffset
+        )
+        :
+          _leftOfCenterThresh(leftOfCenterThresh) , _lowerLengthTresh(lowerLengthThresh) ,
+          _higherLengthTresh(higherLengthTresh) , _arcLengthThresh(arcLengthThresh) ,
+          _angleTolerance(angleTolerance) , _veryLineLikeThresh(veryLineLikeThresh) ,
+          _minOuterBoundaryLength(minOuterBoundaryLength) , _distanceLowestPointToSecondIndexThresh (distanceLowestPointToSecondIndexThresh) ,
+          _lowerOffset(lowerOffset) , _upperOffset(upperOffset)
+{
     _higherFlatAngleThresh = _angleTolerance;
     _higherFlatAngleThresh2 = CV_PI + _angleTolerance;
     _lowerFlatAngleThresh2 = CV_PI - _angleTolerance;
     _lowerFlatAngleThresh = - _angleTolerance;
     _higherNinetyAngleThresh = 0.5 * CV_PI + _angleTolerance;
     _lowerNinetyAngleThresh = 0.5 * CV_PI - _angleTolerance;
-    _veryLineLikeThresh = 600;
-    _minOuterBoundaryLength = 1700;
-    _distanceLowestPointToSecondIndexThresh = 200;
-
-    _higherFlatAngleThresh = _angleTolerance;
-    _higherFlatAngleThresh2 = CV_PI + _angleTolerance;
-    _lowerFlatAngleThresh2 = CV_PI - _angleTolerance;
-    _lowerFlatAngleThresh = - _angleTolerance;
-    _higherNinetyAngleThresh = 0.5 * CV_PI + _angleTolerance;
-    _lowerNinetyAngleThresh = 0.5 * CV_PI - _angleTolerance;
-
-
-    _lowerOffset = 80;
-    _upperOffset = 980;
 }
 
 bool CrossingAnalyzer::checkStopLineVertical(std::pair< size_t, size_t >& indices, const std::vector< size_t >& flatAngles, const BlobDescriptor* laneBlob, bool side)
@@ -401,7 +399,7 @@ CrossingDescriptor CrossingAnalyzer::searchCrossings(BlobDescriptor* leftLaneBlo
 int CrossingAnalyzer::classifyCrossings(std::vector< BlobDescriptor >& blobs)
 {
     std::vector< BlobDescriptor* > blobsToAnalyze;
-    for(size_t i = 0 ; i < std::min( static_cast< int >( blobs.size() ) , 3 ) ;++i)
+    for(int i = 0 ; i < std::min( static_cast< int >( blobs.size() ) , 3 ) ;++i)
     {
         bool veryLineLike = blobs[i].principalAxisLengthRatio > _veryLineLikeThresh;
         bool notComplex = !blobs[i].complexBoundaryIndicator;

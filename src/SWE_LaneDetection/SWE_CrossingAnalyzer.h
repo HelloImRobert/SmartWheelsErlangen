@@ -31,6 +31,14 @@ public:
     CrossingDescriptor searchCrossings(BlobDescriptor* leftLaneBlob, BlobDescriptor* rightLaneBlob);
     int classifyCrossings(std::vector< BlobDescriptor > &contours);
     CrossingAnalyzer();
+
+    CrossingAnalyzer
+    (
+            int leftOfCenterThresh, double lowerLengthThresh , double higherLengthTresh ,
+            double arcLengthThresh , double angleTolerance , double veryLineLikeThresh ,
+            double minOuterBoundaryLength , double distanceLowestPointToSecondIndexThresh ,
+            int lowerOffset , int upperOffset
+    );
 private:
 
     bool checkStopLine(std::vector< size_t >& smallFlatAngles , BlobDescriptor* laneBlob, CrossingDescriptor& crossing, bool side);

@@ -28,6 +28,15 @@ ADTF_FILTER_PLUGIN("SWE_LaneDetection", OID_ADTF_LANEDETECTION_FILTER , cSWE_Lan
 #define DIST_FRONT_TO_WARPED_IMAGE_BOTTOM "distance of the lowest point visible in the inverse perspective to the car coordinate system"
 #define DIST_FRONT_TO_FRONT_AXIS "distance of the front point of the car to the front axis"
 #define DIST_SIDE_IMAGE_TO_MID "distance of the middle of the image to the middle of the car in inverse perspective"
+#define LEFT_OF_CENTER_TRESH "The minimum distance of the most inner point of a Stopline to the center of gravity"
+#define LOWER_OFFSET_TRESH "The Offset of a virtual StopLine to it's anchor if it's a lower anchor"
+#define UPPER_OFFSET_TRESH "The Offset of a virtual StopLine to it's anchor if it's a upper anchor"
+#define LOWER_LENGTH_TRESH "The minimum length a real Stopline must have"
+#define HIGHER_LENGTH_TRESH "The maximum length a real StopLine can have"
+#define ARC_LENGTH_TRESH "The minimum length the flat Angle part of a L pattern"
+#define ANGLE_TOLERANCE "The Tolerance for all the direction angles considered as ninety degree or flat"
+#define VERY_LINE_LIKE_TRESH "The Threshold for determination if a blob is very likely to be a line"
+#define DISTANCE_LOWEST_POINT_TO_SECOND_INDEX_TRESH "The Distance of the Anchor of a L pattern to the lowest point of a contour "
 
 #define IMAGE_WIDTH 640
 #define IMAGE_HEIGHT 480
@@ -139,6 +148,51 @@ cSWE_LaneDetection::cSWE_LaneDetection(const tChar* __info):cFilter(__info)
     SetPropertyBool( DIST_SIDE_IMAGE_TO_MID NSSUBPROP_ISCHANGEABLE, tTrue);
     SetPropertyFloat( DIST_SIDE_IMAGE_TO_MID NSSUBPROP_MINIMUM  , 0.0);
     SetPropertyFloat( DIST_SIDE_IMAGE_TO_MID NSSUBPROP_MAXIMUM  , 320.0 );
+
+    SetPropertyInt( LEFT_OF_CENTER_TRESH , 150 );
+    SetPropertyBool( LEFT_OF_CENTER_TRESH NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyInt( LEFT_OF_CENTER_TRESH NSSUBPROP_MINIMUM  , 0);
+    SetPropertyInt( LEFT_OF_CENTER_TRESH NSSUBPROP_MAXIMUM  , 2000);
+
+    SetPropertyInt( LOWER_OFFSET_TRESH , 80 );
+    SetPropertyBool( LOWER_OFFSET_TRESH  NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyInt( LOWER_OFFSET_TRESH NSSUBPROP_MINIMUM  , 0);
+    SetPropertyInt( LOWER_OFFSET_TRESH NSSUBPROP_MAXIMUM  , 2000);
+
+    SetPropertyInt( UPPER_OFFSET_TRESH , 980 );
+    SetPropertyBool( UPPER_OFFSET_TRESH  NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyInt( UPPER_OFFSET_TRESH  NSSUBPROP_MINIMUM  , 0);
+    SetPropertyInt( UPPER_OFFSET_TRESH NSSUBPROP_MAXIMUM  , 4000);
+
+    SetPropertyFloat( LOWER_LENGTH_TRESH , 320.0 );
+    SetPropertyBool( LOWER_LENGTH_TRESH NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( LOWER_LENGTH_TRESH NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( LOWER_LENGTH_TRESH NSSUBPROP_MAXIMUM  , 4000.0 );
+
+    SetPropertyFloat( HIGHER_LENGTH_TRESH , 600.0 );
+    SetPropertyBool( HIGHER_LENGTH_TRESH NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( HIGHER_LENGTH_TRESH NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( HIGHER_LENGTH_TRESH NSSUBPROP_MAXIMUM  , 8000.0 );
+
+    SetPropertyFloat( ARC_LENGTH_TRESH , 50.0 );
+    SetPropertyBool( ARC_LENGTH_TRESH NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( ARC_LENGTH_TRESH NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( ARC_LENGTH_TRESH NSSUBPROP_MAXIMUM  , 4000.0 );
+
+    SetPropertyFloat( ANGLE_TOLERANCE , 0.5 );
+    SetPropertyBool( ANGLE_TOLERANCE NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( ANGLE_TOLERANCE NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( ANGLE_TOLERANCE NSSUBPROP_MAXIMUM  , 7.0 );
+
+    SetPropertyFloat( VERY_LINE_LIKE_TRESH , 600.0 );
+    SetPropertyBool( VERY_LINE_LIKE_TRESH NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( VERY_LINE_LIKE_TRESH NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( VERY_LINE_LIKE_TRESH NSSUBPROP_MAXIMUM  , 8000.0 );
+
+    SetPropertyFloat( DISTANCE_LOWEST_POINT_TO_SECOND_INDEX_TRESH , 200.0 );
+    SetPropertyBool( DISTANCE_LOWEST_POINT_TO_SECOND_INDEX_TRESH NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( DISTANCE_LOWEST_POINT_TO_SECOND_INDEX_TRESH NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( DISTANCE_LOWEST_POINT_TO_SECOND_INDEX_TRESH NSSUBPROP_MAXIMUM  , 4000.0 );
 }
 
 /**
@@ -214,7 +268,7 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         _minOuterBoundaryLength = GetPropertyFloat(MIN_OUTER_BOUNDARY_LENGTH);
         _heightThresh = GetPropertyInt(HEIGHT_THRESHOLD);
         _draw = GetPropertyBool(DRAW_IMAGES),
-                _CountStdDevs = GetPropertyInt(COUNT_OF_STDDEVS);
+        _CountStdDevs = GetPropertyInt(COUNT_OF_STDDEVS);
         _lowerAreaThreshold = GetPropertyFloat(LOWER_AREA_THRESHOLD);
         _startHeight = GetPropertyInt(START_HEIGHT);
         _principalAxisLengthRatioThreshold = GetPropertyFloat(PRINCIPAL_AXIS_LENGTH_RATIO_THRESHOLD);
@@ -226,7 +280,23 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
         _distFrontToFrontAxis = GetPropertyFloat(DIST_FRONT_TO_FRONT_AXIS);
         _distSideImageToMid = GetPropertyFloat(DIST_SIDE_IMAGE_TO_MID);
 
-        _analyzer = CrossingAnalyzer();
+        int leftOfCenterThresh = GetPropertyInt( LEFT_OF_CENTER_TRESH );
+        double lowerLengthThresh = GetPropertyFloat( LOWER_LENGTH_TRESH );
+        double higherLengthTresh = GetPropertyFloat( HIGHER_LENGTH_TRESH );
+        double arcLengthThresh = GetPropertyFloat( ARC_LENGTH_TRESH );
+        double angleTolerance = GetPropertyFloat( ANGLE_TOLERANCE );
+        double veryLineLikeThresh = GetPropertyFloat( VERY_LINE_LIKE_TRESH );
+        double distanceLowestPointToSecondIndexThresh = GetPropertyFloat( DISTANCE_LOWEST_POINT_TO_SECOND_INDEX_TRESH );
+        int lowerOffset = GetPropertyInt( LOWER_OFFSET_TRESH );
+        int upperOffset = GetPropertyInt( UPPER_OFFSET_TRESH );
+
+        _analyzer = CrossingAnalyzer
+        (
+                leftOfCenterThresh, lowerLengthThresh , higherLengthTresh ,
+                arcLengthThresh ,  angleTolerance ,  veryLineLikeThresh ,
+                 _minOuterBoundaryLength ,  distanceLowestPointToSecondIndexThresh ,
+                lowerOffset , upperOffset
+        );
 
         // read the parameters from a file and setup a transformation matrix
         InitTransformationMatrices( GetPropertyStr( CORRESPONDING_POINTS_XML ) );
