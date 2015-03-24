@@ -366,7 +366,8 @@ std::vector< std::pair< size_t, size_t > > splineBoundaryCalcs::extractPlausible
                                                                                          const std::vector< cv::Point2d >& spline,
                                                                                          const double breakAngle,
                                                                                          const double maxDirectionAngle,
-                                                                                         const double maxDistance)
+                                                                                         const double maxDistance,
+                                                                                         const bool isRightBoundary )
 {
     // generate return value
     std::vector< std::pair< size_t, size_t > > plausibleSegments;
