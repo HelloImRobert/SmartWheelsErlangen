@@ -14,8 +14,8 @@ bool sort_yValContour(const cv::Point& point1, const cv::Point& point2)
 CrossingAnalyzer::CrossingAnalyzer()
 {
     _leftOfCenterThresh = 150;
-    _lowerLengthTresh = 370;
-    _higherLengthTresh = 520;
+    _lowerLengthTresh = 320;
+    _higherLengthTresh = 600;
     _arcLengthThresh = 50;
     _angleTolerance = 0.5;
     _higherFlatAngleThresh = _angleTolerance;
