@@ -66,7 +66,7 @@ class cSWE_LaneDetection : public adtf::cFilter
             tResult                     InitPinFormats();
 
             // internal Functions
-            void                        getBlobDescriptions             (const std::vector< std::vector< cv::Point > >& contours , std::vector< BlobDescriptor >& blobs );
+            void                        getBlobDescriptions             (const std::vector< std::vector< cv::Point > >& contours , std::vector< BlobDescriptor >& blobs , std::vector<BlobDescriptor> &allBlobs);
             void                        getOrientation                  (BlobDescriptor& blob );
             int                         getOuterLaneBoundaries          (std::vector< BlobDescriptor >& blobs);
             std::pair< size_t, size_t > contourToSpline                 (const std::vector< cv::Point >& contour , const int splineSearchWidth , bool side = false );

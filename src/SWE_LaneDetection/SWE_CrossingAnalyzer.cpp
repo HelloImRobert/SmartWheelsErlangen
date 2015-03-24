@@ -19,6 +19,8 @@ CrossingAnalyzer::CrossingAnalyzer()
     _lowerFlatAngleThresh = - _angleTolerance;
     _higherNinetyAngleThresh = 0.5 * CV_PI + _angleTolerance;
     _lowerNinetyAngleThresh = 0.5 * CV_PI - _angleTolerance;
+    _veryLineLikeThresh = 600;
+    _minOuterBoundaryLength = 1700;
 
     _higherFlatAngleThresh = _angleTolerance;
     _higherFlatAngleThresh2 = CV_PI + _angleTolerance;
@@ -363,5 +365,64 @@ CrossingDescriptor CrossingAnalyzer::searchCrossings(BlobDescriptor* leftLaneBlo
     CrossingDescriptor crossing = fuseSidesToCrossing(leftSide, rightSide);
 
     return crossing;
+}
+
+// 1 = left and straight
+// 2 = right and straight
+// 3 = right, left and straight
+// 4 = right and left
+int CrossingAnalyzer::classifyCrossings(std::vector< BlobDescriptor >& blobs)
+{
+    std::vector< BlobDescriptor* > blobsToAnalyze;
+    for(size_t i = 0 ; i < std::min( static_cast< int >( blobs.size() ) , 3 ) ;++i)
+    {
+        bool veryLineLike = blobs[i].principalAxisLengthRatio > _veryLineLikeThresh;
+        bool notComplex = !blobs[i].complexBoundaryIndicator;
+        bool large = blobs[i].lengthContour > _minOuterBoundaryLength;
+
+        if( large && veryLineLike && notComplex )
+        {
+            blobsToAnalyze.push_back(&blobs[i]);
+        }
+    }
+
+    if(blobsToAnalyze.size() > 0 )
+    {
+        size_t indexOfMin;
+        double maxLength = 0;
+        for(size_t i = 0 ; i < blobsToAnalyze.size();++i)
+        {
+            if(blobsToAnalyze[i]->lengthContour > maxLength)
+            {
+                maxLength = blobsToAnalyze[i]->lengthContour;
+                indexOfMin = i;
+            }
+        }
+
+        BlobDescriptor* blobToAnalyze = blobsToAnalyze[ indexOfMin ];
+
+        double angle = fabs(blobToAnalyze->angleOfMainDirection);
+        bool angleIsNinety = angle > _lowerNinetyAngleThresh && angle < _higherNinetyAngleThresh;
+        if(angleIsNinety)
+        {
+            if(blobToAnalyze->side == RIGHT)
+            {
+                return 1;
+            }
+            else if(blobToAnalyze->side == LEFT)
+            {
+                return 2;
+            }
+        }
+        else
+        {
+            return 3;
+        }
+    }
+    else
+    {
+        return 4;
+    }
+    return 0;
 }
 

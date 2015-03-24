@@ -581,7 +581,7 @@ void cSWE_LaneDetection::getOrientation(BlobDescriptor& blob)
      * @param contours a vector of contours as found by opencv
      * @param blobs an outputvector of blobdescriptors which represent plausible laneboundaries
      */
-void cSWE_LaneDetection::getBlobDescriptions( const std::vector< std::vector< cv::Point > >& contours, std::vector< BlobDescriptor >& blobs )
+void cSWE_LaneDetection::getBlobDescriptions( const std::vector< std::vector< cv::Point > >& contours, std::vector< BlobDescriptor >& blobs , std::vector< BlobDescriptor >& allBlobs )
 {
     // inspect every contour
     for (size_t i = 0; i < contours.size(); i++)
@@ -665,11 +665,21 @@ void cSWE_LaneDetection::getBlobDescriptions( const std::vector< std::vector< cv
             {
                 blobs.push_back(descriptor);
             }
+
+            if(_determineCrossing)
+            {
+                allBlobs.push_back(descriptor);
+            }
         }
     }
 
     // sort blobs depending on their arc_length in decreasing order
     sort(blobs.begin(), blobs.end(), sort_arcLength);
+
+    if(_determineCrossing)
+    {
+        sort(allBlobs.begin(),allBlobs.end(),sort_arcLength);
+    }
 }
 
 /**
@@ -942,23 +952,28 @@ void cSWE_LaneDetection::drawCrossing(const cv::Mat& image, const CrossingDescri
 
         drawStopLine(image, crossing, cv::Scalar(0, 0, 255));
     }
-    if (crossing.type == 2)
+    else if(crossing.result == OPENING)
     {
-        cv::putText(image, "RIGHT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
-
         drawStopLine(image, crossing, cv::Scalar(255,0,255));
     }
-    if (crossing.type == 1)
+    else
     {
-        cv::putText(image, "LEFT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0,0,255), thickness, 10);
-
-        drawStopLine(image, crossing, cv::Scalar(255, 255, 0));
-    }
-    if (crossing.type == 3)
-    {
-        cv::putText(image, "BOTH", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
-
-        drawStopLine(image, crossing, cv::Scalar(255, 255, 0));
+        if (crossing.type == 2)
+        {
+            cv::putText(image, "RIGHT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
+        }
+        if (crossing.type == 1)
+        {
+            cv::putText(image, "LEFT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0,0,255), thickness, 10);
+        }
+        if (crossing.type == 3)
+        {
+            cv::putText(image, "BOTH", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
+        }
+        else if (crossing.type == 4)
+        {
+            cv::putText(image, "RIGHT AND LEFT AND STRAIGHT", cv::Point(640, 320), fontFace, fontScale, cv::Scalar(0, 0, 255), thickness, 10);
+        }
     }
 }
 
@@ -1184,7 +1199,8 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
 
     // get enhanced Descriptions of the blobs with basic removal of candidates
     std::vector< BlobDescriptor > blobs;
-    getBlobDescriptions( contours, blobs);
+    std::vector< BlobDescriptor > allBlobs;
+    getBlobDescriptions( contours, blobs , allBlobs);
 
     // get the outer Lane Boundaries
     int outerLaneBoundariesIndicator = getOuterLaneBoundaries( blobs );
@@ -1309,12 +1325,15 @@ tResult cSWE_LaneDetection::ProcessInput(IMediaSample* pMediaSample)
 
     if( _determineCrossing )
     {
-        //TODO
-        int resultType = 2;
+        CrossingDescriptor crossing;
+        crossing.isReal = false;
+        crossing.result = CROSSINGDETECTION;
+        crossing.type = _analyzer.classifyCrossings(allBlobs);
+        crossing.stopLine = std::pair< cv::Point2d , cv::Point2d >(cv::Point2d(-1.0,-1.0),cv::Point2d(-1.0,-1.0));
 
-        cv::Point2d dummyStopLineFirst(-1.0,-1.0);
-        cv::Point2d dummyStopLineSecond(-1.0,-1.0);
-        transmitCrossingIndicator(false,resultType,dummyStopLineFirst,dummyStopLineSecond);
+        drawCrossing( result , crossing );
+
+        transmitCrossingIndicator(crossing.isReal, crossing.type , crossing.stopLine.first, crossing.stopLine.second);
 
         _determineCrossing = false;
     }
