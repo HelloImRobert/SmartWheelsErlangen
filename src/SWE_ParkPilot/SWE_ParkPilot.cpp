@@ -955,7 +955,7 @@ tResult cSWE_ParkPilot::pullOutCrossLeft()
         case 801:
             sendBlink( BLINK_LEFT );
             sendSpeed( 1 );
-            if( m_IRFrontRightCur > 500 && m_IRFrontLeftCur > 500 )
+            if( m_IRFrontRightCur > 300 && m_IRFrontLeftCur > 300 )
             {
                 m_rememberDist = m_odometryData.distance_sum;
                 m_headingAtStart = m_angleAbs;
@@ -1015,7 +1015,7 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
         case 701:
             sendBlink( BLINK_RIGHT );
             sendSpeed( 1 );
-            if( m_IRFrontRightCur > 500 && m_IRFrontLeftCur > 500 )
+            if( m_IRFrontRightCur > 300 && m_IRFrontLeftCur > 300 )
             {
                 m_rememberDist = m_odometryData.distance_sum;
                 m_headingAtStart = m_angleAbs;
