@@ -222,7 +222,7 @@ tResult cSWE_LaneDetection::Init(tInitStage eStage, __exception)
 {
     RETURN_IF_FAILED(cFilter::Init(eStage, __exception_ptr))
 
-            if (eStage == StageFirst)
+    if (eStage == StageFirst)
     {
         RETURN_IF_FAILED(m_oInputTrigger.Create("KI_Trigger", new cMediaType(0, 0, 0, "tBoolSignalValue"), static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oInputTrigger));

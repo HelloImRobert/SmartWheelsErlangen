@@ -289,7 +289,6 @@ tResult SWE_BackLightsFinder::ProcessInput(IMediaSample* pMediaSample)
     {
         if (iter->size() < _contourLengthThreshold)
         {
-
             iter = contours.erase(iter);
         }
         else
