@@ -10,7 +10,7 @@
 #define STATUS_NORMAL 0  //= normal status
 #define STATUS_ENDOFTURN 1  //= ended turn maneuver
 #define STATUS_ATSTOPLINE 2 //= stopped at stopline
-#define DEBUG_OUTPUT false //DEBUG
+#define DEBUG_OUTPUT true //DEBUG
 #define CLOSE_STOPLINE 1200 //when approaching stopline this close, be careful to use camera steering
 
 
@@ -139,7 +139,7 @@ tResult cSWE_TrackControl::Start(__exception)
     m_property_InvSteering =            (tBool)GetPropertyBool("InvertSteering", true);
     m_property_StoplineWheelDist =      (tInt32)GetPropertyInt("Stopdist Stopline to Wheel in mm", 120);
     m_property_SteeringDeadAngle =      (tFloat32)GetPropertyFloat("Steering Dead angle in degree", 3);
-m_outputStatusSave=-1;
+    m_outputStatusSave=-1;
     m_input_maxGear = 0;
     m_input_Command = -1;
     m_input_intersectionIndicator = 0;
@@ -472,10 +472,12 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
 
     case NORMAL_OPERATION:
+
         /*
         if (DEBUG_OUTPUT)
             LOG_ERROR(cString("TC: in NORMAL_OPERATION  command:" + cString::FromInt32(command)));
         */
+
         switch(command)
         {
 
@@ -573,9 +575,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
             }
             else if (m_input_intersectionIndicator == 0) //no tracking point?
                  m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle();
-*/
+            */
+
             if (m_input_intersectionIndicator == 0) //no tracking point?
-                             m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle(); //DEBUG
+                m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle(); //DEBUG
 
             m_status_noGears = false;
             m_status_noSteering = false;
@@ -620,7 +623,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
             */
 
             if (m_input_intersectionIndicator == 0) //no tracking point?
-                             m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle(); //DEBUG
+                m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle(); //DEBUG
 
 
             // ------------- is maneuver finished? -------------
@@ -714,8 +717,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
     case TURN_INPROGRESS:
 
+        /*
         if (DEBUG_OUTPUT)
             LOG_ERROR(cString("TC: in TURN_INPROGRESS  command:" + cString::FromInt32(command)));
+        */
 
         switch(command)
         {
