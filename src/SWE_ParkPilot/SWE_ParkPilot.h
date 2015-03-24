@@ -85,6 +85,8 @@ private:
     tFloat32    m_pullDriftComp;
     tFloat32    m_pullLeftAngle;
     tFloat32    m_pullRightAngle;
+    tFloat32    m_pullLeftStraightBlind;
+    tFloat32    m_pullRightStraightBlind;
 
     tInt32      m_startTimer;
 
@@ -102,6 +104,7 @@ private:
     tBool       m_gotControl;
     tBool       m_firstIR;
     tBool       m_activeManeuvering;
+    tBool       m_outOfLot;
 
     tInt16      m_searchState;
     tInt16      m_parkState;

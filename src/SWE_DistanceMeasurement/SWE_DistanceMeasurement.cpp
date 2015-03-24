@@ -386,6 +386,7 @@ tResult SWE_DistanceMeasurement::transfrom()
     _detected_array[3] = _transformed.uss_rear_right;
 
 
+    //IR
     // FRONT LEFT 4
     if(_mean.ir_front_left_short <= 50)
     {
@@ -466,8 +467,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_front_center_short > 150 && _mean.ir_front_center_long >= 600)
     {
-        _transformed.ir_front_center.x = 0;
-        _transformed.ir_front_center.y = INVALIDE_HIGH;
+        _transformed.ir_front_center.x = INVALIDE_HIGH;
+        _transformed.ir_front_center.y = 0;
     }
     
     _detected_array[6] = _transformed.ir_front_center;
@@ -486,8 +487,8 @@ tResult SWE_DistanceMeasurement::transfrom()
     }
     else if(_mean.ir_rear_center_short > 250)
     {
-        _transformed.ir_rear_center.x = 0;
-        _transformed.ir_rear_center.y = INVALIDE_HIGH;
+        _transformed.ir_rear_center.x = INVALIDE_HIGH;
+        _transformed.ir_rear_center.y = 0;
     }
     
     _detected_array[7] = _transformed.ir_rear_center;

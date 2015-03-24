@@ -75,7 +75,7 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
 
         //TESTING START
         m_parkState = 0;
-        m_parkTrigger = 10;  // always initialise with 10 !
+        m_parkTrigger = 1;  // always initialise with 10 !
 
         m_searchActivated = false;
         m_minDistReached = false;
@@ -84,7 +84,8 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         m_parkCross = false;
         m_pullLeft = false;
         m_pullRight = false;
-        m_gotControl = false;
+        m_gotControl = true;
+        m_outOfLot = false;
         //TESTING END
 
 
@@ -114,7 +115,7 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         SetPropertyInt("Stop Time in ms", 15000);
 
         SetPropertyFloat("A_LotSize", 765.0);
-        SetPropertyFloat("A_StraightForward(mm)", 690.0);
+        SetPropertyFloat("A_StraightForward(mm)", 650.0);
         SetPropertyFloat("A_CentralAngle(DEG)",50.0);
         SetPropertyFloat("A_CounterAngle(DEG)",43.0);
         SetPropertyFloat("A_CentralAngleSteering(0-1max)", 1.0);
@@ -134,7 +135,9 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         SetPropertyFloat("C_HeadingAngleLeftForward(DEG)", 35.0);
         SetPropertyFloat("C_PerpendicularBackward(mm)", 250.0);
 
-        SetPropertyFloat("CP_PullLeftStraight(mm)", 350.0);
+        SetPropertyFloat("CP_PullLeftStraight(mm)", 300.0);
+        SetPropertyFloat("CP_PullLeftStraightBlind(mm)", 300.0);
+        SetPropertyFloat("CP_PullRightStraightBlind(mm)", 250.0);
         SetPropertyFloat("CP_PullRightStraight(mm)", 230.0);
         SetPropertyFloat("CP_PullLeftAngle(DEG)", 50.0);
         SetPropertyFloat("CP_PullRightAngle(DEG)", 90.0);
@@ -272,7 +275,7 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
         m_manAngleOne = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_ManeuverAngleOne(DEG)");
         m_manAngleTwo = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_ManeuverAngleTwo(DEG)");
         m_activeManeuvering = (tBool)GetPropertyBool("A_ActivateManeuvering", false);
-        m_distStartPark = GetPropertyFloat("A_StraightForward(mm)");
+        m_distStartPark = GetPropertyFloat("A_StraightForward(mm)", 650.0);
         m_driftComp = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_DriftCompensation", 0.0);
         m_pullFirst = DEG_TO_RAD * GetPropertyFloat("AP_firstAnlge", 2.0);
         m_pullSecond = DEG_TO_RAD * GetPropertyFloat("AP_secondAnlge", 15.0);
@@ -284,7 +287,9 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
         m_straightForward = GetPropertyFloat("C_StraightForward(mm)", 60.0);
         m_headingAngleForward = DEG_TO_RAD * (tFloat32)GetPropertyFloat("C_HeadingAngleLeftForward(DEG)");
         m_perpendicularBackward = GetPropertyFloat("C_PerpendicularBackward(mm)");
-        m_pullLeftStraight = GetPropertyFloat("CP_PullLeftStraight(mm)", 350.0);
+        m_pullLeftStraightBlind = (tFloat32)GetPropertyFloat("CP_PullLeftStraightBlind(mm)", 300.0);
+        m_pullRightStraightBlind = (tFloat32)GetPropertyFloat("CP_PullRightStraightBlind(mm)", 250.0);
+        m_pullLeftStraight = GetPropertyFloat("CP_PullLeftStraight(mm)", 300.0);
         m_pullRightStraight = GetPropertyFloat("CP_PullRightStraight(mm)", 230.0);
         m_pullLeftAngle = DEG_TO_RAD * (tFloat32)GetPropertyFloat("CP_PullLeftAngle(DEG)", 50.0);
         m_pullRightAngle = DEG_TO_RAD * (tFloat32)GetPropertyFloat("CP_PullRightAngle(DEG)", 90.0);
@@ -311,7 +316,7 @@ tResult cSWE_ParkPilot::Start(__exception)
 
     //TESTING START
     m_parkState = 0;
-    m_parkTrigger = 10;  //always initialise with 10
+    m_parkTrigger = 1;  //always initialise with 10
 
     m_searchActivated = false;
     m_minDistReached = false;
@@ -320,7 +325,8 @@ tResult cSWE_ParkPilot::Start(__exception)
     m_parkCross = false;
     m_pullLeft = false;
     m_pullRight = false;
-    m_gotControl = false;
+    m_gotControl = true;
+    m_outOfLot = false;
     //TESTING END
     m_firstIR = false;
 
@@ -365,10 +371,10 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 {
 
     // TIMER LOOP FOR TESTING ONLY! DEBUG
-//    if((GetTime() - m_startTimer) < m_stopTime)
-//    {
-//        RETURN_NOERROR;
-//    }
+    if((GetTime() - m_startTimer) < m_stopTime)
+    {
+        RETURN_NOERROR;
+    }
 
     m_mutex.Enter(); //serialize the whole filter for data consistency
 
@@ -415,15 +421,14 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             m_IRFrontRightCur = 10 * m_IRFrontRightCur;
 
             ///FOR TESTING
-//            if(m_testing == true && m_parkTrigger <= 2 && (GetTime() - m_startTimer) >= m_stopTime)
-//            {
-//                sendSteeringAngle( STEER_NEUTRAL );
-//                //sendSpeed( 1.0 );
-//                //sendParkState(1);
-//                //sendBlink(BLINK_LEFT);
-//                LOG_ERROR(cString("PP: Trigger set, going forward" ));
-//                m_testing = false;
-//            }
+            if(m_testing == true && (GetTime() - m_startTimer) >= m_stopTime)
+            {
+                sendSteeringAngle( STEER_NEUTRAL );
+                sendSpeed( 1.0 );
+                LOG_ERROR(cString("PP: Trigger set, going forward" ));
+                m_parkTrigger = 1;
+                m_testing = false;
+            }
             ///FOR TESTING
 
             if( m_IRFrontRightCur <= TH_SHORT && m_firstIR == false)
@@ -435,19 +440,19 @@ tResult cSWE_ParkPilot::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
 
             if( m_IRFrontRightCur > TH_LONG && m_firstIR == true && m_searchState == 0 && m_parkTrigger <= 2)
             {
-                if( m_odometryData.distance_sum - m_checkPointOne >= 200 )
+                if( m_odometryData.distance_sum - m_checkPointOne >= 180 )
                 {
                     LOG_ERROR(cString("PP: 1 Search Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
                     m_searchState = 1;
                 }
                 else
                 {
-                    //LOG_ERROR(cString("PP: 2 Search NOT Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
+                    LOG_ERROR(cString("PP: 2 Search NOT Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
                     m_firstIR = false;
                     m_searchState = 0;
                 }
             }
-            else if(m_firstIR == true && m_searchState == 0 && (m_odometryData.distance_sum - m_checkPointOne >= 200) && m_parkTrigger <= 2 )
+            else if(m_firstIR == true && m_searchState == 0 && (m_odometryData.distance_sum - m_checkPointOne >= 180) && m_parkTrigger <= 2 )
             {
                 m_searchState = 1;
                 LOG_ERROR(cString("PP: 3 Search Active, ObjectLength: " + cString::FromFloat64(m_odometryData.distance_sum - m_checkPointOne) ));
@@ -693,7 +698,6 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                 LOG_ERROR(cString("PP: 203 Next " + cString::FromInt(m_parkState) + "; CouA: " + cString::FromFloat64((m_headingAtStart + m_counterAngle)/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
             break;
 
-        //cases 204 and 205 are optional maneuvering cases!
 
         case 204:
             if( m_angleAbs <= (m_headingAtStart + m_manAngleOne) )
@@ -730,8 +734,6 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
             if(m_logging == true)
                 LOG_ERROR(cString("PP: 206 Next " + cString::FromInt(m_parkState) + "; HeadStart: " + cString::FromFloat64(m_headingAtStart/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
             break;
-
-        // ///////////////////////////////////////////////////
 
         case 207: // pull straight
             if( m_angleAbs <= m_headingAtStart )
@@ -966,17 +968,19 @@ tResult cSWE_ParkPilot::pullOutCrossLeft()
             m_rememberDistTwo = m_odometryData.distance_sum;
             sendSpeed( 1 );
             m_headingAtStart = m_angleAbs;
+            m_outOfLot = false;
             m_pulloutState = 802;
             break;
 
 
         case 802:
-            if( m_IRFrontRightCur > TH_SHORT && m_IRFrontLeftCur > TH_SHORT )
+            if( m_IRFrontRightCur > TH_SHORT && m_IRFrontLeftCur > TH_SHORT && m_outOfLot == false)
             {
                 m_rememberDist = m_odometryData.distance_sum;
+                m_outOfLot = true;
             }
 
-            if( (m_odometryData.distance_sum >= m_rememberDistTwo + 450) || (m_odometryData.distance_sum > m_rememberDist + m_pullLeftStraight) )
+            if( (m_odometryData.distance_sum >= m_rememberDistTwo + m_pullLeftStraightBlind) || (m_odometryData.distance_sum > m_rememberDist + m_pullLeftStraight) )
             {
                 sendSteeringAngle( STEER_LEFT_MAX );
                 m_pulloutState = 803;
@@ -1026,17 +1030,19 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
         m_rememberDistTwo = m_odometryData.distance_sum;
         sendSpeed( 1 );
         m_headingAtStart = m_angleAbs;
+        m_outOfLot = false;
         m_pulloutState = 702;
         break;
 
 
     case 702:
-        if( m_IRFrontRightCur > TH_SHORT && m_IRFrontLeftCur > TH_SHORT )
+        if( m_IRFrontRightCur > TH_SHORT && m_IRFrontLeftCur > TH_SHORT && m_outOfLot == false)
         {
             m_rememberDist = m_odometryData.distance_sum;
+            m_outOfLot = true;
         }
 
-        if( (m_odometryData.distance_sum >= m_rememberDistTwo + 300) || (m_odometryData.distance_sum > m_rememberDist + m_pullRightStraight) )
+        if( (m_odometryData.distance_sum >= m_rememberDistTwo + m_pullRightStraightBlind) || (m_odometryData.distance_sum > m_rememberDist + m_pullRightStraight) )
         {
             sendSteeringAngle( STEER_RIGHT_MAX );
             m_pulloutState = 703;
@@ -1061,6 +1067,7 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
                 m_headingAtStart = 0;
                 m_rememberDist = 0.0;
                 m_gotControl = false;
+                m_outOfLot = false;
 
         }
         break;
