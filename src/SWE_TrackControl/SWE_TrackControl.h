@@ -137,7 +137,7 @@ private:
     tFloat32 m_property_SteeringDeadAngle;
     tInt8 m_outputGear;
     tInt8 m_outputStatus;
-
+tInt8 m_outputStatusSave;
     my_status m_status_my_state;
 
     tBool m_status_noSteering;
