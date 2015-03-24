@@ -37,9 +37,6 @@ tResult cSWE_KIControl::CreateInputPins(__exception)
 
 
 
-
-
-
     RETURN_IF_FAILED(m_oInputParkData.Create("ParkData", new cMediaType(0, 0, 0, "tInt8SignalValue"), static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oInputParkData));
 
@@ -194,6 +191,7 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         abgebogen=false;
         roadfree=true;
         Signtype=0;
+        kreuzungstyp=0;
         parking=false;
         crosscall=false;
         adminstopp=false; //Wenn Wettkampf, auf True setzen!!!!!!! GANNNZ WICHTIG SONST GEHT GAR NIX MIT JURY
@@ -631,15 +629,22 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                 abgebogen=false;
                 roadfree=true;
                 Signtype=0;
+                kreuzungstyp=0;
                 parking=false;
                 crosscall=false;
                 status=0;
                 Parksteuerung=0;
                 for(int a=0;a<10;a++)
                 {
-                    trajectory.at(a).x=2000+a;
-                    trajectory.at(a).y=0;
-                   // points[a].x=2000+a;
+                cv::Point2d dumm;
+                    dumm.x=2000+a;
+                    dumm.y=0;
+                    trajectory.push_back(dumm);
+
+
+                  //  trajectory.at(a).x=2000+a;
+                   // trajectory.at(a).y=0;
+                  //  points[a].x=2000+a;
                    // points[a].y=0;
                     objecte[a].x=2000+a;
                     objecte[a].y=0;
@@ -1062,7 +1067,39 @@ void cSWE_KIControl::ObjectAvoidance()
 
 
                 int ti=trajectory.size();//10;
+
+                if(ti==0)
+                {
+                    for(int a=0;a<10;a++)
+                    {
+                    cv::Point2d dumm;
+                        dumm.x=2000+a;
+                        dumm.y=0;
+                        trajectory.push_back(dumm);
+                    }
+                }
+                ti=trajectory.size();
+
                 int ia=0;
+/*
+                string currentDestinationName , currentSourceName;
+                {
+                    // convoluted way to concatenate the arrayName with an integer, but standard C++
+                    std::stringstream stringStream;
+                    stringStream << "DestinationPointsiii" << i;
+                    currentDestinationName = stringStream.str();
+                }
+                {
+                    std::stringstream stringStream;
+                    stringStream << "size " << ti ;
+                    currentSourceName = stringStream.str();
+                }
+
+
+                 LOG_ERROR(currentSourceName.c_str());
+
+*/
+
                 //Alle Strassenpunkte durchlaufen
                 for( ia=0;ia<ti;ia++)
                 {
@@ -1105,7 +1142,7 @@ void cSWE_KIControl::ObjectAvoidance()
                             sendTC(0,0);
                             ControlLight(9);
 
-                            //                               //  LOG_ERROR("MB:Ki Notbremsung");
+                            //LOG_ERROR("MB:Ki Notbremsung 4");
 
                             string currentDestinationName , currentSourceName;
                             {
@@ -1132,12 +1169,14 @@ void cSWE_KIControl::ObjectAvoidance()
                             //langsames Hinterherfahren
                             ControlLight(6);
                             SpeedControl=1;
+                             //LOG_ERROR("MB:Ki Notbremsung 6");
                         }
                         else
                         {
                             //Objekte weit genug weg
                             ControlLight(1);
                             SpeedControl=3;
+                             //LOG_ERROR("MB:Ki Notbremsung 7");
                         }
 
 
@@ -1254,16 +1293,16 @@ void cSWE_KIControl::DriverCalc()
     {
     //left-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 1:
-        // LOG_ERROR("MB: Links abbiegen jetzte aber richtig ");
+       //LOG_ERROR("MB: Links abbiegen jetzte aber richtig ");
         if(Signtype==4 ||(Signtype==0 && kreuzungstyp==0)) // wenn wir im Parken modus oder kein Schild haben und keine Kreuzung
         {
             sendTC(SpeedControl,1);
-
+           // LOG_ERROR("MB: Links abbiegen jetzte aber richtig 1");
             ControlLight(1);
         }
         else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
         {
-
+//LOG_ERROR("MB: Links abbiegen jetzte aber richtig 2");
 
             //pruefen ob wir schon an der HalteLinie stehen.
             if(halteLinie)
@@ -1347,13 +1386,14 @@ void cSWE_KIControl::DriverCalc()
                 ControlLight(1);
             }
         }
+
         break;
         //right-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 2:
          if(Signtype==4 ||(Signtype==0 && kreuzungstyp==0))// wenn wir im Parken modus oder kein Schild haben
         {
             sendTC(SpeedControl,1);
-            LOG_INFO(cString::Format( "MB:KiLicht an "));
+           // LOG_INFO(cString::Format( "MB:KiLicht an "));
             ControlLight(1);
         }
         else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
