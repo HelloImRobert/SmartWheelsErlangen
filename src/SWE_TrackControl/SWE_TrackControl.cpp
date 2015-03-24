@@ -557,6 +557,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
                     m_outputGear = 3; //when virtual go as fast as allowed
             }
 
+            /*
 
             // use normal steering angle if not too close
             if( (m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE) && (m_oManeuverObject.GetStoplineType() == true) && ( m_input_trackingPoint.y > 150 ) ) //tracking point probably erronous?
@@ -572,7 +573,9 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
             }
             else if (m_input_intersectionIndicator == 0) //no tracking point?
                  m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle();
-
+*/
+            if (m_input_intersectionIndicator == 0) //no tracking point?
+                             m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle(); //DEBUG
 
             m_status_noGears = false;
             m_status_noSteering = false;
@@ -598,6 +601,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
             }
 
 
+            /*
             // use normal steering angle if not too close
             if( (m_oManeuverObject.GetStoplineDistance() < CLOSE_STOPLINE) && (m_oManeuverObject.GetStoplineType() == true) && (m_input_trackingPoint.y > 150)  ) //tracking point probably erronous?
             {
@@ -613,7 +617,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
             }
             else if (m_input_intersectionIndicator == 0) //no tracking point?
                  m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle();
+            */
 
+            if (m_input_intersectionIndicator == 0) //no tracking point?
+                             m_outputSteeringAngle = m_oManeuverObject.GetSteeringAngle(); //DEBUG
 
 
             // ------------- is maneuver finished? -------------

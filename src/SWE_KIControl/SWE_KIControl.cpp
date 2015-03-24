@@ -585,6 +585,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                 {
                     CommandCounter++;
                     Parksteuerung=0;
+                    parking=false;
                 }
                 else
                 {
@@ -714,7 +715,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             }
             else
             {
-                if(crosscall)
+                if(crosscall && cv::norm(m_stoplineData.StopLinePoint1-m_stoplineData.StopLinePoint2)<0.001)
                 {
                     kreuzungstyp=m_stoplineData.crossingType ;
 
@@ -1741,9 +1742,9 @@ crosscalldone=false;
 
         //pull_out_left-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 6:
-
+sendTC(1,6);
         SecondSigntype=0;
-
+parking=true;
         if(parkbefehl==0)
          sendtoLane(true);
         if(parkbefehl==1)
@@ -1753,9 +1754,9 @@ crosscalldone=false;
         break;
         //pull_out_right-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     case 7:
-
+sendTC(1,6);
         SecondSigntype=0;
-
+parking=true;
          if(parkbefehl==0)
               sendtoLane(true);
 
