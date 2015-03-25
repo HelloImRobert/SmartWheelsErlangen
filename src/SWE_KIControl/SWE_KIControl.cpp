@@ -196,7 +196,7 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         kreuzungstyp=0;
         parking=false;
         crosscall=false;
-        adminstopp=false; //Wenn Wettkampf, auf True setzen!!!!!!! GANNNZ WICHTIG SONST GEHT GAR NIX MIT JURY
+        adminstopp=true; //Wenn Wettkampf, auf True setzen!!!!!!! GANNNZ WICHTIG SONST GEHT GAR NIX MIT JURY
         status=0;
         Parksteuerung=0;
         blinking=0;

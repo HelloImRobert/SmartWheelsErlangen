@@ -24,6 +24,8 @@ class cSWE_ParkPilot : public adtf::cFilter
     cOutputPin m_outputSteering;
     cOutputPin m_oOutputParking;
     cOutputPin m_outputBlink;
+    cOutputPin  m_outputWarn;
+    cOutputPin m_outputTCP;
 
 
     // FOR TEST START
@@ -64,6 +66,7 @@ private:
     tFloat32    m_counterAngle;
     tFloat32    m_manAngleOne;
     tFloat32    m_manAngleTwo;
+    tFloat32    m_finishAngle;
 
     //Properties
     tFloat32     m_pullFirst;    
@@ -91,6 +94,7 @@ private:
     tInt32      m_startTimer;
     tBool       m_setBack;
     tFloat32    m_setBackDist;
+    tBool       m_skipStraight;
 
     std::vector<tFloat32> m_initTest_vect;
 
@@ -157,6 +161,7 @@ private:
     tResult sendSteeringAngle(tFloat32 steeringAngle);
     tResult sendParkState(tInt8 value);
     tResult sendBlink(tInt8 blink);
+    tResult sendWarn(tBool warn);
 
     tResult jumpIntoStates();
 
@@ -177,6 +182,7 @@ private:
     cObjectPtr<IMediaTypeDescription> m_pCoderDescParkStateOut;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescParkOutput;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescLightOutput;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescWarnOutput;
 };
 
 #endif // _SWE_PARKPILOT_H_
