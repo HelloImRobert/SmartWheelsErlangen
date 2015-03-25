@@ -196,7 +196,7 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
         kreuzungstyp=0;
         parking=false;
         crosscall=false;
-        adminstopp=false; //Wenn Wettkampf, auf True setzen!!!!!!! GANNNZ WICHTIG SONST GEHT GAR NIX MIT JURY
+        adminstopp=true; //Wenn Wettkampf, auf True setzen!!!!!!! GANNNZ WICHTIG SONST GEHT GAR NIX MIT JURY
         status=0;
         Parksteuerung=0;
         blinking=0;
@@ -1175,7 +1175,7 @@ void cSWE_KIControl::ObjectAvoidance()
                         {
                             //Objekte weit genug weg
                             ControlLight(1);
-                            SpeedControl=3;
+                            SpeedControl=1;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                              //LOG_ERROR("MB:Ki Notbremsung 7");
                         }
 
@@ -1184,7 +1184,7 @@ void cSWE_KIControl::ObjectAvoidance()
                     else
                     {
 
-                        SpeedControl=3;
+                        SpeedControl=1;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     }
 
                 }
@@ -1195,7 +1195,7 @@ void cSWE_KIControl::ObjectAvoidance()
         {
             noObject--;
             if(noObject==0)
-                SpeedControl=3;
+                SpeedControl=1;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         }
     }
 
@@ -1287,7 +1287,7 @@ void cSWE_KIControl::DriverCalc()
             6=Vorfahrt rechts
 
  */
-
+roadfree=true;
     // TODO: die Kreuzungsgeschichte Korrekteinbinden
     switch (Commands[CommandCounter])
     {
@@ -1297,10 +1297,10 @@ void cSWE_KIControl::DriverCalc()
         if(Signtype==4 ||(Signtype==0 && kreuzungstyp==0)) // wenn wir im Parken modus oder kein Schild haben und keine Kreuzung
         {
             sendTC(SpeedControl,1);
-           // LOG_ERROR("MB: Links abbiegen jetzte aber richtig 1");
+           LOG_ERROR("MB: Links abbiegen jetzte aber richtig 1");
             ControlLight(1);
         }
-        else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
+        else if(Signtype>2 || Signtype==1 || Signtype==0) //wenn das Schild auswirkungen auf die Fahrregeln hat
         {
 //LOG_ERROR("MB: Links abbiegen jetzte aber richtig 2");
 
@@ -1312,9 +1312,26 @@ void cSWE_KIControl::DriverCalc()
 
                 //immer bisschen warten am besten aber nur 1 mal
 
-                tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                while((cSystem::GetTime()-m_currTimeStamp) < 500000 * TIMER_RESOLUTION && m_timer == false); //(Robert)
-                m_timer = true;
+                LOG_ERROR("MB: Warten vor linksabbiegen mit schild");
+
+                if(m_timer == false)
+                {
+                     m_currTimeStamp= _clock->GetTime ();
+                     m_timer = true;
+                }
+
+
+                if(((_clock->GetTime () ) - m_currTimeStamp) > 5000000 ) //(Robert)
+                {
+                }
+                else
+                {
+                    return;
+                }
+
+
+                LOG_ERROR("MB: biege ab");
+
 
                 crosscall=true;
                 sendtoLane(true);
@@ -1349,6 +1366,7 @@ void cSWE_KIControl::DriverCalc()
                         {
                             if(roadfree)
                             {
+                                 LOG_ERROR("MB:Ki Abbiegen Links");
                                 sendTC(SpeedControl,2);
                                 ControlLight(3);
                             }
@@ -1399,7 +1417,7 @@ void cSWE_KIControl::DriverCalc()
            // LOG_INFO(cString::Format( "MB:KiLicht an "));
             ControlLight(1);
         }
-        else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
+        else if(Signtype>2 || Signtype==1 || Signtype==0) //wenn das Schild auswirkungen auf die Fahrregeln hat
         {
 
             //pruefen ob wir schon an der HalteLinie stehen.
@@ -1407,9 +1425,24 @@ void cSWE_KIControl::DriverCalc()
             {
                 if(!hlsearch)
                     ControlHL();
-                tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                while((cSystem::GetTime()-m_currTimeStamp) < 500000 * TIMER_RESOLUTION && m_timer == false); //(Robert)
-                m_timer = true;
+
+                //immer bisschen warten am besten aber nur 1 mal
+
+                if(m_timer == false)
+                {
+                     m_currTimeStamp= _clock->GetTime ();
+                     m_timer = true;
+                }
+
+
+                if(((_clock->GetTime () ) - m_currTimeStamp) > 5000000 ) //(Robert)
+                {
+                }
+                else
+                {
+                    return;
+                }
+
                 //Hier muss Kreuzungstyp feststehen
                 crosscall=true;
                 sendtoLane(true);
@@ -1487,7 +1520,7 @@ void cSWE_KIControl::DriverCalc()
 
             ControlLight(1);
         }
-        else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
+        else if(Signtype>2 || Signtype==1 || Signtype==0) //wenn das Schild auswirkungen auf die Fahrregeln hat
         {
 
             //an Schildtyp anpassen:
@@ -1498,9 +1531,22 @@ void cSWE_KIControl::DriverCalc()
             {
                 if(!hlsearch)
                     ControlHL();
-                tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                while((cSystem::GetTime()-m_currTimeStamp) < 500000 * TIMER_RESOLUTION && m_timer == false); //(Robert)
-                m_timer = true;
+
+                if(m_timer == false)
+                {
+                     m_currTimeStamp= _clock->GetTime ();
+                     m_timer = true;
+                }
+
+
+                if(((_clock->GetTime () ) - m_currTimeStamp) > 5000000 ) //(Robert)
+                {
+                }
+                else
+                {
+                    return;
+                }
+
                 //Hier muss Kreuzungstyp feststehen
                 crosscall=true;
                 sendtoLane(true);
@@ -1598,7 +1644,7 @@ void cSWE_KIControl::DriverCalc()
 
                 ControlLight(1);
             }
-            else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
+            else if(Signtype>2 || Signtype==1 || Signtype==0) //wenn das Schild auswirkungen auf die Fahrregeln hat
             {
 
                 //an Schildtyp anpassen:
@@ -1609,9 +1655,24 @@ void cSWE_KIControl::DriverCalc()
                 {
                     if(!hlsearch)
                         ControlHL();
-                    tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                    while((cSystem::GetTime()-m_currTimeStamp) < 500000 * TIMER_RESOLUTION && m_timer == false); //(Robert)
-                    m_timer = true;
+
+
+                    if(m_timer == false)
+                    {
+                         m_currTimeStamp= _clock->GetTime ();
+                         m_timer = true;
+                    }
+
+
+                    if(((_clock->GetTime () ) - m_currTimeStamp) > 5000000 ) //(Robert)
+                    {
+                    }
+                    else
+                    {
+                        return;
+                    }
+
+
                     //Hier muss Kreuzungstyp feststehen
                     crosscall=true;
                     sendtoLane(true);
@@ -1704,7 +1765,7 @@ crosscalldone=false;
 
                 ControlLight(1);
             }
-            else if(Signtype>2 || Signtype==1) //wenn das Schild auswirkungen auf die Fahrregeln hat
+            else if(Signtype>2 || Signtype==1 || Signtype==0) //wenn das Schild auswirkungen auf die Fahrregeln hat
             {
 
                 //an Schildtyp anpassen:
@@ -1715,9 +1776,24 @@ crosscalldone=false;
                 {
                     if(!hlsearch)
                         ControlHL();
-                    tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                    while((cSystem::GetTime()-m_currTimeStamp) < 500000 * TIMER_RESOLUTION && m_timer == false); //(Robert)
-                    m_timer = true;
+
+
+                    if(m_timer == false)
+                    {
+                         m_currTimeStamp= _clock->GetTime ();
+                         m_timer = true;
+                    }
+
+
+                    if(((_clock->GetTime () ) - m_currTimeStamp) > 5000000 ) //(Robert)
+                    {
+                    }
+                    else
+                    {
+                        return;
+                    }
+
+
                     //Hier muss Kreuzungstyp feststehen
                     crosscall=true;
                     sendtoLane(true);

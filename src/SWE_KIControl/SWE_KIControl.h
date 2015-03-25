@@ -78,6 +78,8 @@ private:
     cv::Point2d points[10];
     std::vector< cv::Point2d > trajectory;
 
+    tTimeStamp m_currTimeStamp;
+
     int blinking;
     int parkbefehl;
     int CommandCounter;

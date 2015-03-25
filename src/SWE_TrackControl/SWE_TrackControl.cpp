@@ -10,7 +10,7 @@
 #define STATUS_NORMAL 0  //= normal status
 #define STATUS_ENDOFTURN 1  //= ended turn maneuver
 #define STATUS_ATSTOPLINE 2 //= stopped at stopline
-#define DEBUG_OUTPUT false //DEBUG
+#define DEBUG_OUTPUT true //DEBUG
 #define CLOSE_STOPLINE 1200 //when approaching stopline this close, be careful to use camera steering
 
 
@@ -645,6 +645,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
                 m_outputStatus= STATUS_ATSTOPLINE; //tell the AI we're stopped at a stopline
                 m_outputSteeringAngle = 0;
 
+                //DEBUG hack
                 if(m_property_stopAtVirtualSL) //always stop at stopline
                     m_outputGear = 0;
                 else
@@ -730,10 +731,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
     case TURN_INPROGRESS:
 
-        /*
+
         if (DEBUG_OUTPUT)
             LOG_ERROR(cString("TC: in TURN_INPROGRESS  command:" + cString::FromInt32(command)));
-        */
+
 
         switch(command)
         {
@@ -900,11 +901,19 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
 
     //send speed signal
     if (m_status_noGears == false)
+    {
+        LOG_ERROR(cString("TC: Sent Output Gear was: " + cString::FromInt32(m_outputGear)));
         SendGear(m_outputGear);
+    }
 
     //send status to KI/central control test von Michael
     if(m_outputStatus!=m_outputStatusSave)
     {
+        if(m_outputStatus != STATUS_NORMAL)
+        {
+            if (DEBUG_OUTPUT)
+                LOG_ERROR(cString("TC: STATUS:" + cString::FromInt32(m_outputStatus)));
+        }
         m_outputStatusSave=m_outputStatus;
         SendStatus(m_outputStatus);
     }
@@ -1110,8 +1119,8 @@ tResult cSWE_TrackControl::GotoTURN_LEFT()
     m_oManeuverObject.Start(TC_TURN_LEFT, m_angleAbs, m_odometryData.distance_sum, 0 , 0, false);
 
     m_outputStatus = STATUS_NORMAL;
-    m_status_noSteering = true;
-    m_status_noGears = true;
+    m_status_noSteering = false;
+    m_status_noGears = false;
 
     RETURN_NOERROR;
 }
@@ -1125,8 +1134,8 @@ tResult cSWE_TrackControl::GotoTURN_RIGHT()
     m_oManeuverObject.Start(TC_TURN_RIGHT, m_angleAbs, m_odometryData.distance_sum, 0 , 0, false);
 
     m_outputStatus = STATUS_NORMAL;
-    m_status_noSteering = true;
-    m_status_noGears = true;
+    m_status_noSteering = false;
+    m_status_noGears = false;
 
     RETURN_NOERROR;
 }
@@ -1141,8 +1150,8 @@ tResult cSWE_TrackControl::GotoGO_STRAIGHT()
     m_oManeuverObject.Start(TC_GO_STRAIGHT, m_angleAbs, m_odometryData.distance_sum, 0 , 0, false);
 
     m_outputStatus = STATUS_NORMAL;
-    m_status_noSteering = true;
-    m_status_noGears = true;
+    m_status_noSteering = false;
+    m_status_noGears = false;
 
     RETURN_NOERROR;
 }
@@ -1177,7 +1186,7 @@ tResult cSWE_TrackControl::GotoSTOPLINE()
     m_oManeuverObject.Reset();
 
     if (DEBUG_OUTPUT)
-        LOG_ERROR(cString("TC: got STOPLINE" ));
+        LOG_ERROR(cString("TC: got new STOPLINE" ));
 
     //if stopline accepted go to new state
     if (m_oManeuverObject.Start(TC_STOP_AT_STOPLINE, m_angleAbs, m_odometryData.distance_sum, m_stoplineData.StopLinePoint1.x , m_stoplineData.StopLinePoint2.x, m_stoplineData.isRealStopLine) != 1)

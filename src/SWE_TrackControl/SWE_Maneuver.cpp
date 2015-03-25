@@ -1,7 +1,8 @@
 
 #include "SWE_Maneuver.h"
 
-#define DEBUG_OUTPUT false //DEBUG
+#define DEBUG_OUTPUT false
+//DEBUG
 
 #define STEER_NEUTRAL 0
 #define STEER_LEFT 30
@@ -15,10 +16,10 @@
 // all distances are relative values, relative to start of this maneuver element
 
 //stopline
-#define STOPLINE_DISTANCE_STOP 20
+#define STOPLINE_DISTANCE_STOP 10
 #define STOPLINE_DISTANCE_CRAWL 300
 #define STOPLINE_DISTANCE_SLOW  1500
-#define STOPLINE_WAIT_TIME 500000 //in microseconds
+#define STOPLINE_WAIT_TIME 1000 //in microseconds
 
 // go straight
 #define GS_DIST1 900
@@ -26,10 +27,11 @@
 //turn left
 #define TL_HEAD1 (tFloat32)((  -15.0  / 180 ) * 3.141592) //degree to rad
 #define TL_HEAD2 (tFloat32)((  10.0  / 180 ) * 3.141592)
-#define TL_DIST1 500
+#define TL_DIST1 650
 #define TL_HEAD3 (tFloat32)((  80.0   / 180 ) * 3.141592)
 
 //turn right
+#define TR_DIST1 50
 #define TR_HEAD1 (tFloat32)((  -80.0   / 180 ) * 3.141592)
 
 
