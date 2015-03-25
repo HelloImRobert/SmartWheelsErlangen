@@ -87,6 +87,7 @@ private:
     int SecondSigntype;
     int SpeedControl;
     int kreuzungstyp;
+    bool m_timer;
     bool halteLinie;
     bool hlsearch;
     bool abgebogen;

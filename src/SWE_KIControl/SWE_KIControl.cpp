@@ -5,6 +5,8 @@
 #include <iostream>
 #include <fstream>
 
+#define TIMER_RESOLUTION        1000000.0f
+
 ADTF_FILTER_PLUGIN("SWE KIControl", OID_ADTF_SWE_KICONTROL, cSWE_KIControl)
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------Constructor-------------------------------------------------------------------------------------------------------------
@@ -346,6 +348,8 @@ tResult cSWE_KIControl::Init(tInitStage eStage, __exception)
 
 tResult cSWE_KIControl::Start(__exception)
 {
+
+    m_timer = false;
     return cFilter::Start(__exception_ptr);
 }
 
@@ -633,6 +637,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                 parking=false;
                 crosscall=false;
                 status=0;
+                      m_timer = false;
                 Parksteuerung=0;
                 for(int a=0;a<10;a++)
                 {
@@ -641,11 +646,6 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                     dumm.y=0;
                     trajectory.push_back(dumm);
 
-
-                  //  trajectory.at(a).x=2000+a;
-                   // trajectory.at(a).y=0;
-                  //  points[a].x=2000+a;
-                   // points[a].y=0;
                     objecte[a].x=2000+a;
                     objecte[a].y=0;
                 }
@@ -927,7 +927,7 @@ void cSWE_KIControl::ObjectAvoidance()
 
                             roadfree=false;
                             break;
-                            break;
+
                         }
 
 
@@ -952,7 +952,7 @@ void cSWE_KIControl::ObjectAvoidance()
 
                             roadfree=false;
                             break;
-                            break;
+
                         }
                     }
                     else if(kreuzungstyp==3)
@@ -975,7 +975,7 @@ void cSWE_KIControl::ObjectAvoidance()
 
                             roadfree=false;
                             break;
-                            break;
+
                         }
                     }
                     else if(kreuzungstyp==4)
@@ -998,12 +998,12 @@ void cSWE_KIControl::ObjectAvoidance()
 
                             roadfree=false;
                             break;
-                            break;
+
                         }
                     }
                     roadfree=false;
                     break;
-                    break;
+
                 case 6:
                     //immmer, die Kreuzung an sich pruefen
                     if(kreuzungstyp==1)
@@ -1030,7 +1030,7 @@ void cSWE_KIControl::ObjectAvoidance()
 
                             roadfree=false;
                             break;
-                            break;
+
                         }
                     }
                     else if(kreuzungstyp==4)
@@ -1053,12 +1053,12 @@ void cSWE_KIControl::ObjectAvoidance()
 
                             roadfree=false;
                             break;
-                            break;
+
                         }
                     }
                     roadfree=false;
                     break;
-                    break;
+
                 }
 
             }
@@ -1311,9 +1311,10 @@ void cSWE_KIControl::DriverCalc()
                     ControlHL();
 
                 //immer bisschen warten am besten aber nur 1 mal
-                tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                while((cSystem::GetTime()-m_currTimeStamp)<5); //(Robert)
 
+                tTimeStamp m_currTimeStamp= cSystem::GetTime();
+                while((cSystem::GetTime()-m_currTimeStamp) < 500000 * TIMER_RESOLUTION && m_timer == false); //(Robert)
+                m_timer = true;
 
                 crosscall=true;
                 sendtoLane(true);
@@ -1341,6 +1342,7 @@ void cSWE_KIControl::DriverCalc()
                             roadfree=true;
                             crosscalldone=false;
                             kreuzungstyp=0;
+                                  m_timer = false;
                              crosscalldone=false;
                         }
                         else
@@ -1364,6 +1366,7 @@ void cSWE_KIControl::DriverCalc()
                             halteLinie=false;
                             roadfree=true;
                             kreuzungstyp=0;
+                                  m_timer = false;
                              crosscalldone=false;
                         }
                         else
@@ -1404,11 +1407,9 @@ void cSWE_KIControl::DriverCalc()
             {
                 if(!hlsearch)
                     ControlHL();
-                if(Signtype==5)
-                {
-                    tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                    while((cSystem::GetTime()-m_currTimeStamp)<5);
-                }
+                tTimeStamp m_currTimeStamp= cSystem::GetTime();
+                while((cSystem::GetTime()-m_currTimeStamp) < 500000 * TIMER_RESOLUTION && m_timer == false); //(Robert)
+                m_timer = true;
                 //Hier muss Kreuzungstyp feststehen
                 crosscall=true;
                 sendtoLane(true);
@@ -1431,6 +1432,7 @@ void cSWE_KIControl::DriverCalc()
                         halteLinie=false;
                         crosscalldone=false;
                         roadfree=true;
+                              m_timer = false;
                         kreuzungstyp=0;
                     }
                     else
@@ -1453,6 +1455,7 @@ void cSWE_KIControl::DriverCalc()
                         halteLinie=false;
                          crosscalldone=false;
                         roadfree=true;
+                              m_timer = false;
                         kreuzungstyp=0;
                     }
                     else
@@ -1495,11 +1498,9 @@ void cSWE_KIControl::DriverCalc()
             {
                 if(!hlsearch)
                     ControlHL();
-                if(Signtype==5)
-                {
-                    tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                    while((cSystem::GetTime()-m_currTimeStamp)<5);
-                }
+                tTimeStamp m_currTimeStamp= cSystem::GetTime();
+                while((cSystem::GetTime()-m_currTimeStamp) < 500000 * TIMER_RESOLUTION && m_timer == false); //(Robert)
+                m_timer = true;
                 //Hier muss Kreuzungstyp feststehen
                 crosscall=true;
                 sendtoLane(true);
@@ -1522,6 +1523,7 @@ void cSWE_KIControl::DriverCalc()
                         halteLinie=false;
                         roadfree=true;
                         crosscalldone=false;
+                              m_timer = false;
                         kreuzungstyp=0;
                     }
                     else
@@ -1544,6 +1546,7 @@ void cSWE_KIControl::DriverCalc()
                         halteLinie=false;
                         roadfree=true;
                        crosscalldone=false;
+                             m_timer = false;
                         kreuzungstyp=0;
                     }
                     else
@@ -1606,11 +1609,9 @@ void cSWE_KIControl::DriverCalc()
                 {
                     if(!hlsearch)
                         ControlHL();
-                    if(Signtype==5)
-                    {
-                        tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                        while((cSystem::GetTime()-m_currTimeStamp)<5);
-                    }
+                    tTimeStamp m_currTimeStamp= cSystem::GetTime();
+                    while((cSystem::GetTime()-m_currTimeStamp) < 500000 * TIMER_RESOLUTION && m_timer == false); //(Robert)
+                    m_timer = true;
                     //Hier muss Kreuzungstyp feststehen
                     crosscall=true;
                     sendtoLane(true);
@@ -1627,6 +1628,7 @@ crosscalldone=false;
                             abgebogen=false;
                             halteLinie=false;
                             roadfree=true;
+                                  m_timer = false;
                             kreuzungstyp=0;
                         }
                         else
@@ -1649,6 +1651,7 @@ crosscalldone=false;
                             halteLinie=false;
                             roadfree=true;
                            crosscalldone=false;
+                                 m_timer = false;
                             kreuzungstyp=0;
                         }
                         else
@@ -1712,11 +1715,9 @@ crosscalldone=false;
                 {
                     if(!hlsearch)
                         ControlHL();
-                    if(Signtype==5)
-                    {
-                        tTimeStamp m_currTimeStamp= cSystem::GetTime();
-                        while((cSystem::GetTime()-m_currTimeStamp)<5);
-                    }
+                    tTimeStamp m_currTimeStamp= cSystem::GetTime();
+                    while((cSystem::GetTime()-m_currTimeStamp) < 500000 * TIMER_RESOLUTION && m_timer == false); //(Robert)
+                    m_timer = true;
                     //Hier muss Kreuzungstyp feststehen
                     crosscall=true;
                     sendtoLane(true);
@@ -1734,6 +1735,7 @@ crosscalldone=false;
                             halteLinie=false;
                             roadfree=true;
                             kreuzungstyp=0;
+                                 m_timer = false;
                         }
                         else
                         {
@@ -1755,6 +1757,7 @@ crosscalldone=false;
                             halteLinie=false;
                             roadfree=true;
                             kreuzungstyp=0;
+                                  m_timer = false;
                         }
                         else
                         {
