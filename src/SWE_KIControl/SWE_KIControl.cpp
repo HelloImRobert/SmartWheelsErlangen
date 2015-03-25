@@ -714,8 +714,12 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
             }
             else if(Commands[CommandCounter]==3)
             {
+                if(cv::norm(m_stoplineData.StopLinePoint1-m_stoplineData.StopLinePoint2)>0.001)
+                       {
 
-               transmitCrossingIndicator(  m_stoplineData.isRealStopLine, m_stoplineData.crossingType , m_stoplineData.StopLinePoint1 , m_stoplineData.StopLinePoint2 );
+                      transmitCrossingIndicator(  m_stoplineData.isRealStopLine, m_stoplineData.crossingType , m_stoplineData.StopLinePoint1 , m_stoplineData.StopLinePoint2 );
+                    }
+
 
             }
             else
@@ -727,7 +731,7 @@ tResult cSWE_KIControl::OnPinEvent(	IPin* pSource, tInt nEventCode, tInt nParam1
                     crosscall=false;
                     crosscalldone=true;
                 }
-                else
+                else if(cv::norm(m_stoplineData.StopLinePoint1-m_stoplineData.StopLinePoint2)>0.001)
                 {
                     if(!m_stoplineData.isRealStopLine)
                         m_stoplineData.isRealStopLine=true;

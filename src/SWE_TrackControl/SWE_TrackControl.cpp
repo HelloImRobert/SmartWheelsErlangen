@@ -767,7 +767,10 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
             if(m_oManeuverObject.GetStatus() == NO_MANEUVER)
             {
                 // return to normal operation
-                GotoNORMAL_OPERATION();
+                //GotoNORMAL_OPERATION(); DEBUG2
+                m_status_my_state = IDLE;
+
+
                 m_outputStatus = STATUS_ENDOFTURN;
                 m_status_noSteering = false;
                 m_status_noGears = false;
@@ -906,7 +909,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
         SendGear(m_outputGear);
     }
 
-    //send status to KI/central control test von Michael
+    //send status to KI/central control test von Michael DEBUG2
     if(m_outputStatus!=m_outputStatusSave)
     {
         if(m_outputStatus != STATUS_NORMAL)
@@ -914,6 +917,7 @@ tResult cSWE_TrackControl::ReactToInput(tInt32 command)
             if (DEBUG_OUTPUT)
                 LOG_ERROR(cString("TC: STATUS:" + cString::FromInt32(m_outputStatus)));
         }
+
         m_outputStatusSave=m_outputStatus;
         SendStatus(m_outputStatus);
     }

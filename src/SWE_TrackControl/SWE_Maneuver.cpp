@@ -25,7 +25,7 @@
 #define GS_DIST1 900
 
 //turn left
-#define TL_HEAD1 (tFloat32)((  -15.0  / 180 ) * 3.141592) //degree to rad
+#define TL_HEAD1 (tFloat32)((  -10.0  / 180 ) * 3.141592) //degree to rad
 #define TL_HEAD2 (tFloat32)((  10.0  / 180 ) * 3.141592)
 #define TL_DIST1 650
 #define TL_HEAD3 (tFloat32)((  80.0   / 180 ) * 3.141592)
