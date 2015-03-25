@@ -89,6 +89,7 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         m_lastIRshort = 0.0;
 
         m_angleAbs = 0.0;
+        m_finishAngle = 0.0;
         m_rememberDist = 0.0;
 
         m_odometryData.distance_x = 0.0;
@@ -104,7 +105,7 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         SetPropertyInt("Stop Time in ms", 15000);
 
         SetPropertyFloat("A_LotSize", 765.0);
-        SetPropertyFloat("A_StraightForward(mm)", 650.0);
+        SetPropertyFloat("A_StraightForward(mm)", 615.0);
         SetPropertyFloat("A_CentralAngle(DEG)",50.0);
         SetPropertyFloat("A_CounterAngle(DEG)",43.0);
         SetPropertyFloat("A_CentralAngleSteering(0-1max)", 1.0);
@@ -112,6 +113,7 @@ cSWE_ParkPilot::cSWE_ParkPilot(const tChar* __info) : cFilter(__info)
         SetPropertyFloat("A_ManeuverAngleTwo(DEG)", 17.0);
         SetPropertyFloat("A_DriftCompensation", 0.0);
         SetPropertyBool("A_SetBack", false);
+        SetPropertyBool("A_SkipStraight", true);
         SetPropertyFloat("A_SetBackDist(mm)", 15.0);
         SetPropertyFloat("AP_firstAnlge", 2.0);
         SetPropertyFloat("AP_secondAnlge", 15.0);
@@ -215,7 +217,7 @@ tResult cSWE_ParkPilot::CreateOutputPins(__exception)
     RETURN_IF_FAILED(m_outputSteering.Create("Steering_Signal", pTypeSteeringAngle, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_outputSteering));
 
-    // LIGHT OUTPUT
+    // Blink OUTPUT
     tChar const * strDescLightOutput = pDescManager->GetMediaDescription("tInt8SignalValue");
     RETURN_IF_POINTER_NULL(strDescLightOutput);
     cObjectPtr<IMediaType> pTypeLightOutput = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescLightOutput,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
@@ -224,15 +226,23 @@ tResult cSWE_ParkPilot::CreateOutputPins(__exception)
     RETURN_IF_FAILED(m_outputBlink.Create("Blink_Signal", pTypeLightOutput, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_outputBlink));
 
+    // Warn Blink OUTPUT
+    tChar const * strDescWarnOutput = pDescManager->GetMediaDescription("tBoolSignalValue");
+    RETURN_IF_POINTER_NULL(strDescWarnOutput);
+    cObjectPtr<IMediaType> pTypeWarnOutput = new cMediaType(0, 0, 0, "tBoolSignalValue", strDescWarnOutput,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+    RETURN_IF_FAILED(pTypeWarnOutput->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescWarnOutput));
+
+    RETURN_IF_FAILED(m_outputWarn.Create("Warn_Signal", pTypeWarnOutput, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(RegisterPin(&m_outputWarn));
+
     // PARKSTATE OUTPUT
     tChar const * strDescTCOutput2 = pDescManager->GetMediaDescription("tInt8SignalValue");
     RETURN_IF_POINTER_NULL(strDescTCOutput2);
     cObjectPtr<IMediaType> pTypeParkData = new cMediaType(0, 0, 0, "tInt8SignalValue", strDescTCOutput2,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
     RETURN_IF_FAILED(pTypeParkData->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderDescParkOutput));
 
-    RETURN_IF_FAILED(m_oOutputParking.Create("Parkinglooti", pTypeParkData, static_cast<IPinEventSink*> (this)));
+    RETURN_IF_FAILED(m_oOutputParking.Create("Park_State", pTypeParkData, static_cast<IPinEventSink*> (this)));
     RETURN_IF_FAILED(RegisterPin(&m_oOutputParking));
-
 
 
  RETURN_NOERROR;
@@ -265,8 +275,9 @@ tResult cSWE_ParkPilot::Init(tInitStage eStage, __exception)
         m_counterAngle = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_CounterAngle(DEG)", 43.0);
         m_manAngleOne = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_ManeuverAngleOne(DEG)");
         m_manAngleTwo = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_ManeuverAngleTwo(DEG)");
-        m_distStartPark = GetPropertyFloat("A_StraightForward(mm)", 650.0);
+        m_distStartPark = GetPropertyFloat("A_StraightForward(mm)", 615.0);
         m_driftComp = DEG_TO_RAD * (tFloat32)GetPropertyFloat("A_DriftCompensation", 0.0);
+        m_skipStraight = GetPropertyBool("A_SkipStraight", true);
         m_setBack = (tBool)GetPropertyFloat("A_SetBack", false);
         m_setBackDist = (tFloat32)GetPropertyFloat("A_SetBackDist(mm)", 15.0);
         m_pullFirst = DEG_TO_RAD * GetPropertyFloat("AP_firstAnlge", 2.0);
@@ -322,6 +333,7 @@ tResult cSWE_ParkPilot::Start(__exception)
     m_lastIRshort = 0.0;
 
     m_angleAbs = 0.0;
+    m_finishAngle = 0.0;
     m_rememberDist = 0.0;
 
     m_startTimer = GetTime();
@@ -674,9 +686,21 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
         case 205:
             if( m_angleAbs <= (m_headingAtStart + m_manAngleTwo) )
             {
-                m_parkState = 206;
-                sendSteeringAngle(STEER_RIGHT_MAX);
-                sendSpeed( 1.0 );
+                if(m_skipStraight == true)
+                {
+                    sendSpeed( 0 );
+                    sendSteeringAngle(STEER_NEUTRAL);
+                    sendBlink( BLINK_STOP );
+                    sendWarn(true);
+                    m_finishAngle = m_angleAbs;
+                    m_parkState = 208;
+                }
+                else
+                {
+                    m_parkState = 206;
+                    sendSteeringAngle(STEER_RIGHT_MAX);
+                    sendSpeed( 1.0 );
+                }
             }
             if(m_logging == true)
                 LOG_ERROR(cString("PP: 205 Next " + cString::FromInt(m_parkState) + "; ManTwo: " + cString::FromFloat64((m_headingAtStart + m_manAngleTwo)/DEG_TO_RAD) + "; Abs: " + cString::FromFloat64(m_angleAbs/DEG_TO_RAD)));
@@ -699,6 +723,7 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                     sendSteeringAngle( STEER_NEUTRAL );
                     sendParkState ( PARKING_FINISHED );
                     sendBlink( BLINK_STOP );
+                    sendWarn(true);
                 }
             }
             if(m_logging == true)
@@ -713,6 +738,7 @@ tResult cSWE_ParkPilot::parkRoutineAlongside()
                 sendSteeringAngle( STEER_NEUTRAL );
                 sendParkState ( PARKING_FINISHED );
                 sendBlink( BLINK_STOP );
+                sendWarn(true);
             }
             LOG_ERROR(cString("PP: 206 Next State" + cString::FromInt(m_parkState) ));
             break;
@@ -731,8 +757,17 @@ tResult cSWE_ParkPilot::pullOutAlongsideRight()
     switch( m_pulloutState )
     {
         case 401:
+            if( m_skipStraight == true )
+            {
+                m_headingAtStart = m_finishAngle;
+            }
+            else
+            {
+               m_headingAtStart = m_angleAbs;
+            }
+
+            sendWarn(false);
             sendBlink( BLINK_LEFT );
-            m_headingAtStart = m_angleAbs;
             sendSteeringAngle(STEER_RIGHT_MAX);
             sendSpeed( -1 );
             m_pulloutState = 402;
@@ -807,6 +842,16 @@ tResult cSWE_ParkPilot::pullOutAlongsideLeft()
     switch( m_pulloutState )
     {
         case 301:
+            if( m_skipStraight == true )
+            {
+                m_headingAtStart = m_finishAngle;
+            }
+            else
+            {
+               m_headingAtStart = m_angleAbs;
+            }
+
+            sendWarn(false);
             sendBlink( BLINK_LEFT );
             m_headingAtStart = m_angleAbs;
             sendSteeringAngle(STEER_RIGHT_MAX);
@@ -971,6 +1016,7 @@ tResult cSWE_ParkPilot::parkRoutineCross()
                 sendSpeed( 0 );
                 sendParkState ( PARKING_FINISHED );
                 sendBlink( BLINK_STOP );
+                sendWarn(true);
                 m_parkState = 605;
             }
             if(m_logging == true)
@@ -991,6 +1037,7 @@ tResult cSWE_ParkPilot::pullOutCrossLeft()
     switch( m_pulloutState )
     {
         case 801:
+            sendWarn(false);
             sendBlink( BLINK_LEFT );
             m_rememberDistTwo = m_odometryData.distance_sum;
             sendSpeed( 1 );
@@ -1057,6 +1104,7 @@ tResult cSWE_ParkPilot::pullOutCrossRight()
     switch( m_pulloutState )
     {
     case 701:
+        sendWarn(false);
         sendBlink( BLINK_RIGHT );
         m_rememberDistTwo = m_odometryData.distance_sum;
         sendSpeed( 1 );
@@ -1229,6 +1277,33 @@ tResult cSWE_ParkPilot::sendBlink(tInt8 blink)
     RETURN_IF_FAILED(m_outputBlink.Transmit(pMediaSample));
 
     RETURN_NOERROR;
+}
+
+
+
+
+tResult cSWE_ParkPilot::sendWarn(tBool warn)
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSample;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+    cObjectPtr<IMediaSerializer> pSerializer;
+
+    m_pCoderDescWarnOutput->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSample->AllocBuffer(nSize);
+
+    RETURN_IF_FAILED(m_pCoderDescWarnOutput->WriteLock(pMediaSample, &pCoder));
+    pCoder->Set("bValue", (tVoid*)&(warn));
+    m_pCoderDescWarnOutput->Unlock(pCoder);
+
+    RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_outputWarn.Transmit(pMediaSample));
+
+    RETURN_NOERROR;
+
 }
 
 

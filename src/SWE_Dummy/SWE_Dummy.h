@@ -13,12 +13,13 @@ class cSWE_Dummy : public adtf::cFilter
 {
     ADTF_DECLARE_FILTER_VERSION(OID_ADTF_SWE_DUMMY, "SWE Dummy", OBJCAT_DataFilter, "Dummy", 1, 0,0, "pre alpha version");
 
-    cInputPin m_oInputMeasured;				// the input pin for the measured value
-    cInputPin m_oInputSetPoint;				// the input pin for the set point value
+    cInputPin m_input;			// the input pin for the set point value
     cOutputPin m_oIntersectionPointLeft;
+    cOutputPin m_output;
     //cOutputPin m_oIntersectionPointRight;
 
     //cOutputPin m_oOutputManipulated;
+    tFloat32 m_value;
 
 public:
     cSWE_Dummy(const tChar* __info);
@@ -39,6 +40,7 @@ private:
     tResult CreateInputPins(__exception = NULL);
     /*! creates all the output Pins*/
     tResult CreateOutputPins(__exception = NULL);
+    tResult sendOutput(tFloat32 value);
 
 
 
@@ -46,6 +48,8 @@ private:
     /*! Coder Descriptors for the pins*/
     cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
     cObjectPtr<IMediaTypeDescription> m_pCoderDescPointLeft;
+    cObjectPtr<IMediaTypeDescription> m_pCoderDescTCP;
+    cObjectPtr<IMediaTypeDescription> m_pCoderInput;
 
 };
 
