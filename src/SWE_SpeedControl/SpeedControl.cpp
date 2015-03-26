@@ -598,7 +598,7 @@ tFloat32 SpeedControl::GetControllerValue()
         }
         else if (m_currentState == -1)
         {
-            SetReverseLights(true);
+            //SetReverseLights(true);
             SetDirection(-1);
 
             switch(m_gear)
@@ -643,7 +643,7 @@ tFloat32 SpeedControl::GetControllerValue()
         }
         else if (m_currentState == -2)
         {
-            SetReverseLights(true);
+            //SetReverseLights(true);
             SetDirection(-1);
 
             switch(m_gear)
