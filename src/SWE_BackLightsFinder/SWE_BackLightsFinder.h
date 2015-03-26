@@ -26,6 +26,12 @@ class SWE_BackLightsFinder : public adtf::cFilter
 
         private:
 
+            std::vector< cv::Point > _referenceContour;
+
+            // Parameters for the algorithm
+            std::string _path = "/home/odroid/Desktop/shape.xml";
+            cv::FileStorage _fs;
+
             tResult ProcessInput(IMediaSample* pSample);
             tResult InitPinFormats();
 
@@ -36,7 +42,10 @@ class SWE_BackLightsFinder : public adtf::cFilter
             cv::Point getOrientation(const std::vector< cv::Point >& contour, std::vector<cv::Point2d>& eigen_vecs, std::vector<double>& eigen_vals);
 
             tResult transmitTrackingPoint(cv::Point2d trackingPoint);
-            tResult transmitResultVideo(cv::Size size , std::vector< vector< cv::Point > >& contours );
+            tResult transmitResultVideo(cv::Size size , std::vector< vector< cv::Point > >& contours , cv::Point &trackingPoint);
+
+            void writeShape( std::vector< cv::Point >& points );
+            std::vector< cv::Point > readShape();
 
             int _lowHueTresh;
             int _highHueTresh;
