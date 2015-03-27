@@ -48,6 +48,7 @@ private:
     tFloat32 m_property_SteeringDeadAngle;
     tInt8 m_input_intersectionIndicator;
     tBool m_property_InvSteering;
+    tFloat32 m_filter;
 
 
     /*! Coder Descriptors for the pins*/

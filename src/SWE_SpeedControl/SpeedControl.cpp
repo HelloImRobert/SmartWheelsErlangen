@@ -1034,11 +1034,11 @@ tResult SpeedControl::TestRun(tInt32 code)
                 break;
             }
             break;
-        case 222:
+        case 888:
             switch(m_testState)
             {
             case 0:
-                LOG_ERROR(cString("SC: Test from -2 to 3 "));
+                LOG_ERROR(cString("SC: Test from 0 to 3 "));
                 m_gear = 0;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
@@ -1047,59 +1047,59 @@ tResult SpeedControl::TestRun(tInt32 code)
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 2:
-                m_gear = 0;
+                m_gear = 1;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 3:
-                m_gear = 1;
-                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
-                break;
-            case 4:
-                m_gear = -1;
-                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
-                break;
-            case 5:
-                m_gear = 0;
-                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
-                break;
-            case 6:
-                m_gear = 1;
-                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
-                break;
-            case 7:
                 m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
-            case 8:
-                m_gear = 0;
+            case 4:
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
-            case 9:
+            case 5:
                 m_gear = 3;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
+            case 6:
+                m_gear = 3;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 7:
+                m_gear = 3;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 8:
+                m_gear = 2;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
+            case 9:
+                m_gear = 2;
+                LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
+                break;
             case 10:
-                m_gear = -2;
+                m_gear = 3;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 11:
-                m_gear = -1;
+                m_gear = 3;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 12:
-                m_gear = 0;
+                m_gear = 3;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 13:
-                m_gear = -2;
+                m_gear = 3;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 14:
-                m_gear = 1;
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 15:
-                m_gear = 0;
+                m_gear = 1;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             default:
@@ -1107,11 +1107,11 @@ tResult SpeedControl::TestRun(tInt32 code)
                 break;
             }
             break;
-        case 333:
+        case 999:
             switch(m_testState)
             {
             case 0:
-                LOG_ERROR(cString("SC: Test from -1 to 1 "));
+                LOG_ERROR(cString("SC: Test from 0 to 2 "));
                 m_gear = 0;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
@@ -1120,39 +1120,39 @@ tResult SpeedControl::TestRun(tInt32 code)
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 2:
-                m_gear = 0;
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 3:
-                m_gear = -1;
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 4:
-                m_gear = 0;
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 5:
-                m_gear = 1;
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 6:
-                m_gear = -1;
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 7:
-                m_gear = 0;
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 8:
-                m_gear = -1;
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 9:
-                m_gear = 1;
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             case 10:
-                m_gear = 0;
+                m_gear = 2;
                 LOG_ERROR(cString("SC: Testcase: gear " + cString::FromInt32(m_gear)));
                 break;
             default:

@@ -13,6 +13,7 @@ cSWE_KuerTrackControl::cSWE_KuerTrackControl(const tChar* __info) : cFilter(__in
 
     SetPropertyBool("InvertSteering", true); //Invert all steering angles? Normal is positive left. This somehow differs between our cars.... don't ask...
     SetPropertyFloat("Steering Dead angle in degree", 3);
+    SetPropertyFloat("FilterStrength", 0.5);
 
 }
 
@@ -80,6 +81,7 @@ tResult cSWE_KuerTrackControl::Start(__exception)
     m_property_InvSteering =            (tBool)GetPropertyBool("InvertSteering", true);
     m_property_SteeringDeadAngle =      (tFloat32)GetPropertyFloat("Steering Dead angle in degree", 3);
     m_old_steeringAngle = 0.0;
+    m_filter =                          (tFloat32)GetPropertyFloat("FilterStrength", 0.5);
 
 
     SendSteering(0);
@@ -184,6 +186,9 @@ tFloat64 cSWE_KuerTrackControl::CalcSteeringAngleTrajectory( const cv::Point2d& 
     {
         steeringAngle = m_old_steeringAngle;
     }
+
+        m_old_steeringAngle = steeringAngle;
+        steeringAngle = m_filter * steeringAngle + (1.0 - m_filer) * m_old_steeringAngle;
 
     return steeringAngle;
 }
