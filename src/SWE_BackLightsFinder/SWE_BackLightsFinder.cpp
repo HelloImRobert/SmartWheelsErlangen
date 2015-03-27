@@ -40,7 +40,7 @@ std::vector< cv::Point > SWE_BackLightsFinder::readShape()
 
     _fs.release();
 
-std:vector< cv::Point > points;
+std::vector< cv::Point > points;
     for(size_t j = 0 ; j < length ; ++j)
     {
         points.push_back(shapePoints[j]);
@@ -61,6 +61,10 @@ SWE_BackLightsFinder::SWE_BackLightsFinder(const tChar* __info):cFilter(__info)
     _highValueTresh = 255;
 
     _contourLengthThreshold = 50;
+
+    _startHeight = 295;
+
+    _path = "/home/odroid/Desktop/shape.xml";
 
     _referenceContour = readShape();
 }
@@ -101,6 +105,16 @@ tResult SWE_BackLightsFinder::Init(tInitStage eStage, __exception)
 
         RETURN_IF_FAILED(m_oTrackingPoint.Create("tracking_point", pTypeIntersecPoints, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oTrackingPoint));
+
+        // ------- velocity output pin --------------
+
+        tChar const * strDescSignalValue_Velocity = pDescManager->GetMediaDescription("tSignalValue");
+        RETURN_IF_POINTER_NULL(strDescSignalValue_Velocity);
+        cObjectPtr<IMediaType> pTypeSignalValue_Velocity = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue_Velocity,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+        RETURN_IF_FAILED(pTypeSignalValue_Velocity->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderVelocityOut));
+
+        RETURN_IF_FAILED(m_oOutputDistance.Create("Car_Velocity", pTypeSignalValue_Velocity, static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&m_oOutputDistance));
     }
     else if (eStage == StageNormal)
     {
@@ -198,11 +212,11 @@ tResult SWE_BackLightsFinder::OnPinEvent(IPin* pSource,
             for( size_t j = 0; j < 10; j++)
             {
                 elementGetter << "tPoint[" << j << "].xCoord";
-                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(distances[j].x));
+                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(_objectDistances[j].x));
                 elementGetter.str(std::string());
 
                 elementGetter << "tPoint[" << j << "].yCoord";
-                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(distances[j].y));
+                pCoder->Get(elementGetter.str().c_str(), (tVoid*)&(_objectDistances[j].y));
                 elementGetter.str(std::string());
             }
             m_pCoderDescInputMeasured->Unlock(pCoder);
@@ -263,7 +277,7 @@ tResult SWE_BackLightsFinder::transmitTrackingPoint(cv::Point2d trackingPoint)
     // transform TrackingPoint
     double temp = trackingPoint.y;
     trackingPoint.y = -( trackingPoint.x - 320 );
-    trackingPoint.x = temp + 120;
+    trackingPoint.x = temp -360;
 
     // generate Coder object
     cObjectPtr<IMediaCoder> pCoder;
@@ -290,6 +304,37 @@ tResult SWE_BackLightsFinder::transmitTrackingPoint(cv::Point2d trackingPoint)
 
     RETURN_NOERROR;
 }
+
+tResult SWE_BackLightsFinder::sendDistance(float velocity)
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSample;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderVelocityOut->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSample->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    m_pCoderVelocityOut->WriteLock(pMediaSample, &pCoder);
+
+    //pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
+    pCoder->Set("f32Value", (tVoid*)&(velocity));
+
+    //pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&current_time);
+    m_pCoderVelocityOut->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputDistance.Transmit(pMediaSample));
+
+    RETURN_NOERROR;
+}
+
 
 tResult SWE_BackLightsFinder::transmitResultVideo(cv::Size size , std::vector< vector< cv::Point > >& contours , cv::Point& trackingPoint )
 {
@@ -380,9 +425,11 @@ tResult SWE_BackLightsFinder::ProcessInput(IMediaSample* pMediaSample)
             points.push_back( getOrientation(contours[j], eigen_vecs, eigen_vals) );
         }
 
-
         double xPosition = ( points[0].x + points[1].x ) / 2.0;
-        trackingPoint = cv::Point(xPosition ,/*XVALUE*/);
+        double yPosition = _objectDistances[6].x;
+        trackingPoint = cv::Point(xPosition , yPosition );
+
+        sendDistance(yPosition);
 
         transmitTrackingPoint(trackingPoint);
     }

@@ -16,6 +16,9 @@ class SWE_BackLightsFinder : public adtf::cFilter
             cInputPin       m_oInputDistances;
             cOutputPin      m_oTrackingPoint;
 
+            /*! output pin for the vehicle speed */
+            cOutputPin m_oOutputDistance;
+
         protected:
 
             tResult Init(tInitStage eStage, __exception);
@@ -29,7 +32,7 @@ class SWE_BackLightsFinder : public adtf::cFilter
             std::vector< cv::Point > _referenceContour;
 
             // Parameters for the algorithm
-            std::string _path = "/home/odroid/Desktop/shape.xml";
+            std::string _path;
             cv::FileStorage _fs;
 
             tResult ProcessInput(IMediaSample* pSample);
@@ -43,6 +46,7 @@ class SWE_BackLightsFinder : public adtf::cFilter
 
             tResult transmitTrackingPoint(cv::Point2d trackingPoint);
             tResult transmitResultVideo(cv::Size size , std::vector< vector< cv::Point > >& contours , cv::Point &trackingPoint);
+            tResult sendDistance(float velocity);
 
             void writeShape( std::vector< cv::Point >& points );
             std::vector< cv::Point > readShape();
@@ -56,14 +60,18 @@ class SWE_BackLightsFinder : public adtf::cFilter
             int _lowValueTresh;
             int _highValueTresh;
 
+            size_t _startHeight;
+
             double _contourLengthThreshold;
 
-            cv::Point2d distances[10];
+            cv::Point2d _objectDistances[10];
 
             cCriticalSection m_mutex;
 
             cObjectPtr<IMediaTypeDescription> m_pCoderDescPoints;
             cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
+
+            cObjectPtr<IMediaTypeDescription>  m_pCoderVelocityOut;
         };
 
         //*************************************************************************************************
