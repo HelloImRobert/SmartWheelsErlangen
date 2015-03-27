@@ -6,6 +6,48 @@ ADTF_FILTER_PLUGIN("SWE_BackLightsFinder",OID_ADTF_SWE_BACKLIGHTSFINDER , SWE_Ba
 
 // Macros used to decouple text from code
 
+void SWE_BackLightsFinder::writeShape( std::vector< cv::Point >& points )
+{
+    _fs.open(_path , FileStorage::WRITE );
+
+    for(size_t j = 0 ; j < points.size() ; ++j)
+    {
+        std::stringstream stringStream;
+        stringStream << "ShapePoints" << j;
+        std::string currentDestinationName = stringStream.str();
+
+        _fs << currentDestinationName <<  points[j];
+    }
+
+    _fs.release();
+}
+
+std::vector< cv::Point > SWE_BackLightsFinder::readShape()
+{
+    const int length = 155;
+    cv::Point2d shapePoints[ length ];
+
+    _fs.open(_path , FileStorage::READ );
+
+    for(size_t j = 0 ; j < length ; ++j)
+    {
+        std::stringstream stringStream;
+        stringStream << "ShapePoints" << j;
+        std::string currentDestinationName = stringStream.str();
+
+        _fs[currentDestinationName] >> shapePoints[j];
+    }
+
+    _fs.release();
+
+std:vector< cv::Point > points;
+    for(size_t j = 0 ; j < length ; ++j)
+    {
+        points.push_back(shapePoints[j]);
+    }
+
+    return points;
+}
 
 SWE_BackLightsFinder::SWE_BackLightsFinder(const tChar* __info):cFilter(__info)
 {
@@ -19,6 +61,8 @@ SWE_BackLightsFinder::SWE_BackLightsFinder(const tChar* __info):cFilter(__info)
     _highValueTresh = 255;
 
     _contourLengthThreshold = 50;
+
+    _referenceContour = readShape();
 }
 
 SWE_BackLightsFinder::~SWE_BackLightsFinder()
@@ -30,7 +74,7 @@ tResult SWE_BackLightsFinder::Init(tInitStage eStage, __exception)
 {
     RETURN_IF_FAILED(cFilter::Init(eStage, __exception_ptr))
 
-    if (eStage == StageFirst)
+            if (eStage == StageFirst)
     {
         // register a Video Input
         RETURN_IF_FAILED(_oVideoInputPin.Create("Video_Input", IPin::PD_Input, static_cast<IPinEventSink*>(this)));
@@ -121,10 +165,10 @@ tResult SWE_BackLightsFinder::Shutdown(tInitStage eStage, __exception)
  * @return a value indicating the succes of the processing
  */
 tResult SWE_BackLightsFinder::OnPinEvent(IPin* pSource,
-                                       tInt nEventCode,
-                                       tInt nParam1,
-                                       tInt nParam2,
-                                       IMediaSample* pMediaSample)
+                                         tInt nEventCode,
+                                         tInt nParam1,
+                                         tInt nParam2,
+                                         IMediaSample* pMediaSample)
 {
     if(nEventCode == IPinEventSink::PE_MediaSampleReceived)
     {
@@ -169,46 +213,58 @@ tResult SWE_BackLightsFinder::OnPinEvent(IPin* pSource,
     RETURN_NOERROR;
 }
 
+typedef std::pair< double , std::vector< cv::Point >* > distPair;
+
+bool sort_distPair(const distPair& distPair1, const distPair distPair2)
+{
+    return distPair1.first < distPair2.first;
+}
+
 cv::Point SWE_BackLightsFinder::getOrientation(const std::vector< cv::Point >& contour, std::vector<cv::Point2d>& eigen_vecs , std::vector<double>& eigen_vals )
+{
+    // bring the contour into the format used by the PCA
+    cv::Mat contourAsMat = cv::Mat(contour.size(), 2, CV_64FC1);
+    for (int i = 0; i < contourAsMat.rows; ++i)
     {
-        // bring the contour into the format used by the PCA
-        cv::Mat contourAsMat = cv::Mat(contour.size(), 2, CV_64FC1);
-        for (int i = 0; i < contourAsMat.rows; ++i)
-        {
-            contourAsMat.at<double>(i, 0) = contour[i].x;
-            contourAsMat.at<double>(i, 1) = contour[i].y;
-        }
-
-        // do the PCA
-        cv::PCA pca_analysis(contourAsMat, cv::Mat(), CV_PCA_DATA_AS_ROW);
-
-        // calculate the center of gravity
-        cv::Point centerOfGravity = cv::Point(pca_analysis.mean.at<double>(0, 0), pca_analysis.mean.at<double>(0, 1));
-
-        // store the results
-        eigen_vals.push_back(pca_analysis.eigenvalues.at<double>(0, 0));
-        eigen_vecs.push_back(cv::Point2d(pca_analysis.eigenvectors.at<double>(0, 0), pca_analysis.eigenvectors.at<double>(0, 1)));
-
-        // store the second eigenvector and eigenvalue
-        // they might not be calculated in case of line boundaries
-        if (pca_analysis.eigenvectors.cols > 1 && pca_analysis.eigenvectors.rows > 1 && pca_analysis.eigenvalues.rows > 1)
-        {
-            eigen_vals.push_back(pca_analysis.eigenvalues.at<double>(1, 0));
-            eigen_vecs.push_back(cv::Point2d(pca_analysis.eigenvectors.at<double>(1, 0), pca_analysis.eigenvectors.at<double>(1, 1)));
-        }
-        // store dummy values
-        else
-        {
-            eigen_vals.push_back(0.01);
-            eigen_vecs.push_back(Point2d(0, 0));
-        }
-
-        return centerOfGravity;
+        contourAsMat.at<double>(i, 0) = contour[i].x;
+        contourAsMat.at<double>(i, 1) = contour[i].y;
     }
+
+    // do the PCA
+    cv::PCA pca_analysis(contourAsMat, cv::Mat(), CV_PCA_DATA_AS_ROW);
+
+    // calculate the center of gravity
+    cv::Point centerOfGravity = cv::Point(pca_analysis.mean.at<double>(0, 0), pca_analysis.mean.at<double>(0, 1));
+
+    // store the results
+    eigen_vals.push_back(pca_analysis.eigenvalues.at<double>(0, 0));
+    eigen_vecs.push_back(cv::Point2d(pca_analysis.eigenvectors.at<double>(0, 0), pca_analysis.eigenvectors.at<double>(0, 1)));
+
+    // store the second eigenvector and eigenvalue
+    // they might not be calculated in case of line boundaries
+    if (pca_analysis.eigenvectors.cols > 1 && pca_analysis.eigenvectors.rows > 1 && pca_analysis.eigenvalues.rows > 1)
+    {
+        eigen_vals.push_back(pca_analysis.eigenvalues.at<double>(1, 0));
+        eigen_vecs.push_back(cv::Point2d(pca_analysis.eigenvectors.at<double>(1, 0), pca_analysis.eigenvectors.at<double>(1, 1)));
+    }
+    // store dummy values
+    else
+    {
+        eigen_vals.push_back(0.01);
+        eigen_vecs.push_back(Point2d(0, 0));
+    }
+
+    return centerOfGravity;
+}
 
 
 tResult SWE_BackLightsFinder::transmitTrackingPoint(cv::Point2d trackingPoint)
 {
+    // transform TrackingPoint
+    double temp = trackingPoint.y;
+    trackingPoint.y = -( trackingPoint.x - 320 );
+    trackingPoint.x = temp + 120;
+
     // generate Coder object
     cObjectPtr<IMediaCoder> pCoder;
 
@@ -235,7 +291,7 @@ tResult SWE_BackLightsFinder::transmitTrackingPoint(cv::Point2d trackingPoint)
     RETURN_NOERROR;
 }
 
-tResult SWE_BackLightsFinder::transmitResultVideo(cv::Size size , std::vector< vector< cv::Point > >& contours )
+tResult SWE_BackLightsFinder::transmitResultVideo(cv::Size size , std::vector< vector< cv::Point > >& contours , cv::Point& trackingPoint )
 {
     std::vector<Vec4i> hierarchy;
     RNG rng(12345);
@@ -247,6 +303,8 @@ tResult SWE_BackLightsFinder::transmitResultVideo(cv::Size size , std::vector< v
         Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
         drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, Point());
     }
+
+    cv::circle(drawing,trackingPoint,6,cv::Scalar(0,255,0));
 
     if (_oColorVideoOutputPin.IsConnected())
     {
@@ -269,16 +327,20 @@ tResult SWE_BackLightsFinder::ProcessInput(IMediaSample* pMediaSample)
     cv::Mat image( _oVideoInputPin.GetFormat()->nHeight , _oVideoInputPin.GetFormat()->nWidth , CV_8UC3 , pData );
     pMediaSample->Unlock(pData);
 
+    // crop the image
+    cv::Rect myROI( 0 , _startHeight , image.cols , image.rows - _startHeight );
+    cv::Mat croppedImage( image , myROI );
+
     Mat imageHSV;
-    cvtColor(image, imageHSV, COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
+    cvtColor(croppedImage, imageHSV, COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
 
     Mat thresholdedImage;
 
     inRange(imageHSV, Scalar(_lowHueTresh, _lowSaturationTresh, _lowValueTresh), Scalar(_highHueTresh, _highSaturationThresh, _highValueTresh), thresholdedImage); //Threshold the image
 
     // closing
-    dilate(thresholdedImage, thresholdedImage, getStructuringElement(MORPH_ELLIPSE, Size(9, 9)));
-    erode(thresholdedImage, thresholdedImage, getStructuringElement(MORPH_ELLIPSE, Size(9, 9)));
+    dilate(thresholdedImage, thresholdedImage, getStructuringElement(MORPH_ELLIPSE, Size(19,19)));
+    erode(thresholdedImage, thresholdedImage, getStructuringElement(MORPH_ELLIPSE, Size(19,19)));
 
     // extract contours from the image
     std::vector<std::vector<Point> > contours;
@@ -289,6 +351,7 @@ tResult SWE_BackLightsFinder::ProcessInput(IMediaSample* pMediaSample)
     {
         if (iter->size() < _contourLengthThreshold)
         {
+
             iter = contours.erase(iter);
         }
         else
@@ -297,15 +360,34 @@ tResult SWE_BackLightsFinder::ProcessInput(IMediaSample* pMediaSample)
         }
     }
 
+    std::vector< distPair> distances;
     for (size_t i = 0 ; i < contours.size() ; ++i)
     {
-        std::vector<cv::Point2d> eigen_vecs;
-        std::vector<double> eigen_vals;
-        cv::Point centerOfGravity = getOrientation(contours[0], eigen_vecs, eigen_vals);
+        double distance = cv::matchShapes( contours[i] , _referenceContour , 2 , 0.0);
+        distances.push_back(distPair(distance,&contours[i]));
     }
 
-    transmitTrackingPoint(cv::Point2d(1400,0));
-    transmitResultVideo( thresholdedImage.size() , contours );
+    sort(distances.begin(), distances.end() , sort_distPair);
+
+    cv::Point trackingPoint(320 , 300);
+    if(distances.size() > 1)
+    {
+        std::vector< cv::Point > points;
+        for( size_t j = 0; j <  2 ; ++j )
+        {
+            std::vector<cv::Point2d> eigen_vecs;
+            std::vector<double> eigen_vals;
+            points.push_back( getOrientation(contours[j], eigen_vecs, eigen_vals) );
+        }
+
+
+        double xPosition = ( points[0].x + points[1].x ) / 2.0;
+        trackingPoint = cv::Point(xPosition ,/*XVALUE*/);
+
+        transmitTrackingPoint(trackingPoint);
+    }
+
+    transmitResultVideo( image.size() , contours , trackingPoint );
 
     RETURN_NOERROR;
 }
