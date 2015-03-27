@@ -5,6 +5,7 @@
 ADTF_FILTER_PLUGIN("SWE_BackLightsFinder",OID_ADTF_SWE_BACKLIGHTSFINDER , SWE_BackLightsFinder);
 
 // Macros used to decouple text from code
+#define CONTROLLER_STRENGTH "Controller Strength"
 
 void SWE_BackLightsFinder::writeShape( std::vector< cv::Point >& points )
 {
@@ -67,6 +68,11 @@ SWE_BackLightsFinder::SWE_BackLightsFinder(const tChar* __info):cFilter(__info)
     _path = "/home/odroid/Desktop/shape.xml";
 
     _referenceContour = readShape();
+
+    SetPropertyFloat( CONTROLLER_STRENGTH , 1.0);
+    SetPropertyBool( CONTROLLER_STRENGTH NSSUBPROP_ISCHANGEABLE, tTrue);
+    SetPropertyFloat( CONTROLLER_STRENGTH NSSUBPROP_MINIMUM  , 0.0);
+    SetPropertyFloat( CONTROLLER_STRENGTH NSSUBPROP_MAXIMUM  , 3.0 );
 }
 
 SWE_BackLightsFinder::~SWE_BackLightsFinder()
@@ -113,13 +119,25 @@ tResult SWE_BackLightsFinder::Init(tInitStage eStage, __exception)
         cObjectPtr<IMediaType> pTypeSignalValue_Velocity = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue_Velocity,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
         RETURN_IF_FAILED(pTypeSignalValue_Velocity->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderVelocityOut));
 
-        RETURN_IF_FAILED(m_oOutputDistance.Create("Car_Velocity", pTypeSignalValue_Velocity, static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(m_oOutputDistance.Create("Car_Distance", pTypeSignalValue_Velocity, static_cast<IPinEventSink*> (this)));
         RETURN_IF_FAILED(RegisterPin(&m_oOutputDistance));
+
+        // ------- strength output pin --------------
+
+        tChar const * strDescSignalValue_ControllerStrength = pDescManager->GetMediaDescription("tSignalValue");
+        RETURN_IF_POINTER_NULL(strDescSignalValue_ControllerStrength);
+        cObjectPtr<IMediaType> pTypeSignalValue_ControllerStrength = new cMediaType(0, 0, 0, "tSignalValue", strDescSignalValue_ControllerStrength,IMediaDescription::MDF_DDL_DEFAULT_VERSION);
+        RETURN_IF_FAILED(pTypeSignalValue_ControllerStrength->GetInterface(IID_ADTF_MEDIA_TYPE_DESCRIPTION, (tVoid**)&m_pCoderControllerStrength));
+
+        RETURN_IF_FAILED(m_oOutputControllerStrength.Create("Car_ControllerStrength", pTypeSignalValue_Velocity, static_cast<IPinEventSink*> (this)));
+        RETURN_IF_FAILED(RegisterPin(&m_oOutputControllerStrength));
     }
     else if (eStage == StageNormal)
     {
         // initialize the formats of the pins;
         InitPinFormats();
+
+        _controllerStrength = GetPropertyFloat(CONTROLLER_STRENGTH);
     }
     else if (eStage == StageGraphReady)
     {
@@ -220,6 +238,8 @@ tResult SWE_BackLightsFinder::OnPinEvent(IPin* pSource,
                 elementGetter.str(std::string());
             }
             m_pCoderDescInputMeasured->Unlock(pCoder);
+
+            sendControllerStrength(_controllerStrength);
         }
 
         m_mutex.Leave();
@@ -270,7 +290,6 @@ cv::Point SWE_BackLightsFinder::getOrientation(const std::vector< cv::Point >& c
 
     return centerOfGravity;
 }
-
 
 tResult SWE_BackLightsFinder::transmitTrackingPoint(cv::Point2d trackingPoint)
 {
@@ -335,6 +354,35 @@ tResult SWE_BackLightsFinder::sendDistance(float velocity)
     RETURN_NOERROR;
 }
 
+tResult SWE_BackLightsFinder::sendControllerStrength(float strength)
+{
+    cObjectPtr<IMediaCoder> pCoder;
+
+    //create new media sample
+    cObjectPtr<IMediaSample> pMediaSample;
+    RETURN_IF_FAILED(AllocMediaSample((tVoid**)&pMediaSample));
+
+    //allocate memory with the size given by the descriptor
+    cObjectPtr<IMediaSerializer> pSerializer;
+    m_pCoderControllerStrength->GetMediaSampleSerializer(&pSerializer);
+    tInt nSize = pSerializer->GetDeserializedSize();
+    pMediaSample->AllocBuffer(nSize);
+
+    //write date to the media sample with the coder of the descriptor
+    m_pCoderControllerStrength->WriteLock(pMediaSample, &pCoder);
+
+    //pCoder->Set("f32Value", (tVoid*)&(m_velocityFiltered));
+    pCoder->Set("f32Value", (tVoid*)&(strength));
+
+    //pCoder->Set("ui32ArduinoTimestamp", (tVoid*)&current_time);
+    m_pCoderControllerStrength->Unlock(pCoder);
+
+    //transmit media sample over output pin
+    RETURN_IF_FAILED(pMediaSample->SetTime(_clock->GetStreamTime()));
+    RETURN_IF_FAILED(m_oOutputControllerStrength.Transmit(pMediaSample));
+
+    RETURN_NOERROR;
+}
 
 tResult SWE_BackLightsFinder::transmitResultVideo(cv::Size size , std::vector< vector< cv::Point > >& contours , cv::Point& trackingPoint )
 {
@@ -414,6 +462,8 @@ tResult SWE_BackLightsFinder::ProcessInput(IMediaSample* pMediaSample)
 
     sort(distances.begin(), distances.end() , sort_distPair);
 
+    double yPosition = _objectDistances[6].x;
+
     cv::Point trackingPoint(320 , 300);
     if(distances.size() > 1)
     {
@@ -426,13 +476,13 @@ tResult SWE_BackLightsFinder::ProcessInput(IMediaSample* pMediaSample)
         }
 
         double xPosition = ( points[0].x + points[1].x ) / 2.0;
-        double yPosition = _objectDistances[6].x;
-        trackingPoint = cv::Point(xPosition , yPosition );
 
-        sendDistance(yPosition);
+        trackingPoint = cv::Point(xPosition , yPosition );
 
         transmitTrackingPoint(trackingPoint);
     }
+
+    sendDistance(yPosition);
 
     transmitResultVideo( image.size() , contours , trackingPoint );
 

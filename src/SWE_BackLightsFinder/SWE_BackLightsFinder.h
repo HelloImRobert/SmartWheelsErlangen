@@ -19,6 +19,8 @@ class SWE_BackLightsFinder : public adtf::cFilter
             /*! output pin for the vehicle speed */
             cOutputPin m_oOutputDistance;
 
+            cOutputPin m_oOutputControllerStrength;
+
         protected:
 
             tResult Init(tInitStage eStage, __exception);
@@ -47,6 +49,7 @@ class SWE_BackLightsFinder : public adtf::cFilter
             tResult transmitTrackingPoint(cv::Point2d trackingPoint);
             tResult transmitResultVideo(cv::Size size , std::vector< vector< cv::Point > >& contours , cv::Point &trackingPoint);
             tResult sendDistance(float velocity);
+            tResult sendControllerStrength(float strength);
 
             void writeShape( std::vector< cv::Point >& points );
             std::vector< cv::Point > readShape();
@@ -62,6 +65,8 @@ class SWE_BackLightsFinder : public adtf::cFilter
 
             size_t _startHeight;
 
+            float _controllerStrength;
+
             double _contourLengthThreshold;
 
             cv::Point2d _objectDistances[10];
@@ -72,6 +77,7 @@ class SWE_BackLightsFinder : public adtf::cFilter
             cObjectPtr<IMediaTypeDescription> m_pCoderDescInputMeasured;
 
             cObjectPtr<IMediaTypeDescription>  m_pCoderVelocityOut;
+            cObjectPtr<IMediaTypeDescription>  m_pCoderControllerStrength;
         };
 
         //*************************************************************************************************
